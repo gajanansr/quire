@@ -173,3 +173,37 @@ was only caught because `body text is never removed` asserts the survivors rathe
 than just asserting that something was removed. Worth keeping that test shape.
 
 Next: Task 13 — `ParagraphAssembler`.
+
+### 2026-09-11 02:25 — Tasks 13–14 complete, 102 tests green
+
+Gate: `./gradlew :core:test --rerun-tasks` → 102 tests, 0 failures.
+
+- **Task 13** `ParagraphAssembler`. Breaks on short final lines, indent shifts, and
+  gaps beyond the leading. Also emits headings, which needed a plan correction: the
+  plan had heading detection in `ChapterDetector` (Task 16), but by then blocks have
+  lost font metrics. Detection moved here, the last step that still has `Line` and
+  its type sizes. `ChapterDetector` will consume the resulting `Heading` blocks.
+- **Task 14** `Dehyphenator`. The spec's worked example now resolves: on the real
+  fixture, `Distributed sys- / tems are a col- / lection of...` becomes
+  `Distributed systems are a collection of...`.
+
+**Two bugs, both from degenerate measurement.**
+
+1. *Leading is meaningless with two lines.* `medianLeading` took the median of the
+   inter-baseline gaps, so with two lines the only gap **was** the median and no gap
+   could ever exceed it — paragraph breaks stopped being detected. Now falls back to
+   a type-size estimate below 3 samples, and caps the empirical value: a "median" far
+   larger than the type size is separation, not leading.
+
+2. *Merge gaps accumulated from the head.* The joined line keeps the first line's
+   position for layout, and I was measuring the next gap from that same head, so each
+   link in a hyphenation chain measured further than the last until a valid chain
+   looked like a paragraph break. Real fixture broke at the second link
+   (`col- lection`) while synthetic two-line cases passed. Adjacency is now judged
+   against the tail of the merge.
+
+Both were only visible because the tests run against generated PDFs as well as
+hand-built lines. The synthetic cases passed in each instance.
+
+Next: Task 15 — `ReflowPipeline`, composing lines → columns → furniture → hyphens →
+paragraphs, with a confidence score.
