@@ -342,3 +342,48 @@ Gate: `./scripts/check.sh` → 178 tests, 0 failures.
 
 Next: Task 3 — `AndroidPdfTextSource` on PdfBox-Android, the real counterpart to
 `:core`'s Apache-PDFBox test double.
+
+### 2026-09-11 03:50 — Plan 2 Tasks 3–4 complete. 186 JVM tests + 7 on device
+
+Gates: `./scripts/check.sh` → 186 tests, 0 failures.
+`./scripts/check-device.sh` → 7 instrumented tests, 0 failures. **First device run.**
+
+- **Task 3** `AndroidPdfTextSource` on PdfBox-Android, verified against the same
+  fixture corpus as the JVM reader via Gradle test fixtures. One test runs `:core`'s
+  `ReflowPipeline` unchanged on the Android source — header stripping and
+  de-hyphenation included — which is the architectural claim made concrete.
+- **Task 4** `AndroidPageRasterizer` and `MlKitOcrEngine`, both verified on the
+  emulator. **Real ML Kit recovers "Distributed systems" from a rendered page of
+  `scanned.pdf`**, clears the confidence gate, and its output reflows through
+  `:core`'s pipeline with no OCR-specific branch. The scanned-book path now works end
+  to end against a real model rather than a fake.
+
+**Five obstacles, all environmental, all now encoded as constraints.**
+
+1. *Robolectric cannot shadow `PdfRenderer`* — `NoSuchMethodError:
+   FileDescriptor.getOwnerId$()`. Worth noting one of the three tests "passed" anyway,
+   because `runCatching` swallowed that very error and the test only asserted failure.
+   A test passing for the wrong reason is worse than one that fails. All three moved
+   to `androidTest` and the assertion now checks the exception *type*.
+
+2. *KSP exhausted Metaspace.* `[ksp] java.lang.OutOfMemoryError: Metaspace` with no
+   `gradle.properties` present. Now `-Xmx4g -XX:MaxMetaspaceSize=1g`.
+
+3. *Apache PDFBox's jars collide on `META-INF/DEPENDENCIES`* when packaged into a test
+   APK. Added packaging exclusions.
+
+4. *Apache PDFBox cannot run on Android at all* — it needs `java.awt`
+   (`NoClassDefFoundError: Ljava/awt/Point;`), so the fixture generator cannot run on
+   device. Fixtures are now generated on the host by `:core:generateFixtureAssets` and
+   packaged as test assets. The task lives in `:core` because Gradle 9 forbids
+   resolving another project's configurations, and AGP 9 rejects `Provider` in the
+   SourceSet API, so the asset path is a plain `File`.
+
+5. *`getInstrumentation().context` has no usable data directory.* The test package is
+   never launched, so writing to its `cacheDir` fails with ENOENT. Assets must be read
+   from the **test** context but written to the **target** context's cache. Two
+   contexts, deliberately different — this cost two wrong fixes before I stopped
+   guessing and inspected the APK, which proved the assets were present and pointed at
+   the write side instead.
+
+Next: Task 5 — `BookImporter`.
