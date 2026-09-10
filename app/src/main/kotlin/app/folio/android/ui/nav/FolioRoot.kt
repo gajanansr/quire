@@ -24,6 +24,7 @@ import app.folio.android.ui.importing.AddBookSheet
 import app.folio.android.ui.importing.ImportProgressScreen
 import app.folio.android.ui.library.LibraryScreen
 import app.folio.android.ui.library.LibraryState
+import app.folio.android.ui.reader.ReaderHost
 import app.folio.android.ui.theme.FolioTheme
 import app.folio.android.ui.theme.FolioThemeName
 import app.folio.android.work.ImportProgress
@@ -49,6 +50,7 @@ fun FolioRoot(
     var destination by remember { mutableStateOf(FolioDestination.LIBRARY) }
     var showAddSheet by remember { mutableStateOf(false) }
     var openBookId by remember { mutableStateOf<String?>(null) }
+    var readingBookId by remember { mutableStateOf<String?>(null) }
     var details by remember { mutableStateOf(BookDetailsState()) }
 
     LaunchedEffect(openBookId) {
@@ -84,10 +86,17 @@ fun FolioRoot(
                     modifier = Modifier.fillMaxSize(),
                 )
 
+                readingBookId != null -> ReaderHost(
+                    repository = repository,
+                    bookId = readingBookId!!,
+                    onExit = { readingBookId = null },
+                    modifier = Modifier.fillMaxSize(),
+                )
+
                 openBookId != null && !details.loading -> BookDetailsScreen(
                     state = details,
                     onBack = { openBookId = null },
-                    onContinue = { /* Reader arrives in Plan 4 */ },
+                    onContinue = { readingBookId = details.id },
                     onReadOriginal = { /* PDF fallback viewer arrives in Plan 4 */ },
                     onOpenContents = { /* Contents sheet arrives in Plan 4 */ },
                     onOpenBookmarks = { openBookId = null; destination = FolioDestination.BOOKMARKS },
@@ -119,7 +128,7 @@ fun FolioRoot(
 
             // The pill stays out of the way while a book is being prepared, and
             // while a book's own page is open.
-            if (importProgress == null && openBookId == null) {
+            if (importProgress == null && openBookId == null && readingBookId == null) {
                 FolioPillNav(
                     current = destination,
                     onSelect = { destination = it },

@@ -48,7 +48,7 @@
 
 ---
 
-### Task 2: The Compose measurer in `:app`
+### [done] Task 2: The Compose measurer in `:app`
 
 **Files:** `app/.../reader/ComposeTextMeasurer.kt`
 Adapts `androidx.compose.ui.text.TextMeasurer` to `:core`'s interface. Constructed off
@@ -57,7 +57,7 @@ background coroutine.
 
 ---
 
-### Task 3: Reader state and position persistence
+### [done] Task 3: Reader state and position persistence
 
 **Files:** `app/.../reader/ReaderState.kt`, `ReaderViewModel.kt`
 
@@ -71,7 +71,7 @@ saves on page turn and on lifecycle pause, debounced. On open, resumes from
 
 ---
 
-### Task 4: The Reader screen
+### [done] Task 4: The Reader screen
 
 **Files:** `app/.../reader/ReaderScreen.kt`
 

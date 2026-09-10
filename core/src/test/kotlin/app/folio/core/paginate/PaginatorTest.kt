@@ -258,6 +258,58 @@ class PaginatorTest {
     }
 
     @Test
+    fun `a first-page inset reduces what fits on the first page`() {
+        // The chapter header shares the text's box; ignoring it clips the last line.
+        val text = lorem.repeat(30)
+        val none = paginator.paginate(chapter(para(text)), viewport, settings)
+        val inset = paginator.paginate(
+            chapter(para(text)), viewport, settings,
+            firstPageInsetPx = 19f * 1.55f * 8,
+        )
+        assertTrue(
+            inset.first().slices.sumOf { it.length } < none.first().slices.sumOf { it.length },
+            "the inset did not reduce the first page",
+        )
+    }
+
+    @Test
+    fun `an inset does not lose characters`() {
+        val text = lorem.repeat(20)
+        val pages = paginator.paginate(
+            chapter(para(text)), viewport, settings, firstPageInsetPx = 19f * 1.55f * 6,
+        )
+        assertEquals(text.length, pages.characterCount())
+    }
+
+    @Test
+    fun `an inset larger than the page still terminates`() {
+        val text = lorem.repeat(5)
+        val pages = paginator.paginate(
+            chapter(para(text)), viewport, settings, firstPageInsetPx = viewport.heightPx * 2,
+        )
+        assertTrue(pages.isNotEmpty())
+        assertEquals(text.length, pages.characterCount())
+    }
+
+    @Test
+    fun `pixel density changes how much fits on a page`() {
+        // The viewport is in device pixels and type is in sp. Without the density
+        // factor a 2.75x screen fits nearly three times too much and clips.
+        val text = lorem.repeat(20)
+        val onex = paginator.paginate(
+            chapter(para(text)), viewport, settings.copy(pixelsPerSp = 1f),
+        )
+        val dense = paginator.paginate(
+            chapter(para(text)), viewport, settings.copy(pixelsPerSp = 2.75f),
+        )
+        assertTrue(
+            dense.size > onex.size,
+            "denser screen should need more pages: ${onex.size} vs ${dense.size}",
+        )
+        assertEquals(text.length, dense.characterCount())
+    }
+
+    @Test
     fun `a zero-sized viewport yields one empty page rather than hanging`() {
         val pages = paginator.paginate(chapter(para(lorem)), Viewport(0f, 0f), settings)
         assertEquals(1, pages.size)

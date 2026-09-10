@@ -48,10 +48,17 @@ class Paginator(private val measurer: TextMeasurer) {
         const val MIN_LINES_AFTER_HEADING = 2
     }
 
+    /**
+     * @param firstPageInsetPx height consumed on the first page by the chapter
+     *   header. Pagination has to budget for anything sharing the text's box: given
+     *   the full height it packs more lines than will fit and the last one is
+     *   clipped, which looks like text simply going missing.
+     */
     fun paginate(
         chapter: Chapter,
         viewport: Viewport,
         settings: TypographySettings,
+        firstPageInsetPx: Float = 0f,
     ): List<Page> {
         if (viewport.widthPx <= 0f || viewport.heightPx <= 0f) return listOf(Page(emptyList()))
 
@@ -60,7 +67,7 @@ class Paginator(private val measurer: TextMeasurer) {
 
         val pages = mutableListOf<Page>()
         var current = mutableListOf<PageSlice>()
-        var used = 0f
+        var used = firstPageInsetPx.coerceAtLeast(0f)
 
         fun flush() {
             pages += Page(current)
@@ -93,7 +100,7 @@ class Paginator(private val measurer: TextMeasurer) {
                     // Not even one line fits. Start a new page unless this page is
                     // already empty, in which case the viewport is smaller than a
                     // single line and looping would never terminate.
-                    if (current.isEmpty() && used == 0f) {
+                    if (current.isEmpty() && pages.isEmpty() && used <= firstPageInsetPx) {
                         current += PageSlice(blockIndex, cursor, text.length)
                         cursor = text.length
                         break

@@ -43,6 +43,16 @@ data class TypographySettings(
     val lineHeightMultiple: Float = 1.55f,
     val fontKey: String = "serif",
     val justify: Boolean = false,
+    /**
+     * Device pixels per scale-independent pixel.
+     *
+     * Load-bearing, and easy to omit. The viewport arrives in device pixels while
+     * type is specified in sp; without this factor the paginator believes lines are
+     * (on a 2.75x screen) nearly three times shorter than they render, and packs
+     * far more onto a page than fits. The symptom is a clipped last line, which
+     * reads as text going missing rather than as a unit mismatch.
+     */
+    val pixelsPerSp: Float = 1f,
 ) {
-    val bodyLineHeightPx: Float get() = fontSizeSp * lineHeightMultiple
+    val bodyLineHeightPx: Float get() = fontSizeSp * lineHeightMultiple * pixelsPerSp
 }
