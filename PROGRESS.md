@@ -542,3 +542,43 @@ reach the screen, and every pipeline stage maps to the handoff's words — asser
 because "ocr" appearing in the UI would violate the brief's no-jargon rule.
 
 Next: Task 6 — Book Details on real data.
+
+### 2026-09-11 05:50 — Tasks 7–8 complete. 251 JVM + 15 device tests
+
+Gates: `./scripts/check.sh` → 251, 0 failures. Device → 15, 0 failures.
+Screenshot: `docs/screenshots/02-library-populated.png`.
+
+Took Task 7 before Task 6: Book Details needs a book to exist, so the import flow
+had to land first.
+
+- **Task 7** `AddBookSheet`, `ImportProgressScreen`, and the whole flow wired through
+  `MainActivity` — SAF picker, WorkManager, progress, error, back to Library.
+- **Task 8** `ErrorState` and `EmptyState` with the designed copy.
+
+**The Library now renders four real books imported through the real pipeline**,
+including a scanned PDF that went through actual ML Kit OCR, with a Continue Reading
+card showing 42% read from the database.
+
+Getting that screenshot needed one non-obvious step. `connectedAndroidTest`
+**uninstalls both APKs when it finishes**, taking the seeded database with it — the
+app was simply gone, and `am start` reported "Activity class does not exist".
+Installing both APKs with `adb install` and driving the seeder with
+`adb shell am instrument` leaves everything in place.
+
+**Two more defects only a screenshot could find**, both invisible to 251 passing tests:
+
+1. The Continue Reading thumbnail rendered `A Hist or...` — the cover swatch used one
+   type size for both a 54dp thumbnail and a full grid tile. It now measures itself
+   and shows a monogram when too small for a legible title.
+2. The last grid row's caption sat under the floating nav pill. Bottom content
+   padding now clears it.
+
+That is four layout defects found by looking and zero found by testing, which is
+about what I would expect: tests verify behaviour, and none of these were behaviour.
+
+**A note on the seed data, not a bug.** Two books show the title "A History of Quiet
+Things" — the EPUB's metadata title, and the TXT file whose first line is the same
+string. `TxtParser` takes the opening line as the title, which is right for plain
+text; the fixtures just happen to collide.
+
+Next: Task 6 — Book Details, then Plan 4, the Reader.
