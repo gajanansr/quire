@@ -582,3 +582,39 @@ string. `TxtParser` takes the opening line as the title, which is right for plai
 text; the fixtures just happen to collide.
 
 Next: Task 6 — Book Details, then Plan 4, the Reader.
+
+### 2026-09-11 06:15 — Reading estimates + schema migration, 272 tests green
+
+Gate: `./scripts/check.sh` → 272 tests, 0 failures.
+
+Groundwork for Book Details:
+
+- **`ReadingEstimates`** in `:core` — page counts, time remaining, and the handoff's
+  pace sentence. Named "estimates" throughout on purpose: a reflowed book has no
+  fixed pages, so a page number is a nominal measure for the stat strip and never a
+  location. Positions stay character-based.
+
+  Two judgement calls worth recording. A measured reading pace is **withheld** below
+  ten minutes of evidence rather than extrapolated from a few seconds — a confidently
+  wrong "3 minutes left" is worse than the honest default. And implausible paces are
+  rejected outright, so a phone left open on one page does not redefine someone's
+  speed. There is a test for each.
+
+- **`dc:description` and `dc:subject`** captured from EPUB, feeding the Synopsis tab
+  and the genre chips. The alternative — generating a synopsis — would have been
+  fabrication; an absent description now simply shows nothing.
+
+**A real Room migration, not a destructive fallback.** Nothing has shipped, so
+`fallbackToDestructiveMigration` would have been the quick path. It is also the kind
+of line that stays in place until the day it silently deletes a reader's entire
+library. Migration 1→2 was **verified against the live on-device database**: all four
+previously imported books survived, and both columns are present. Checked by reading
+the device's SQLite directly rather than inferring it from the absence of a crash.
+
+**A trap that has now caught me twice**, worth writing down: `:core` uses
+`kotlin.test.assertTrue(condition, message)` and `:app` uses JUnit 4's
+`assertTrue(message, condition)` — the same call with the arguments reversed. It
+fails at compile time, so it costs a minute rather than a night, but the two-framework
+split (forced by Robolectric being JUnit 4 only) has this standing cost.
+
+Next: the Book Details screen itself, then Plan 4 — the Reader.
