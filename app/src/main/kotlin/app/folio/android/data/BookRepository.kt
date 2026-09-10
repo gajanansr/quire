@@ -61,6 +61,8 @@ class BookRepository(
                 language = book.metadata.language,
                 publisher = book.metadata.publisher,
                 identifier = book.metadata.identifier,
+                subjects = book.metadata.subjects.joinToString(SUBJECT_SEPARATOR),
+                description = book.metadata.description,
                 totalChars = book.totalChars,
                 chapterCount = book.chapters.size,
                 reflowFailed = book.reflowFailed,
@@ -110,5 +112,13 @@ class BookRepository(
         db.bookmarks().deleteFor(bookId)
         db.books().delete(bookId)
         store.delete(bookId)
+    }
+
+    companion object {
+        /** Room has no list column; subjects round-trip through this separator. */
+        const val SUBJECT_SEPARATOR = "|"
+
+        fun subjectsOf(stored: String): List<String> =
+            stored.split(SUBJECT_SEPARATOR).map { it.trim() }.filter { it.isNotEmpty() }
     }
 }

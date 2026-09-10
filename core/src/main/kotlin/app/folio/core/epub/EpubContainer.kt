@@ -65,6 +65,7 @@ class EpubContainer(file: File) : Closeable {
             identifier = one("metadata > identifier", "metadata > dc|identifier"),
             subjects = doc.select("metadata > subject, metadata > dc|subject")
                 .map { it.text().trim() }.filter { it.isNotEmpty() },
+            description = one("metadata > description", "metadata > dc|description"),
         )
     }
 

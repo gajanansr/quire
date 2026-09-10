@@ -36,6 +36,25 @@ class EpubContainerTest {
     }
 
     @Test
+    fun `reads the description and subjects for Book Details`() {
+        EpubContainer(Fixtures.cleanEpub()).use { c ->
+            val m = c.metadata()
+            assertEquals(
+                "A study of the spaces between words, and what lives there.",
+                m.description,
+            )
+            assertEquals(listOf("Essay", "Design"), m.subjects)
+        }
+    }
+
+    @Test
+    fun `a book without a description reports null rather than an empty string`() {
+        EpubContainer(Fixtures.malformedEpub()).use { c ->
+            assertNull(c.metadata().description)
+        }
+    }
+
+    @Test
     fun `spine hrefs are in reading order and resolved against the OPF directory`() {
         EpubContainer(Fixtures.cleanEpub()).use { c ->
             assertEquals(listOf("OEBPS/c1.xhtml", "OEBPS/c2.xhtml"), c.spineHrefs())

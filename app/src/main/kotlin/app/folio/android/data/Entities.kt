@@ -18,6 +18,9 @@ data class BookEntity(
     val language: String?,
     val publisher: String?,
     val identifier: String?,
+    /** dc:subject values joined with "|" — Room stores no lists natively. */
+    val subjects: String,
+    val description: String?,
     val totalChars: Int,
     val chapterCount: Int,
     /** Reflow was not confident; the UI offers the original file instead. */

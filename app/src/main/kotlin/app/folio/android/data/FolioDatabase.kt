@@ -6,6 +6,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -51,6 +53,8 @@ data class LibraryRow(
     val language: String?,
     val publisher: String?,
     val identifier: String?,
+    val subjects: String,
+    val description: String?,
     val totalChars: Int,
     val chapterCount: Int,
     val reflowFailed: Boolean,
@@ -88,11 +92,29 @@ interface BookmarkDao {
 
 @Database(
     entities = [BookEntity::class, ReadingProgressEntity::class, BookmarkEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class FolioDatabase : RoomDatabase() {
     abstract fun books(): BookDao
     abstract fun progress(): ProgressDao
     abstract fun bookmarks(): BookmarkDao
+
+    companion object {
+        /**
+         * Adds the fields Book Details needs: the publisher's description and the
+         * dc:subject values shown as genre chips.
+         *
+         * A real migration rather than a destructive fallback even though nothing
+         * has shipped. Destructive fallback deletes a reader's whole library on a
+         * schema change, and it is far too easy to leave in place until it does
+         * exactly that to someone.
+         */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE books ADD COLUMN subjects TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE books ADD COLUMN description TEXT")
+            }
+        }
+    }
 }

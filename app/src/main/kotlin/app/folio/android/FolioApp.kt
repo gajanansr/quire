@@ -53,7 +53,9 @@ class FolioGraph(context: Context) {
     // Everything is lazy: Application.onCreate runs on the main thread at launch,
     // and neither opening a database nor constructing a recogniser belongs there.
     val database: FolioDatabase by lazy {
-        Room.databaseBuilder(app, FolioDatabase::class.java, "folio.db").build()
+        Room.databaseBuilder(app, FolioDatabase::class.java, "folio.db")
+            .addMigrations(FolioDatabase.MIGRATION_1_2)
+            .build()
     }
 
     val store: BookStore by lazy { BookStore(app.filesDir) }

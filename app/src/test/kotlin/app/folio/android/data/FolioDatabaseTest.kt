@@ -29,6 +29,7 @@ class FolioDatabaseTest {
     private fun book(id: String, opened: Long? = null) = BookEntity(
         id = id, title = "Title $id", author = "Author", coverPath = null,
         sourceFormat = "EPUB", language = "en", publisher = null, identifier = null,
+        subjects = "Essay|Design", description = "A study of quiet things.",
         totalChars = 1000, chapterCount = 3, reflowFailed = false,
         addedAt = 1000L, lastOpenedAt = opened,
     )

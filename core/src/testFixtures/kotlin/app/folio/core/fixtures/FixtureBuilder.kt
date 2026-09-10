@@ -106,6 +106,9 @@ object Fixtures {
             <dc:creator>Ada Marlowe</dc:creator>
             <dc:language>en</dc:language>
             <dc:publisher>Folio Test Press</dc:publisher>
+            <dc:description>A study of the spaces between words, and what lives there.</dc:description>
+            <dc:subject>Essay</dc:subject>
+            <dc:subject>Design</dc:subject>
           </metadata>
           <manifest>
             <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>

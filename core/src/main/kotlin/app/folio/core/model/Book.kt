@@ -10,7 +10,15 @@ data class BookMetadata(
     val language: String? = null,
     val publisher: String? = null,
     val identifier: String? = null,
+    /** dc:subject values, shown as the genre chips on Book Details. */
     val subjects: List<String> = emptyList(),
+    /**
+     * The publisher's own description, when the book carries one.
+     *
+     * Null rather than a generated summary: Book Details shows a Synopsis tab, and
+     * an invented synopsis would be worse than an honest absence.
+     */
+    val description: String? = null,
 )
 
 @Serializable
