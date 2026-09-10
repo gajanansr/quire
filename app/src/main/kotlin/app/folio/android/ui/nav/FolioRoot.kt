@@ -10,6 +10,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +31,10 @@ import app.folio.android.ui.bookmarks.BookmarksScreen
 import app.folio.android.ui.habit.LevelScreen
 import app.folio.android.ui.habit.MilestonesScreen
 import app.folio.android.ui.habit.StreakScreen
+import app.folio.android.ui.settings.SettingsScreen
+import app.folio.android.ui.share.ShareCard
+import app.folio.android.ui.share.ShareSheet
+import app.folio.android.data.AppSettingsEntity
 import app.folio.android.ui.library.LibraryState
 import app.folio.android.ui.reader.PdfFallbackScreen
 import app.folio.android.ui.reader.ReaderHost
@@ -79,8 +85,13 @@ fun FolioRoot(
         .collectAsState(initial = HabitSummary())
 
     var habitScreen by remember { mutableStateOf<HabitScreen?>(null) }
+    var shareCard by remember { mutableStateOf<ShareCard?>(null) }
+
+    val settings by remember(habitRepository) { habitRepository.observeSettings() }
+        .collectAsState(initial = AppSettingsEntity())
 
     val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+    val scope = rememberCoroutineScope()
 
     FolioTheme(theme) {
         Box(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -133,7 +144,13 @@ fun FolioRoot(
                 habitScreen == HabitScreen.STREAK -> StreakScreen(
                     summary = habits,
                     onContinue = { habitScreen = null },
-                    onShare = { /* Share sheets: Plan 5 Task 7 */ },
+                    onShare = {
+                        shareCard = ShareCard.Streak(
+                            days = habits.currentStreak,
+                            week = habits.week(),
+                            goalMinutes = habits.goalMinutes,
+                        )
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
 
@@ -162,9 +179,16 @@ fun FolioRoot(
                     modifier = Modifier.fillMaxSize(),
                 )
 
-                else -> EmptyState(
-                    title = FolioStrings.NAV_SETTINGS,
-                    hint = "Reading preferences arrive with the Reader.",
+                else -> SettingsScreen(
+                    settings = settings,
+                    theme = theme,
+                    bookCount = state.books.size,
+                    onCycleTheme = {
+                        val all = FolioThemeName.entries
+                        onThemeChange(all[(all.indexOf(theme) + 1).mod(all.size)])
+                    },
+                    onGoalChange = { scope.launch { habitRepository.setDailyGoal(it) } },
+                    onOpenLicences = { /* the licence text ships in res/raw */ },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -181,6 +205,15 @@ fun FolioRoot(
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
                         .padding(bottom = 18.dp),
+                )
+            }
+
+            shareCard?.let { card ->
+                ShareSheet(
+                    card = card,
+                    onShare = { shareCard = null },
+                    onSaveImage = { shareCard = null },
+                    onDismiss = { shareCard = null },
                 )
             }
 

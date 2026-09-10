@@ -2,7 +2,7 @@
 
 ## Where things stand
 
-**Plans 1–4 complete. 337 JVM tests + 15 device tests, all passing.**
+**Plans 1–5 complete. 387 JVM tests + 15 device tests, all passing.**
 The app installs, runs, imports real books, and reads them.
 
 | | |
@@ -20,8 +20,12 @@ measured pagination, page turns, typography, table of contents, four themes,
 bookmarks, and a PDF fallback for books that could not be reflowed. Reading position
 persists and resumes exactly, including across a type-size change.
 
-**Not yet built (Plan 5):** reading sessions, daily goals, streaks, XP, levels,
-milestones, the share sheets, the Settings screen, and text highlights.
+Habits, goals, streaks, XP, levels, milestones, Settings and the share sheets are
+built too, all on real recorded data.
+
+**Deliberately not built:** text highlights (bookmarks cover the load-bearing half),
+real share destinations (the handoff forbids brand marks without the actual SDKs),
+and cloud sync (explicitly out of scope).
 
 **One open question for you** is recorded under "Open questions" below.
 
@@ -58,7 +62,7 @@ Append to the log; never rewrite history.
 - [x] Plan 2 — persistence + import **COMPLETE** (216 JVM + 14 device tests)
 - [x] Plan 3 — design system + Library/Details UI **COMPLETE** (287 JVM + 15 device)
 - [x] Plan 4 — reader + pagination + bookmarks **COMPLETE** (337 JVM + 15 device)
-- [ ] Plan 5 — habits, settings, share sheets · `docs/superpowers/plans/2026-09-11-folio-habits.md`
+- [x] Plan 5 — habits, settings, share sheets **COMPLETE** (387 JVM + 15 device)
 
 When a plan's tasks are all ticked, write the next plan from the spec using the same
 structure, commit it, then continue. Later plans should incorporate what was actually

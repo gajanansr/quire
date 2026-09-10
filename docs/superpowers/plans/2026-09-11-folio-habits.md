@@ -76,14 +76,14 @@ Replace the placeholder strip with the real 7-day history and streak.
 
 ---
 
-### Task 6: Settings
+### [done] Task 6: Settings
 
 Grouped iOS-style cards — Reading / Library / About — on the soft gray canvas.
 Default theme row cycles the global theme. Includes the bundled-font licence.
 
 ---
 
-### Task 7: Share sheets
+### [done] Task 7: Share sheets
 
 The 9:16 story card for a quote and for a streak, caption row, and destination row
 with generic glyphs only — the handoff is explicit that no brand logos are used and
@@ -91,7 +91,7 @@ none should be added without the real SDKs and brand guidelines.
 
 ---
 
-### Task 8: Device verification
+### [done] Task 8: Device verification
 
 Screenshots of every new screen in light and dark.
 
