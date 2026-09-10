@@ -721,3 +721,30 @@ Two small decisions worth their comments:
 
 Next: Task 7 bookmarks and highlights, Task 8 the PDF fallback viewer, then the
 §19 resume loop on device.
+
+### 2026-09-11 08:25 — Section 19's resume loop verified for every format. 337 tests
+
+Gate: 337, 0 failures.
+
+`ResumeLoopTest` runs the brief's loop —
+**import → process → library → open → read → close → reopen → resume** — for EPUB,
+TXT, text PDF, scanned PDF and the 420-page book, against the real repository, the
+real on-disk store and the real paginator. Only text *measurement* is faked, which
+is the one part that genuinely needs a device.
+
+All five resume to the **exact** saved position.
+
+The case that matters most is the last one: close a book at 19sp, reopen it at 24sp,
+and land on the same sentence. The page number the reader was on no longer exists —
+that is precisely why positions are character offsets and never page numbers, and it
+is now pinned by a test rather than by an argument in a design document.
+
+Bookmarks are saved with a snapshot of the text at that position, so a bookmark
+still means something if the book is ever reprocessed and offsets shift. The
+confirmation is the handoff's brief "Bookmark added" toast rather than a persistent
+badge — the reading page is meant to disappear, and a permanent marker would undo
+that.
+
+Highlights are deferred with the share sheets; bookmarks were the load-bearing half.
+
+Remaining in Plan 4: the PDF fallback viewer (Task 8) and the bookmarks list screen.
