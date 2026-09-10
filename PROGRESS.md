@@ -793,3 +793,36 @@ progress 0.42.
 
 **Plans 1–4 are complete.** Import, processing, storage, the Library, Book Details
 and the Reader all work on a real device with real books.
+
+### 2026-09-11 09:15 — Plan 5 written; habit arithmetic done. 362 tests
+
+Gate: 362, 0 failures. 25 of them on streaks, levels and milestones.
+
+All habit maths is pure functions in `:core/habit`, tested by injecting "today"
+rather than by waiting a week. Two rules worth stating, since this is precisely
+where the brief warns against fake streak calculations:
+
+- **A streak may end yesterday without breaking.** At 00:01 the reader has not had a
+  chance to read today. Zeroing the streak the moment midnight passes would be wrong
+  and discouraging; it breaks only once a full day has genuinely gone by.
+- **Days are keyed by local epoch-day, not UTC.** Someone finishing at 23:50 has read
+  *today*. A UTC key would file it as tomorrow and either grant a streak they did not
+  earn or break one they did.
+
+Also guarded: duplicate rollups for the same day cannot inflate a streak, out-of-order
+history is handled, and the longest streak survives the current one ending.
+
+**A test of mine was wrong, not the code.** I asserted no milestone title contains a
+digit, which failed on "First 10 Minutes" — the handoff's own copy. The design says
+no numeric *badge counts* ("5 of 8"), not that a name cannot contain a number. The
+test now enforces the structural rule: a milestone is a name and a sentence, with
+nowhere to put a count.
+
+**Standing hazard, now four occurrences.** `:core` uses
+`kotlin.test.assertTrue(condition, message)`; `:app` uses JUnit 4's
+`assertTrue(message, condition)`. Same call, reversed arguments. It fails at compile
+time so each instance costs a minute, but four times means it is a property of the
+two-framework split — forced by Robolectric being JUnit 4 only — rather than
+carelessness. Worth knowing before writing tests in either module.
+
+Next: Task 2, session recording.
