@@ -83,6 +83,9 @@ interface BookmarkDao {
     @Query("SELECT * FROM bookmarks WHERE bookId = :bookId ORDER BY chapterIndex, blockIndex")
     fun observeFor(bookId: String): Flow<List<BookmarkEntity>>
 
+    @Query("SELECT * FROM bookmarks ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<BookmarkEntity>>
+
     @Query("DELETE FROM bookmarks WHERE id = :id")
     suspend fun remove(id: Long)
 

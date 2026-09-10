@@ -3,11 +3,18 @@ package app.folio.android.data
 import app.folio.core.model.Book
 import app.folio.core.model.Chapter
 import app.folio.core.model.ChapterRef
+import kotlinx.coroutines.flow.combine
 import app.folio.core.model.ReadingPosition
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /** What the Library needs to draw a row, without loading any content. */
+/** A bookmark with the title of the book it belongs to. */
+data class BookmarkWithBook(
+    val bookmark: BookmarkEntity,
+    val bookTitle: String,
+)
+
 data class LibraryBook(
     val id: String,
     val title: String,
@@ -98,6 +105,44 @@ class BookRepository(
         )
     }
 
+    // ------------------------------------------------------------- bookmarks
+
+    /**
+     * Saves a bookmark at a position, with a snapshot of the text there.
+     *
+     * The snippet is stored rather than looked up on demand because a bookmark has
+     * to survive the book being reprocessed: offsets can shift, but the words the
+     * reader marked are what they will recognise in a list.
+     */
+    suspend fun addBookmark(
+        bookId: String,
+        position: ReadingPosition,
+        snippet: String,
+    ): Long = db.bookmarks().add(
+        BookmarkEntity(
+            bookId = bookId,
+            chapterIndex = position.chapterIndex,
+            blockIndex = position.blockIndex,
+            charOffset = position.charOffset,
+            snippet = snippet.take(MAX_SNIPPET).trim(),
+            createdAt = now(),
+        )
+    )
+
+    fun observeBookmarks(bookId: String): Flow<List<BookmarkEntity>> =
+        db.bookmarks().observeFor(bookId)
+
+    /** Every bookmark across the library, newest first, with its book's title. */
+    fun observeAllBookmarks(): Flow<List<BookmarkWithBook>> =
+        combine(db.bookmarks().observeAll(), db.books().observeLibraryWithProgress()) { marks, books ->
+            val titles = books.associate { it.id to it.title }
+            marks.mapNotNull { mark ->
+                titles[mark.bookId]?.let { BookmarkWithBook(mark, it) }
+            }
+        }
+
+    suspend fun removeBookmark(id: Long) = db.bookmarks().remove(id)
+
     /** The stored progress fraction, or null when the book has never been opened. */
     suspend fun storedProgress(bookId: String): Double? =
         db.progress().find(bookId)?.progress
@@ -125,6 +170,9 @@ class BookRepository(
     companion object {
         /** Room has no list column; subjects round-trip through this separator. */
         const val SUBJECT_SEPARATOR = "|"
+
+        /** Long enough to recognise a passage, short enough to list. */
+        const val MAX_SNIPPET = 240
 
         fun subjectsOf(stored: String): List<String> =
             stored.split(SUBJECT_SEPARATOR).map { it.trim() }.filter { it.isNotEmpty() }

@@ -95,7 +95,7 @@ dismisses.
 
 ---
 
-### Task 7: Bookmarks and highlights
+### [done] Task 7: Bookmarks (highlights deferred)
 
 Bookmark the current position; highlight a selected sentence with the five colours
 from the handoff. Both anchor to `ReadingPosition` plus a text snapshot so they

@@ -98,6 +98,31 @@ data class ReaderState(
         }
 
     /**
+     * The text the current page opens with, for a bookmark's snippet.
+     *
+     * Taken from the page rather than the whole chapter so the saved words are the
+     * ones actually on screen when the reader marked it.
+     */
+    val currentPageSnippet: String
+        get() {
+            val ch = chapter ?: return ""
+            val page = currentPage ?: return ""
+            return page.slices.asSequence()
+                .mapNotNull { slice ->
+                    val block = ch.blocks.getOrNull(slice.blockIndex) ?: return@mapNotNull null
+                    val text = block.plainText
+                    if (text.isEmpty() || slice.length == 0) null
+                    else text.substring(
+                        slice.startChar.coerceIn(0, text.length),
+                        slice.endChar.coerceIn(0, text.length),
+                    )
+                }
+                .firstOrNull { it.isNotBlank() }
+                .orEmpty()
+                .trim()
+        }
+
+    /**
      * A tap in the middle of the page toggles the chrome — unless an overlay is
      * open, which the handoff says must be dismissed first.
      */

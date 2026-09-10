@@ -50,6 +50,7 @@ fun ReaderHost(
     var state by remember(bookId) { mutableStateOf(ReaderState()) }
     var viewport by remember { mutableStateOf(Viewport(0f, 0f)) }
     var contents by remember(bookId) { mutableStateOf<List<ChapterRef>>(emptyList()) }
+    var bookmarked by remember(bookId) { mutableStateOf(false) }
 
     val composeMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -187,9 +188,22 @@ fun ReaderHost(
             onBack = { persist(); onExit() },
             onOpenContents = { state = ReaderTransitions.withOverlay(state, ReaderOverlay.CONTENTS) },
             onOpenTypography = { state = ReaderTransitions.withOverlay(state, ReaderOverlay.TYPOGRAPHY) },
-            onBookmark = { /* Task 7 */ },
+            onBookmark = {
+                val snapshot = state
+                scope.launch {
+                    repository.addBookmark(
+                        bookId, snapshot.position, snapshot.currentPageSnippet,
+                    )
+                    bookmarked = true
+                }
+            },
             onFinish = { persist(); onExit() },
         )
+
+        // A brief confirmation, as the handoff shows, rather than a permanent badge.
+        if (bookmarked) {
+            BookmarkToast(onDone = { bookmarked = false })
+        }
 
         when (state.overlay) {
             ReaderOverlay.TYPOGRAPHY -> TypographySheet(

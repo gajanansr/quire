@@ -23,6 +23,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -284,5 +286,47 @@ private fun ThemeSwatch(name: FolioThemeName, selected: Boolean, onClick: () -> 
             color = palette.ink,
             style = MaterialTheme.typography.labelSmall,
         )
+    }
+}
+
+/**
+ * "Bookmark added", with a Done action.
+ *
+ * Dismisses itself after a moment. The handoff shows a small confirmation rather
+ * than a persistent marker, which keeps the reading page uncluttered — the page is
+ * meant to disappear, and a badge that stays would undo that.
+ */
+@Composable
+fun BookmarkToast(onDone: () -> Unit) {
+    val colors = Folio.colors
+
+    LaunchedEffect(Unit) {
+        delay(2_200)
+        onDone()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 130.dp),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(FolioShapes.button)
+                .background(colors.bgAlt)
+                .padding(horizontal = 18.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            Text("Bookmark added", color = colors.ink, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Done",
+                color = colors.accent,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.clickable(onClick = onDone),
+            )
+        }
     }
 }
