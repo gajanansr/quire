@@ -854,3 +854,27 @@ error costing a minute. Noted here so the idea is not attempted again.
 
 Next: Task 3 goal selection, Task 4 the habit screens, Task 5 the Library card on
 real data.
+
+### 2026-09-11 10:05 — Habit persistence. 387 tests
+
+Gate: 387, 0 failures. Migration 2→3 verified against the live device database —
+four books intact, `reading_days` and `app_settings` created, no crash.
+
+`HabitRepository` computes streaks, XP and milestones **on read** from recorded days
+rather than caching totals. Caching would mean two sources of truth for the same
+number, and the one the reader sees is eventually the stale one.
+
+Two rules with tests behind them:
+
+- **A day stores the goal in force when it was recorded.** Someone who met a
+  five-minute goal last week still met it, even if they later aim for thirty.
+  Recomputing history against the current goal would silently un-earn streak days
+  a reader genuinely earned.
+- **Minutes are additive.** A second session in a day adds to the first rather than
+  replacing it — an easy overwrite bug that would quietly lose most of a day.
+
+Only the handoff's four goals (5/10/20/30) are accepted; anything else is rejected
+rather than silently stored.
+
+Next: the habit screens and the Library card on real data, which removes the last
+placeholder in the app.
