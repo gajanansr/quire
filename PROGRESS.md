@@ -695,3 +695,29 @@ terminates even when larger than the page.
 
 Next: Task 5 typography sheet, Task 6 contents, Task 7 bookmarks, then the §19
 resume loop on device.
+
+### 2026-09-11 07:55 — Typography and contents sheets, live themes. 328 tests
+
+Gate: 328, 0 failures. Screenshots: `05-typography.png`, `06-theme-dark.png`.
+
+Switching to Dark from inside the Reader recolours the sheet and the page behind it
+at once, accent included. The OKLCH palettes hold up in both directions.
+
+- **Task 5** Typography sheet — 2×2 font grid, size stepper honouring the handoff's
+  15–24 bounds, alignment, and the four theme swatches. Every control repaginates
+  immediately, off the main thread, applied in one state update so a size change
+  never shows a half-laid-out page.
+- **Task 6** Contents sheet — flat list, current chapter in accent with a dot.
+
+Two small decisions worth their comments:
+
+- **A chapter index file.** The TOC needs titles, and reading four hundred chapter
+  files to build a list would defeat the whole reason chapters are stored separately.
+  `writeChapters` now also writes `chapters/index.json` holding refs only. A test
+  asserts the index is not itself counted as a chapter — which is exactly what the
+  existing `chapters are written one file each` test caught the moment I added it.
+- **Theme swatches carry a letter, not just a colour.** Light and E-ink share a
+  palette by design, so colour alone cannot tell them apart.
+
+Next: Task 7 bookmarks and highlights, Task 8 the PDF fallback viewer, then the
+§19 resume loop on device.
