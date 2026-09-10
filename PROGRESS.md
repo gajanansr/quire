@@ -826,3 +826,31 @@ two-framework split — forced by Robolectric being JUnit 4 only — rather than
 carelessness. Worth knowing before writing tests in either module.
 
 Next: Task 2, session recording.
+
+### 2026-09-11 09:40 — Session accumulation. 374 tests
+
+Gate: 374, 0 failures. 12 new tests on session recording.
+
+- **Idle time is excluded.** A phone left face-up on a page for an hour is not an
+  hour of reading; crediting it would quietly inflate every streak and goal. Activity
+  extends an interval, silence beyond the idle timeout ends it, and an abandoned
+  session closes at the cutoff rather than staying open forever.
+- **Midnight splits.** 23:40 to 00:20 is twenty minutes on each of two days, not
+  forty on either — the difference between earning a streak day and being handed one.
+- **A glance records nothing.** Sub-minute stretches round to zero and are dropped;
+  "1 minute today" from a five-second glance would be a small lie.
+
+**A mistake I made and reversed, worth recording.** Having hit the assertion-order
+trap five times, I wrote `scripts/fix-assert-order.py` to fix it mechanically. It
+then **broke two files that were already correct**: its three-argument rule cannot
+tell `assertEquals(message, expected, actual)` from the perfectly valid
+`assertEquals(expectedString, actual, message)`. When the expected value is a String
+the two forms are genuinely ambiguous.
+
+I reverted with `git checkout`, deleted the script, and fixed the two real cases by
+hand. The conclusion is more useful than the script: **this cannot be automated
+safely**, and a tool that silently rewrites correct code is far worse than a compile
+error costing a minute. Noted here so the idea is not attempted again.
+
+Next: Task 3 goal selection, Task 4 the habit screens, Task 5 the Library card on
+real data.
