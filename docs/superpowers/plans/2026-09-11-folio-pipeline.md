@@ -1132,13 +1132,13 @@ breaking on short final lines, indentation shifts, and gaps exceeding
 `Fixtures.headerFooterPdf()`, `"Distributed sys-" + "tems are a col-" + "lection of..."`
 must become `"Distributed systems are a collection of..."`.
 
-**Task 15 — Reflow pipeline.** `core/reflow/ReflowPipeline.kt`. Produces
+**[done] Task 15 — Reflow pipeline.** `core/reflow/ReflowPipeline.kt`. Produces
 `class ReflowPipeline { fun reflow(source: PdfTextSource): ReflowResult }` with
 `data class ReflowResult(blocks: List<ContentBlock>, confidence: Double, pageBreaks: List<Int>)`.
 Composes Tasks 10–14. Below `FolioConstants.MIN_REFLOW_CONFIDENCE`, returns the raw
 extracted text as paragraphs with the low confidence attached — it must not return empty.
 
-**Task 16 — Chapter detection.** `core/structure/ChapterDetector.kt` and
+**[done] Task 16 — Chapter detection.** `core/structure/ChapterDetector.kt` and
 `core/structure/HeadingSignals.kt`. Produces
 `class ChapterDetector { fun detect(blocks: List<ContentBlock>, outline: List<OutlineEntry>, spine: List<Int>?): List<Chapter> }`.
 Order of authority: PDF outline, then EPUB spine, then scored heuristics. **With no

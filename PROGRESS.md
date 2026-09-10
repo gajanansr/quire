@@ -207,3 +207,35 @@ hand-built lines. The synthetic cases passed in each instance.
 
 Next: Task 15 — `ReflowPipeline`, composing lines → columns → furniture → hyphens →
 paragraphs, with a confidence score.
+
+### 2026-09-11 02:40 — Tasks 15–16 complete, 122 tests green
+
+Gate: `./gradlew :core:test --rerun-tasks` → 122 tests, 0 failures.
+
+- **Task 15** `ReflowPipeline`. Composes columns → lines → furniture → hyphens →
+  paragraphs, then stitches page seams. Passed on the first run.
+
+  Two things per-page assembly cannot do, handled at pipeline level: a word
+  hyphenated across a page boundary (the baseline gap across a seam is meaningless —
+  bottom of one page to top of the next), and a paragraph continuing across a
+  boundary (joined only when the previous page ends without terminal punctuation
+  **and** the next opens lowercase, so a chapter ending mid-clause joins while two
+  complete sentences do not).
+
+  Confidence blends paragraph length, character retention, and furniture-detection
+  quality. Below threshold it returns the extracted text with a low score, never an
+  empty document.
+
+- **Task 16** `ChapterDetector` + `HeadingSignals`. Outline → typographic headings →
+  naming patterns, then a single chapter if nothing scores. Patterns cover arabic,
+  roman, and word numbers across chapter/part/book/section/canto/act, plus named
+  divisions like prologue and epilogue.
+
+**Finding: two-line chapter openings.** The chaptered fixture sets each opening as a
+label line (`Chapter 1`) above a title line (`The Weight of Silence`). Both match, so
+three chapters came out as six. This is an extremely common book convention, not a
+fixture quirk. Consecutive candidates now collapse into one boundary that starts at
+the label and takes its name from the strongest member — the typographic title rather
+than the label — so the table of contents reads "The Weight of Silence".
+
+Next: Task 17 — `ScannedDetector`.
