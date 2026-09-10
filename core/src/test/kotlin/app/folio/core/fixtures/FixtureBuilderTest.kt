@@ -13,7 +13,8 @@ class FixtureBuilderTest {
             Fixtures.cleanEpub(), Fixtures.malformedEpub(), Fixtures.epubNoNav(),
             Fixtures.plainTxt(), Fixtures.singleColumnPdf(), Fixtures.twoColumnPdf(),
             Fixtures.headerFooterPdf(), Fixtures.chapteredPdf(), Fixtures.imageOnlyPdf(),
-            Fixtures.largeBook(), Fixtures.corruptPdf(), Fixtures.unsupportedFile(),
+            Fixtures.largeBook(), Fixtures.corruptPdf(), Fixtures.truncatedPdf(),
+            Fixtures.unsupportedFile(),
         )
         files.forEach { f ->
             assertTrue(f.exists(), "${f.name} was not created")

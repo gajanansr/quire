@@ -297,9 +297,27 @@ object Fixtures {
         }
     }
 
+    /**
+     * Structurally unparseable: correct magic bytes so format detection routes it to
+     * the PDF path, then noise. PDFBox must fail to open this.
+     */
     fun corruptPdf() = cached("corrupt.pdf") { f ->
+        val rnd = java.util.Random(42)
+        val noise = ByteArray(2048).also { rnd.nextBytes(it) }
+        f.writeBytes("%PDF-1.7\n".toByteArray() + noise)
+    }
+
+    /**
+     * Truncated mid-file, losing the trailing xref table.
+     *
+     * PDFBox's lenient parser *recovers* this by scanning for objects, so it opens
+     * successfully and reports a plausible page count with partial content. That is
+     * the dangerous case: silently importing a fraction of a book as if it were whole.
+     * The pipeline is responsible for noticing, not the text source.
+     */
+    fun truncatedPdf() = cached("truncated.pdf") { f ->
         val good = singleColumnPdf().readBytes()
-        f.writeBytes(good.copyOfRange(0, good.size / 3)) // truncated mid-object
+        f.writeBytes(good.copyOfRange(0, good.size / 3))
     }
 
     /** A PNG with an .epub extension: format detection must catch this by magic bytes. */

@@ -1079,24 +1079,24 @@ locked so that neighbouring tasks agree on names; the executing agent expands
 each into the same five-step TDD cycle, writing the test first and running
 `./gradlew :core:test` before every commit.
 
-**Task 6 — EPUB container.** `core/epub/EpubContainer.kt`. Produces
+**[done] Task 6 — EPUB container.** `core/epub/EpubContainer.kt`. Produces
 `class EpubContainer(file: File) : Closeable` with
 `fun opfPath(): String?`, `fun metadata(): BookMetadata`, `fun titleAndAuthor(): Pair<String, String?>`,
 `fun spineHrefs(): List<String>`, `fun navTitles(): Map<String, String>`, `fun readEntry(href: String): ByteArray?`,
 `fun coverBytes(): ByteArray?`. Tests use `Fixtures.cleanEpub()`, `Fixtures.epubNoNav()`,
 `Fixtures.malformedEpub()`. Malformed must return null from `opfPath()`, never throw.
 
-**Task 7 — EPUB HTML conversion.** `core/epub/EpubHtmlConverter.kt`. Produces
+**[done] Task 7 — EPUB HTML conversion.** `core/epub/EpubHtmlConverter.kt`. Produces
 `class EpubHtmlConverter { fun convert(xhtml: String): List<ContentBlock> }` using jsoup.
 Maps `p`→Paragraph, `h1..h6`→Heading(level), `li`→ListItem, `blockquote`→BlockQuote,
 `img`→Image, `em`/`i`→EMPHASIS, `strong`/`b`→STRONG. Drops `script`, `style`, `nav`.
 Unknown block elements degrade to Paragraph rather than being dropped.
 
-**Task 8 — EPUB parser.** `core/epub/EpubParser.kt`. Produces
+**[done] Task 8 — EPUB parser.** `core/epub/EpubParser.kt`. Produces
 `class EpubParser { fun parse(file: File, id: String): Book }` composing Tasks 6 and 7,
 one chapter per spine document, titles from nav when present else from the first heading.
 
-**Task 9 — PdfTextSource interface and test implementation.**
+**[done] Task 9 — PdfTextSource interface and test implementation.**
 `core/source/PdfTextSource.kt` produces:
 `data class TextRun(text, x, y, width, height, fontSize, fontName, bold, italic)`,
 `data class PageGeometry(pageIndex, width, height)`,
