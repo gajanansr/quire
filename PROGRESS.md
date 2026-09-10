@@ -315,3 +315,30 @@ been dead in the water.
 Also added `scripts/count-tests.sh` since counts now span two modules.
 
 Next: Plan 2, Task 1 — `BookStore`, the on-disk chapter store.
+
+### 2026-09-11 03:25 — Plan 2 Tasks 1–2 complete, 178 tests green
+
+Gate: `./scripts/check.sh` → 178 tests, 0 failures.
+
+- **Task 1** `BookStore`. Chapter-per-file on disk; streams the original rather than
+  buffering it, since a book can be hundreds of megabytes.
+- **Task 2** `BookRepository` + `LibraryRow`. Room metadata joined with disk content
+  behind one type. The library query joins progress in SQL so the grid renders from a
+  single emission rather than a per-book lookup.
+
+**Two bugs, both found by tests rather than by reading the code.**
+
+1. *Deleting a book orphaned its progress and bookmark rows.* Invisible until an id is
+   reused, at which point a deleted book's reading position resurrects. Dependent rows
+   are now deleted explicitly with the book.
+
+2. *`BookStore.bookDir()` called `mkdirs()`, and the read paths used it.* So merely
+   reading a missing chapter recreated the directory of a deleted book — every lookup
+   of an absent book left an empty folder behind. `bookDir()` is now a pure path and
+   only the write paths create anything. Caught because the delete test happened to
+   call `loadChapter` before checking the directory was gone; a differently ordered
+   test would have missed it entirely. There is now an explicit test that reading a
+   missing book creates nothing.
+
+Next: Task 3 — `AndroidPdfTextSource` on PdfBox-Android, the real counterpart to
+`:core`'s Apache-PDFBox test double.
