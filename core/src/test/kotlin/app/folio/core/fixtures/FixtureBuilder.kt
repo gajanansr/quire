@@ -208,11 +208,16 @@ object Fixtures {
                 val page = PDPage(PDRectangle.LETTER)
                 doc.addPage(page)
                 PDPageContentStream(doc, page).use { cs ->
+                    // Balance the columns the way a real two-column layout does.
+                    // An uneven split leaves one side looking like a ragged margin
+                    // rather than a column, which is exactly what ColumnDetector
+                    // is built to reject.
                     val lines = wrap(LOREM, 34)
+                    val half = (lines.size + 1) / 2
                     var y = 720f
-                    lines.take(20).forEach { l -> cs.line(l, 10f, 60f, y); y -= 15f }
+                    lines.take(half).forEach { l -> cs.line(l, 10f, 60f, y); y -= 15f }
                     y = 720f
-                    lines.drop(20).forEach { l -> cs.line(l, 10f, 330f, y); y -= 15f }
+                    lines.drop(half).forEach { l -> cs.line(l, 10f, 330f, y); y -= 15f }
                 }
             }
             doc.save(f)

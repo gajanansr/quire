@@ -29,6 +29,29 @@ class LineAssembler {
         const val FALLBACK_TOLERANCE = 2.0f
     }
 
+    /**
+     * Assembles lines honouring a detected column layout: runs are partitioned by
+     * column first, each column is assembled independently, and the columns are
+     * concatenated left to right. The result reads down one column and then the
+     * next, which is the order a person reads them in.
+     */
+    fun assemble(page: PdfPage, layout: ColumnLayout): List<Line> = when (layout) {
+        is ColumnLayout.Single -> assemble(page)
+        is ColumnLayout.Multi -> {
+            val bounds = listOf(Float.NEGATIVE_INFINITY) +
+                layout.boundaries.sorted() + listOf(Float.POSITIVE_INFINITY)
+            bounds.zipWithNext().flatMap { (from, to) ->
+                // Assign a run to the column its horizontal centre falls in, so a run
+                // that slightly overhangs the gutter does not jump columns.
+                val slice = page.runs.filter { r ->
+                    val centre = r.x + r.width / 2f
+                    centre >= from && centre < to
+                }
+                if (slice.isEmpty()) emptyList() else assemble(page.copy(runs = slice))
+            }
+        }
+    }
+
     fun assemble(page: PdfPage): List<Line> {
         val runs = page.runs.filter { it.text.isNotBlank() }
         if (runs.isEmpty()) return emptyList()
