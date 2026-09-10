@@ -28,7 +28,7 @@ Append to the log; never rewrite history.
 ## Plan sequence
 
 - [x] Plan 1 — `:core` pipeline **COMPLETE** (153 tests) · `docs/superpowers/plans/2026-09-11-folio-pipeline.md`
-- [ ] Plan 2 — persistence + import (Room, WorkManager, SAF) · *to be written*
+- [ ] Plan 2 — persistence + import · `docs/superpowers/plans/2026-09-11-folio-persistence-import.md`
 - [ ] Plan 3 — design system + Library/Details UI · *to be written*
 - [ ] Plan 4 — reader + pagination + bookmarks · *to be written*
 - [ ] Plan 5 — habits, errors, polish · *to be written*
@@ -276,3 +276,42 @@ AGP 9.4.0, Room 2.8.5 with KSP 2.3.12 (the reason Kotlin is pinned to 2.3.21),
 WorkManager 2.11.2, and the emulator. The AVD `folio_test` boots headless in ~40s.
 
 Writing Plan 2 next.
+
+### 2026-09-11 03:10 — Android module stands up, Plan 2 written, 156 tests green
+
+Gate: `./scripts/check.sh` now runs both modules → 156 tests, 0 failures.
+
+Rather than write Plan 2 from assumed version compatibility, I stood the Android
+module up first and wrote the plan from what actually worked. Four toolchain facts
+came out of it, each of which would have cost a chunk of the night if it had been
+baked into a plan as a guess:
+
+1. **AGP 9 has built-in Kotlin support.** Applying `org.jetbrains.kotlin.android`
+   is now a hard failure: *"The plugin is no longer required for Kotlin support
+   since AGP 9.0."* Removed it; the plugin block is AGP + compose + serialization +
+   KSP only.
+
+2. **Compose BOM 2026.09.00 requires `compileSdk 37`.** `material-ripple 1.12.1`
+   refuses to build against 36. The platform installs as `android-37.2`, which AGP 9
+   addresses as `compileSdk = 37` plus `compileSdkMinor = 2`. My earlier platform
+   listing missed it because the grep required a trailing space and the newer
+   platforms carry dotted names.
+
+3. **Robolectric 4.16 caps `targetSdk` at 36.** With `targetSdk = 37` every JVM-side
+   Android test dies on `Package targetSdkVersion=37 > maxSdkVersion=36`. compileSdk
+   and targetSdk are independent, so the app compiles against 37 and targets 36. That
+   keeps DAO tests running on the JVM, which is worth more than targeting the newest
+   API. Written into the plan as a do-not-"fix" constraint.
+
+4. **`:app` must use JUnit 4.** Robolectric has no JUnit 5 runner, so `:app` omits
+   `useJUnitPlatform()` while `:core` keeps JUnit 5. Two modules, two frameworks,
+   deliberately.
+
+**Kotlin 2.3.21 was the right pin.** `:app:kspDebugKotlin` ran and generated Room's
+code against AGP's built-in Kotlin; three DAO tests pass under Robolectric. Had I
+taken Kotlin 2.4.20, KSP would have had no compatible release and Room would have
+been dead in the water.
+
+Also added `scripts/count-tests.sh` since counts now span two modules.
+
+Next: Plan 2, Task 1 — `BookStore`, the on-disk chapter store.
