@@ -172,7 +172,7 @@ Convert ML Kit's top-left origin to the bottom-left origin `TextRun` uses:
 
 ---
 
-### Task 5: `BookImporter`
+### [done] Task 5: `BookImporter`
 
 **Files:**
 - Create: `app/src/main/kotlin/app/folio/android/import/BookImporter.kt`
