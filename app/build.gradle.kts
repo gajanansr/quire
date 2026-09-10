@@ -66,4 +66,9 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.room.testing)
+    // The same fixture corpus :core is tested against. Fixtures are authored with
+    // Apache PDFBox and read back with PdfBox-Android, so the writer and the reader
+    // under test are independent implementations.
+    testImplementation(testFixtures(project(":core")))
+    testImplementation(libs.pdfbox)
 }

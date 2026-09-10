@@ -7,3 +7,4 @@ local.properties
 captures/
 .cxx/
 core/src/test/resources/generated/
+app/src/test/resources/generated/

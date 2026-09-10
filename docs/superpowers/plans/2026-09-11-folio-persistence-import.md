@@ -130,7 +130,7 @@ app/src/main/kotlin/app/folio/android/
 
 ---
 
-### Task 3: `PdfBoxTextSource` for Android
+### [done] Task 3: `PdfBoxTextSource` for Android
 
 **Files:**
 - Create: `app/src/main/kotlin/app/folio/android/pdf/PdfBoxTextSource.kt`
