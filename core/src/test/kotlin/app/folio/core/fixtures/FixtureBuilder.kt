@@ -1,0 +1,312 @@
+package app.folio.core.fixtures
+
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.pdmodel.PDPage
+import org.apache.pdfbox.pdmodel.PDPageContentStream
+import org.apache.pdfbox.pdmodel.common.PDRectangle
+import org.apache.pdfbox.pdmodel.font.PDType1Font
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory
+import org.apache.pdfbox.rendering.PDFRenderer
+import java.awt.Color
+import java.awt.image.BufferedImage
+import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+
+/**
+ * Generates the test corpus. Reflow and structure detection are only as good as the
+ * documents they are developed against, so these are built first and deliberately
+ * include the awkward cases: two columns, running headers, hyphenated line breaks,
+ * a scan with no text layer, a truncated file, and a file whose extension lies.
+ *
+ * Fixtures are cached on disk under core/src/test/resources/generated (gitignored)
+ * and regenerated only when missing.
+ */
+object Fixtures {
+
+    private val root: File by lazy {
+        File("src/test/resources/generated").apply { mkdirs() }
+    }
+
+    private fun cached(name: String, build: (File) -> Unit): File {
+        val f = File(root, name)
+        if (!f.exists() || f.length() == 0L) build(f)
+        return f
+    }
+
+    // ---------------------------------------------------------------- text
+
+    private val LOREM = ("Distributed systems are a collection of independent computers " +
+        "that appear to their users as a single coherent system. The consequences of " +
+        "this definition are far reaching, and they shape every design decision that " +
+        "follows in this book. ").repeat(3)
+
+    fun plainTxt() = cached("plain.txt") { f ->
+        f.writeText(
+            buildString {
+                appendLine("A History of Quiet Things")
+                appendLine()
+                appendLine("Chapter 1")
+                appendLine()
+                appendLine(LOREM)
+                appendLine()
+                appendLine("Chapter 2")
+                appendLine()
+                appendLine(LOREM)
+            }
+        )
+    }
+
+    // ---------------------------------------------------------------- EPUB
+
+    private fun zip(target: File, entries: List<Pair<String, ByteArray>>) {
+        ZipOutputStream(target.outputStream().buffered()).use { zos ->
+            entries.forEach { (path, bytes) ->
+                zos.putNextEntry(ZipEntry(path))
+                zos.write(bytes)
+                zos.closeEntry()
+            }
+        }
+    }
+
+    private fun chapterXhtml(title: String, body: String) = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <html xmlns="http://www.w3.org/1999/xhtml">
+          <head><title>$title</title></head>
+          <body>
+            <h1>$title</h1>
+            <p>$body</p>
+            <p>A second paragraph with <em>emphasis</em> and <strong>strength</strong>.</p>
+            <ul><li>First item</li><li>Second item</li></ul>
+            <blockquote>A quoted line.</blockquote>
+          </body>
+        </html>
+    """.trimIndent().toByteArray()
+
+    private val CONTAINER_XML = """
+        <?xml version="1.0"?>
+        <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+          <rootfiles><rootfile full-path="OEBPS/content.opf"
+            media-type="application/oebps-package+xml"/></rootfiles>
+        </container>
+    """.trimIndent().toByteArray()
+
+    private fun opf(withNav: Boolean) = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
+          <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <dc:identifier id="uid">urn:uuid:folio-test-0001</dc:identifier>
+            <dc:title>A History of Quiet Things</dc:title>
+            <dc:creator>Ada Marlowe</dc:creator>
+            <dc:language>en</dc:language>
+            <dc:publisher>Folio Test Press</dc:publisher>
+          </metadata>
+          <manifest>
+            <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>
+            <item id="c2" href="c2.xhtml" media-type="application/xhtml+xml"/>
+            ${if (withNav) """<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>""" else ""}
+          </manifest>
+          <spine>
+            <itemref idref="c1"/>
+            <itemref idref="c2"/>
+          </spine>
+        </package>
+    """.trimIndent().toByteArray()
+
+    private val NAV_XHTML = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+          <body><nav epub:type="toc">
+            <ol>
+              <li><a href="c1.xhtml">The Weight of Silence</a></li>
+              <li><a href="c2.xhtml">What the River Kept</a></li>
+            </ol>
+          </nav></body>
+        </html>
+    """.trimIndent().toByteArray()
+
+    fun cleanEpub() = cached("clean.epub") { f ->
+        zip(
+            f,
+            listOf(
+                "mimetype" to "application/epub+zip".toByteArray(),
+                "META-INF/container.xml" to CONTAINER_XML,
+                "OEBPS/content.opf" to opf(withNav = true),
+                "OEBPS/nav.xhtml" to NAV_XHTML,
+                "OEBPS/c1.xhtml" to chapterXhtml("The Weight of Silence", LOREM),
+                "OEBPS/c2.xhtml" to chapterXhtml("What the River Kept", LOREM),
+            )
+        )
+    }
+
+    /** Spine only — no nav document and no NCX. Titles must come from headings. */
+    fun epubNoNav() = cached("nonav.epub") { f ->
+        zip(
+            f,
+            listOf(
+                "mimetype" to "application/epub+zip".toByteArray(),
+                "META-INF/container.xml" to CONTAINER_XML,
+                "OEBPS/content.opf" to opf(withNav = false),
+                "OEBPS/c1.xhtml" to chapterXhtml("The Weight of Silence", LOREM),
+                "OEBPS/c2.xhtml" to chapterXhtml("What the River Kept", LOREM),
+            )
+        )
+    }
+
+    /** Valid zip, but no META-INF/container.xml — must fail cleanly, not crash. */
+    fun malformedEpub() = cached("malformed.epub") { f ->
+        zip(
+            f,
+            listOf(
+                "mimetype" to "application/epub+zip".toByteArray(),
+                "OEBPS/random.xhtml" to "<html><body><p>orphan</p></body></html>".toByteArray(),
+            )
+        )
+    }
+
+    // ----------------------------------------------------------------- PDF
+
+    private fun PDPageContentStream.line(
+        text: String,
+        size: Float,
+        x: Float,
+        y: Float,
+        bold: Boolean = false,
+    ) {
+        beginText()
+        setFont(if (bold) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA, size)
+        newLineAtOffset(x, y)
+        showText(text)
+        endText()
+    }
+
+    private fun wrap(text: String, perLine: Int): List<String> =
+        text.split(" ").filter { it.isNotBlank() }
+            .fold(mutableListOf<String>()) { acc, w ->
+                if (acc.isEmpty() || (acc.last().length + w.length + 1) > perLine) acc.add(w)
+                else acc[acc.lastIndex] = acc.last() + " " + w
+                acc
+            }
+
+    fun singleColumnPdf() = cached("single-column.pdf") { f ->
+        PDDocument().use { doc ->
+            repeat(6) {
+                val page = PDPage(PDRectangle.LETTER)
+                doc.addPage(page)
+                PDPageContentStream(doc, page).use { cs ->
+                    var y = 720f
+                    wrap(LOREM, 70).forEach { l -> cs.line(l, 11f, 72f, y); y -= 16f }
+                }
+            }
+            doc.save(f)
+        }
+    }
+
+    fun twoColumnPdf() = cached("two-column.pdf") { f ->
+        PDDocument().use { doc ->
+            repeat(4) {
+                val page = PDPage(PDRectangle.LETTER)
+                doc.addPage(page)
+                PDPageContentStream(doc, page).use { cs ->
+                    val lines = wrap(LOREM, 34)
+                    var y = 720f
+                    lines.take(20).forEach { l -> cs.line(l, 10f, 60f, y); y -= 15f }
+                    y = 720f
+                    lines.drop(20).forEach { l -> cs.line(l, 10f, 330f, y); y -= 15f }
+                }
+            }
+            doc.save(f)
+        }
+    }
+
+    /** Running header, footer page numbers, and deliberate end-of-line hyphenation. */
+    fun headerFooterPdf() = cached("header-footer.pdf") { f ->
+        PDDocument().use { doc ->
+            for (p in 1..8) {
+                val page = PDPage(PDRectangle.LETTER)
+                doc.addPage(page)
+                PDPageContentStream(doc, page).use { cs ->
+                    cs.line("A HISTORY OF QUIET THINGS", 9f, 72f, 750f)
+                    var y = 700f
+                    listOf(
+                        "Distributed sys-",
+                        "tems are a col-",
+                        "lection of independent computers that appear",
+                        "to their users as a single coherent system.",
+                    ).forEach { l -> cs.line(l, 11f, 72f, y); y -= 16f }
+                    cs.line("$p", 9f, 300f, 40f)
+                }
+            }
+            doc.save(f)
+        }
+    }
+
+    /** Large centered bold chapter headings, for structure detection. */
+    fun chapteredPdf() = cached("chaptered.pdf") { f ->
+        PDDocument().use { doc ->
+            listOf(
+                "Chapter 1" to "The Weight of Silence",
+                "Chapter 2" to "What the River Kept",
+                "Chapter 3" to "A Longer Winter",
+            ).forEach { (label, title) ->
+                val page = PDPage(PDRectangle.LETTER)
+                doc.addPage(page)
+                PDPageContentStream(doc, page).use { cs ->
+                    cs.line(label, 10f, 250f, 700f)
+                    cs.line(title, 22f, 180f, 660f, bold = true)
+                    var y = 600f
+                    wrap(LOREM, 70).forEach { l -> cs.line(l, 11f, 72f, y); y -= 16f }
+                }
+            }
+            doc.save(f)
+        }
+    }
+
+    /** Renders singleColumnPdf to images and rebuilds from them: no text layer at all. */
+    fun imageOnlyPdf() = cached("scanned.pdf") { f ->
+        PDDocument.load(singleColumnPdf()).use { src ->
+            val renderer = PDFRenderer(src)
+            PDDocument().use { out ->
+                for (i in 0 until src.numberOfPages) {
+                    val img: BufferedImage = renderer.renderImageWithDPI(i, 120f)
+                    val page = PDPage(PDRectangle(img.width.toFloat(), img.height.toFloat()))
+                    out.addPage(page)
+                    val xobj = LosslessFactory.createFromImage(out, img)
+                    PDPageContentStream(out, page).use { cs ->
+                        cs.drawImage(xobj, 0f, 0f, img.width.toFloat(), img.height.toFloat())
+                    }
+                }
+                out.save(f)
+            }
+        }
+    }
+
+    fun largeBook() = cached("large.pdf") { f ->
+        PDDocument().use { doc ->
+            val body = wrap(LOREM, 70)
+            repeat(420) { p ->
+                val page = PDPage(PDRectangle.LETTER)
+                doc.addPage(page)
+                PDPageContentStream(doc, page).use { cs ->
+                    if (p % 40 == 0) cs.line("Chapter ${p / 40 + 1}", 20f, 200f, 700f, bold = true)
+                    var y = 650f
+                    body.forEach { l -> cs.line(l, 11f, 72f, y); y -= 16f }
+                }
+            }
+            doc.save(f)
+        }
+    }
+
+    fun corruptPdf() = cached("corrupt.pdf") { f ->
+        val good = singleColumnPdf().readBytes()
+        f.writeBytes(good.copyOfRange(0, good.size / 3)) // truncated mid-object
+    }
+
+    /** A PNG with an .epub extension: format detection must catch this by magic bytes. */
+    fun unsupportedFile() = cached("actually-a-png.epub") { f ->
+        val img = BufferedImage(8, 8, BufferedImage.TYPE_INT_RGB).apply {
+            createGraphics().run { color = Color.GRAY; fillRect(0, 0, 8, 8); dispose() }
+        }
+        javax.imageio.ImageIO.write(img, "png", f)
+    }
+}
