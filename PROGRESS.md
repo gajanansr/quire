@@ -618,3 +618,41 @@ fails at compile time, so it costs a minute rather than a night, but the two-fra
 split (forced by Robolectric being JUnit 4 only) has this standing cost.
 
 Next: the Book Details screen itself, then Plan 4 — the Reader.
+
+### 2026-09-11 06:40 — PLAN 3 COMPLETE. 287 JVM + 15 device tests
+
+Gate: `./scripts/check.sh` → 287, 0 failures. Screenshot: `docs/screenshots/03-book-details.png`.
+
+Book Details renders from real persisted state: 42% complete, Ch. 2, pages, time
+left, the handoff's pace sentence, genre chips from `dc:subject`, and a synopsis from
+`dc:description`.
+
+The screen's rule is that unknowns say so. No chapters shows a dash rather than
+"Ch. 1" of nothing; no description shows "This book didn't come with a description."
+rather than a generated summary; and `PDF_OCR` reads simply as "PDF", because whether
+a scan needed recognising is Folio's business, not the reader's. Each is a test.
+
+**A stale-cache bug in my own test helper, worth recording.** After adding
+`dc:description` I re-seeded and the field was still empty. The cause was
+`DeviceFixtures`, which cached assets **by filename**: once a fixture existed on the
+device it was never replaced, so the regenerated EPUB never arrived and the test was
+quietly exercising last week's book. It now compares content length. This is the
+insidious kind — nothing failed, the data was simply wrong, and a test that checks a
+stale fixture passes while proving nothing.
+
+Two pieces of my own work removed rather than left lying around: a
+`BookDetailsViewModel` made dead when I inlined its loader, and a doc comment my
+patch had stranded above the wrong function.
+
+**Plan 3 is done.** The design system, navigation, Library, Book Details, Add Book,
+import progress, and the error and empty states all exist and are verified on device.
+
+---
+
+## Plan 4 next: the Reader
+
+The remaining core of the product: measured pagination, typography controls, table of
+contents, themes in the reader, persistent position, bookmarks and highlights. This
+is where the character-based `ReadingPosition` chosen in the spec finally earns its
+keep — resume has to survive a typography change, which is exactly what a page-number
+model cannot do.
