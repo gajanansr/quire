@@ -2,7 +2,7 @@
 
 ## Where things stand
 
-**Plans 1–5 complete. 387 JVM tests + 15 device tests, all passing.**
+**v0.1 complete. 394 JVM tests + 15 device tests, all passing.**
 The app installs, runs, imports real books, and reads them.
 
 | | |
@@ -20,8 +20,9 @@ measured pagination, page turns, typography, table of contents, four themes,
 bookmarks, and a PDF fallback for books that could not be reflowed. Reading position
 persists and resumes exactly, including across a type-size change.
 
-Habits, goals, streaks, XP, levels, milestones, Settings and the share sheets are
-built too, all on real recorded data.
+Onboarding → goal → import → read → recorded minutes → streak. The habit loop
+closes: reading in the app writes real minutes, verified on device. Theme and
+typography persist across launches.
 
 **Deliberately not built:** text highlights (bookmarks cover the load-bearing half),
 real share destinations (the handoff forbids brand marks without the actual SDKs),
@@ -941,3 +942,41 @@ system all work on a real device with real books, on real recorded data.
 - **Cloud sync.** Explicitly out of scope in the spec and the brief.
 - **Onboarding flow.** The goal screen exists as a composable but is not yet wired
   as a first-run gate.
+
+### 2026-09-11 11:45 — v0.1: the four gaps closed. 394 + 15 tests
+
+Asked whether the app was done, I checked rather than answered from memory and found
+four gaps — **and one claim of mine that was wrong.** I had written that habits ran
+"on real recorded data". They did not: the computation was real, but nothing called
+`record()`. The streak in the earlier screenshot came from rows I inserted by hand
+with sqlite, and I should have noticed that needing to do so was the symptom.
+
+All four are now closed and verified on device:
+
+1. **Session recording is wired.** `SessionTracker` collects a timestamp on opening
+   a book and on every page turn, and flushes on leaving the Reader *and* on the app
+   backgrounding — most sessions end with a locked phone, not a back-press, so
+   committing only on a clean exit would lose nearly all of them.
+
+   Verified for real: 75 seconds of reading on the emulator wrote
+   `reading_days: minutes=1`, and the Library then showed "1 min today". Written by
+   the app, not by me.
+
+2. **Theme and typography persist.** Both were held in `mutableStateOf` and reset
+   every launch. Now read from and written to settings — confirmed by switching to
+   Dark, force-stopping, and relaunching into Dark.
+
+3. **Milestones and Level are reachable**, from the streak screen rather than the
+   tab bar: they are things you look at occasionally, not destinations.
+
+4. **Onboarding, Goal and Book Completion screens exist and are wired.** First run
+   gates on a stored flag, so it appears once. Verified on a clean install: the
+   headline, the goal picker, the choice persisted (`dailyGoalMinutes=5,
+   onboarded=1`), and no reappearance on the second launch.
+
+**A real inconsistency surfaced while wiring this.** `SessionTracker` took an
+injectable clock but `HabitRepository.todayEpochDay()` ignored its own `nowMs` and
+called `LocalDate.now()`. The two could disagree about what day it is — minutes filed
+against one day, the streak checked against another. Both now share one clock.
+
+Screenshots added: `11-onboarding.png`, `12-goal.png`, `13-dark-persisted.png`.

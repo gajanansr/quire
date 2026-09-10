@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,9 +14,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.runBlocking
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.text.rememberTextMeasurer
 import app.folio.android.data.BookRepository
+import app.folio.android.data.HabitRepository
+import app.folio.android.habit.SessionTracker
 import app.folio.android.ui.theme.FolioThemeName
 import app.folio.android.ui.theme.ReaderFont
 import app.folio.core.model.Chapter
@@ -24,6 +31,7 @@ import app.folio.core.model.ReadingPosition
 import app.folio.core.paginate.Paginator
 import app.folio.core.paginate.Viewport
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -41,10 +49,13 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ReaderHost(
     repository: BookRepository,
+    habitRepository: HabitRepository,
     bookId: String,
     theme: FolioThemeName,
     onThemeChange: (FolioThemeName) -> Unit,
     onExit: () -> Unit,
+    /** Fired when a flush pushes the reader over their daily goal. */
+    onGoalReached: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var state by remember(bookId) { mutableStateOf(ReaderState()) }
@@ -56,6 +67,8 @@ fun ReaderHost(
     val density = LocalDensity.current
     val fontResolver = LocalFontFamilyResolver.current
     val scope = rememberCoroutineScope()
+    val tracker = remember(bookId) { SessionTracker(habitRepository) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     val measurer = remember(state.preferences.font, density, fontResolver) {
         ComposeTextMeasurer(composeMeasurer, density, state.preferences.font.family())
@@ -103,6 +116,7 @@ fun ReaderHost(
         if (state.chapter == null) {
             val saved = repository.progressOf(bookId)
             loadChapter(saved.chapterIndex, saved)
+            tracker.record()
         } else {
             // The viewport changed — a rotation, or the first real measurement.
             val chapter = state.chapter ?: return@LaunchedEffect
@@ -141,8 +155,25 @@ fun ReaderHost(
                 )
             }
             state = ReaderTransitions.repaginated(state, pages, next)
+            habitRepository.setReaderPreferences(
+                font = next.font.name, sizeSp = next.fontSizeSp, justify = next.justify,
+            )
             persistNow()
         }
+    }
+
+    /**
+     * Commits the reading session and reports a goal newly met.
+     *
+     * "Newly" matters: the goal screen should appear the moment it is crossed, not
+     * every time the reader closes a book for the rest of the day.
+     */
+    suspend fun flushSession() {
+        val before = habitRepository.observeSummary().first()
+        val credits = tracker.flush()
+        if (credits.isEmpty()) return
+        val after = habitRepository.observeSummary().first()
+        if (!before.goalMet && after.goalMet) onGoalReached()
     }
 
     fun persist() {
@@ -152,12 +183,34 @@ fun ReaderHost(
         }
     }
 
+    /**
+     * Flushes when the app goes to the background as well as on exit: most reading
+     * sessions end with a locked phone, not a back-press, and only committing on a
+     * clean exit would lose nearly all of them.
+     */
+    DisposableEffect(lifecycleOwner, bookId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                runBlocking { flushSession() }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            // Leaving the Reader by any route still commits the session.
+            runBlocking { flushSession() }
+        }
+    }
+
     fun turn(forward: Boolean) {
         val next = if (forward) ReaderTransitions.nextPage(state)
         else ReaderTransitions.previousPage(state)
 
         if (next != null) {
             state = next
+            // A page turn is the signal that reading is still happening; without
+            // it the idle timeout would end the session mid-book.
+            tracker.record()
             persist()
             return
         }
@@ -177,6 +230,20 @@ fun ReaderHost(
     }
 
     LaunchedEffect(bookId) { contents = repository.chapterIndex(bookId) }
+
+    // Typography is a setting, not a session preference: someone who chose Lora at
+    // 22pt should not have to choose it again next time they open a book.
+    LaunchedEffect(bookId) {
+        val saved = habitRepository.settings()
+        state = state.copy(
+            preferences = ReaderPreferences(
+                font = ReaderFont.entries.firstOrNull { it.name == saved.readerFont }
+                    ?: ReaderFont.SERIF,
+                fontSizeSp = saved.readerFontSizeSp,
+                justify = saved.readerJustify,
+            )
+        )
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         ReaderScreen(

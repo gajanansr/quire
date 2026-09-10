@@ -48,6 +48,8 @@ fun StreakScreen(
     summary: HabitSummary,
     onContinue: () -> Unit,
     onShare: () -> Unit,
+    onOpenMilestones: () -> Unit = {},
+    onOpenLevel: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = Folio.colors
@@ -86,7 +88,20 @@ fun StreakScreen(
             style = MaterialTheme.typography.bodyMedium,
         )
 
-        Spacer(Modifier.height(30.dp))
+        Spacer(Modifier.height(26.dp))
+        // Milestones and Level hang off the streak screen rather than the tab bar:
+        // they are things you look at occasionally, not destinations.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SecondaryLink("Milestones", onOpenMilestones, Modifier.weight(1f))
+            SecondaryLink(
+                "Level ${summary.level.index}", onOpenLevel, Modifier.weight(1f),
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
         PrimaryButton("Continue", onContinue)
         Spacer(Modifier.height(10.dp))
         Box(
@@ -153,7 +168,11 @@ private fun Heatmap(days: List<ReadingDay>, goalMinutes: Int, today: Long) {
 
 /** Milestones: achieved above, locked below, no counts. */
 @Composable
-fun MilestonesScreen(summary: HabitSummary, modifier: Modifier = Modifier) {
+fun MilestonesScreen(
+    summary: HabitSummary,
+    onBack: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val colors = Folio.colors
     Column(
         modifier = modifier
@@ -163,7 +182,7 @@ fun MilestonesScreen(summary: HabitSummary, modifier: Modifier = Modifier) {
             .padding(horizontal = 20.dp)
             .padding(top = 26.dp, bottom = 120.dp),
     ) {
-        Text("Milestones", color = colors.ink, style = MaterialTheme.typography.headlineMedium)
+        BackRow("Milestones", onBack)
         Spacer(Modifier.height(18.dp))
 
         if (summary.achieved.isNotEmpty()) {
@@ -225,7 +244,11 @@ private fun MilestoneGroup(milestones: List<Milestone>, achieved: Boolean) {
 
 /** Level and XP. */
 @Composable
-fun LevelScreen(summary: HabitSummary, modifier: Modifier = Modifier) {
+fun LevelScreen(
+    summary: HabitSummary,
+    onBack: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val colors = Folio.colors
     Column(
         modifier = modifier
@@ -235,11 +258,7 @@ fun LevelScreen(summary: HabitSummary, modifier: Modifier = Modifier) {
             .padding(horizontal = 20.dp)
             .padding(top = 26.dp, bottom = 120.dp),
     ) {
-        Text(
-            "Level ${summary.level.index} · ${summary.level.name}",
-            color = colors.ink,
-            style = MaterialTheme.typography.headlineMedium,
-        )
+        BackRow("Level ${summary.level.index} · ${summary.level.name}", onBack)
         Spacer(Modifier.height(14.dp))
 
         Box(
@@ -406,3 +425,119 @@ fun GoalCompleteScreen(
 fun HabitSummary.goalPercent(): Int =
     if (goalMinutes <= 0) 0
     else ((minutesToday.toDouble() / goalMinutes) * 100).roundToInt().coerceIn(0, 100)
+
+/**
+ * The book completion screen.
+ *
+ * Deliberately quiet. The handoff gives finishing a book a checkmark and a short
+ * sentence rather than fanfare — the reward for reading is having read.
+ */
+@Composable
+fun BookCompleteScreen(
+    title: String,
+    pages: Int,
+    minutes: Int,
+    onBackToLibrary: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = Folio.colors
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(colors.bg)
+            .padding(horizontal = 26.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box(
+            Modifier.size(64.dp).clip(CircleShape).background(colors.accent),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("✓", color = colors.buttonText, style = MaterialTheme.typography.headlineMedium)
+        }
+        Spacer(Modifier.height(22.dp))
+        Text(
+            "BOOK COMPLETE",
+            color = colors.muted,
+            style = MaterialTheme.typography.labelSmall,
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            title,
+            color = colors.ink,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.headlineLarge,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "$pages pages · $minutes minutes",
+            color = colors.muted,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(18.dp))
+        Text(
+            "You finished it.",
+            color = colors.ink,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Spacer(Modifier.height(30.dp))
+        PrimaryButton("Back to Library", onBackToLibrary)
+    }
+}
+
+/**
+ * The opening screen: a headline and one action.
+ *
+ * No form, no carousel — the handoff is emphatic that the first thing a reader
+ * sees is a sentence and a way in.
+ */
+@Composable
+fun OnboardingScreen(onGetStarted: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = Folio.colors
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(colors.bg)
+            .padding(horizontal = 30.dp)
+            .padding(top = 90.dp, bottom = 40.dp),
+    ) {
+        Text(
+            "A quiet place to read.",
+            color = colors.ink,
+            style = MaterialTheme.typography.displayLarge,
+        )
+        Spacer(Modifier.weight(1f))
+        PrimaryButton("Get Started", onGetStarted)
+        Spacer(Modifier.navigationBarsPadding())
+    }
+}
+
+@Composable
+private fun BackRow(title: String, onBack: () -> Unit) {
+    val colors = Folio.colors
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "‹",
+            color = colors.ink,
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.clickable(onClick = onBack),
+        )
+        Spacer(Modifier.size(12.dp))
+        Text(title, color = colors.ink, style = MaterialTheme.typography.headlineMedium)
+    }
+}
+
+@Composable
+private fun SecondaryLink(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = Folio.colors
+    Box(
+        modifier = modifier
+            .clip(FolioShapes.button)
+            .border(1.dp, colors.border, FolioShapes.button)
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = colors.ink, style = MaterialTheme.typography.labelLarge)
+    }
+}

@@ -11,7 +11,7 @@ import app.folio.core.habit.Streaks
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import java.time.LocalDate
+import java.time.Instant
 import java.time.ZoneId
 
 /** Everything the habit screens and the Library card need, computed from real data. */
@@ -51,8 +51,16 @@ class HabitRepository(
     private val nowMs: () -> Long = System::currentTimeMillis,
 ) {
 
+    /**
+     * Today, derived from the injected clock rather than the system one.
+     *
+     * These must agree with whatever records the minutes. Reading the wall clock
+     * here while a caller supplies its own would let "today" mean two different
+     * days in the same operation — minutes filed against one and the streak
+     * checked against another.
+     */
     fun todayEpochDay(): Long =
-        LocalDate.now(zone()).toEpochDay()
+        Instant.ofEpochMilli(nowMs()).atZone(zone()).toLocalDate().toEpochDay()
 
     fun observeSummary(): Flow<HabitSummary> =
         combine(db.habits().observeDays(), db.settings().observe()) { days, settings ->

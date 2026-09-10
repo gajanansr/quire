@@ -30,6 +30,10 @@ import app.folio.android.ui.library.LibraryScreen
 import app.folio.android.ui.bookmarks.BookmarksScreen
 import app.folio.android.ui.habit.LevelScreen
 import app.folio.android.ui.habit.MilestonesScreen
+import app.folio.android.ui.habit.BookCompleteScreen
+import app.folio.android.ui.habit.GoalCompleteScreen
+import app.folio.android.ui.habit.GoalScreen
+import app.folio.android.ui.habit.OnboardingScreen
 import app.folio.android.ui.habit.StreakScreen
 import app.folio.android.ui.settings.SettingsScreen
 import app.folio.android.ui.share.ShareCard
@@ -86,6 +90,9 @@ fun FolioRoot(
 
     var habitScreen by remember { mutableStateOf<HabitScreen?>(null) }
     var shareCard by remember { mutableStateOf<ShareCard?>(null) }
+    var goalJustReached by remember { mutableStateOf(false) }
+    var onboardingSeen by remember { mutableStateOf(false) }
+    var pendingGoal by remember { mutableStateOf(HabitRepository.RECOMMENDED_GOAL) }
 
     val settings by remember(habitRepository) { habitRepository.observeSettings() }
         .collectAsState(initial = AppSettingsEntity())
@@ -99,6 +106,24 @@ fun FolioRoot(
             val failure = importProgress?.failureReason?.let(::failureReasonOf)
 
             when {
+                // First run, gated on a stored flag so it never reappears.
+                !settings.onboarded && !onboardingSeen -> OnboardingScreen(
+                    onGetStarted = { onboardingSeen = true },
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                !settings.onboarded -> GoalScreen(
+                    selected = pendingGoal,
+                    onSelect = { pendingGoal = it },
+                    onContinue = { scope.launch { habitRepository.setDailyGoal(pendingGoal) } },
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                goalJustReached -> GoalCompleteScreen(
+                    goalMinutes = habits.goalMinutes,
+                    onContinue = { goalJustReached = false },
+                    modifier = Modifier.fillMaxSize(),
+                )
                 // An import in flight owns the screen: the handoff shows it as a
                 // full view, not a banner over the Library.
                 failure != null -> ErrorState(
@@ -124,7 +149,9 @@ fun FolioRoot(
 
                 readingBookId != null -> ReaderHost(
                     repository = repository,
+                    habitRepository = habitRepository,
                     bookId = readingBookId!!,
+                    onGoalReached = { goalJustReached = true },
                     theme = theme,
                     onThemeChange = onThemeChange,
                     onExit = { readingBookId = null },
@@ -144,6 +171,8 @@ fun FolioRoot(
                 habitScreen == HabitScreen.STREAK -> StreakScreen(
                     summary = habits,
                     onContinue = { habitScreen = null },
+                    onOpenMilestones = { habitScreen = HabitScreen.MILESTONES },
+                    onOpenLevel = { habitScreen = HabitScreen.LEVEL },
                     onShare = {
                         shareCard = ShareCard.Streak(
                             days = habits.currentStreak,
@@ -155,11 +184,15 @@ fun FolioRoot(
                 )
 
                 habitScreen == HabitScreen.MILESTONES -> MilestonesScreen(
-                    summary = habits, modifier = Modifier.fillMaxSize(),
+                    summary = habits,
+                    onBack = { habitScreen = HabitScreen.STREAK },
+                    modifier = Modifier.fillMaxSize(),
                 )
 
                 habitScreen == HabitScreen.LEVEL -> LevelScreen(
-                    summary = habits, modifier = Modifier.fillMaxSize(),
+                    summary = habits,
+                    onBack = { habitScreen = HabitScreen.STREAK },
+                    modifier = Modifier.fillMaxSize(),
                 )
 
                 destination == FolioDestination.LIBRARY -> LibraryScreen(
@@ -196,7 +229,7 @@ fun FolioRoot(
             // The pill stays out of the way while a book is being prepared, and
             // while a book's own page is open.
             if (importProgress == null && openBookId == null && readingBookId == null &&
-                habitScreen == null
+                habitScreen == null && settings.onboarded && !goalJustReached
             ) {
                 FolioPillNav(
                     current = destination,

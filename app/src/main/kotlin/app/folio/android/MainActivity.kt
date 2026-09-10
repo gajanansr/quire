@@ -13,8 +13,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import app.folio.android.ui.nav.FolioRoot
 import app.folio.android.ui.theme.FolioThemeName
+import androidx.lifecycle.lifecycleScope
 import app.folio.android.work.ImportCoordinator
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -45,14 +47,22 @@ class MainActivity : ComponentActivity() {
                 if (id == null) flowOf(null) else imports.observe(id)
             }.collectAsState(initial = null)
 
-            var theme by remember { mutableStateOf(FolioThemeName.LIGHT) }
+            // The theme is read from storage rather than held in memory: a choice
+            // that resets on every launch is not a setting.
+            val settings by graph.habits.observeSettings()
+                .collectAsState(initial = null)
+            val theme = settings?.themeName?.let { name ->
+                FolioThemeName.entries.firstOrNull { it.name == name }
+            } ?: FolioThemeName.LIGHT
 
             FolioRoot(
                 repository = graph.repository,
                 habitRepository = graph.habits,
                 importProgress = progress,
                 theme = theme,
-                onThemeChange = { theme = it },
+                onThemeChange = { chosen ->
+                    lifecycleScope.launch { graph.habits.setTheme(chosen.name) }
+                },
                 onChooseFile = { pickBook.launch(SUPPORTED_MIME_TYPES) },
                 onDismissImport = { activeImportId = null },
             )
