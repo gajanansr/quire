@@ -878,3 +878,27 @@ rather than silently stored.
 
 Next: the habit screens and the Library card on real data, which removes the last
 placeholder in the app.
+
+### 2026-09-11 10:35 — Habit screens; the last placeholder is gone. 387 tests
+
+Screenshots: `08-library-habits.png`, `09-streak.png`.
+
+Seeded ten days of real history on the device — including two missed days — and the
+Library now reads "3 day reading streak · 14 min today", with the habit card showing
+"3-day streak / Today's goal is done." **Every number on the Library screen is now
+derived from stored data.** No placeholder remains anywhere in the app.
+
+The seven-day strip and the four-week heatmap both draw **empty cells for days with
+no reading**. That is deliberate: showing only the days someone read would make every
+reader look perfect, which is a flattering chart rather than a record of a habit.
+The gaps are the honest part.
+
+Copy adapts to what actually happened rather than assuming success:
+
+- No streak yet → "Start a reading habit" and "Read today to begin a streak."
+- A broken streak → "Your longest run was N days. Today can start the next."
+- Seven days → the handoff's "You've read every day this week."
+
+A reader on their first day is never congratulated on a week they have not had.
+
+Remaining in Plan 5: Settings (Task 6) and the share sheets (Task 7).
