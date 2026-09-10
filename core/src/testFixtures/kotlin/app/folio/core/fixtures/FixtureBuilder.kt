@@ -194,14 +194,23 @@ object Fixtures {
                 acc
             }
 
+    /**
+     * Six pages of continuous prose.
+     *
+     * Each page opens with a distinct sentence rather than repeating the same body
+     * text. Identical pages are not what books look like, and they make the header
+     * detector behave pathologically: with the same first line on every page, it
+     * correctly concludes that line is running furniture and removes the whole book.
+     */
     fun singleColumnPdf() = cached("single-column.pdf") { f ->
         PDDocument().use { doc ->
-            repeat(6) {
+            repeat(6) { p ->
                 val page = PDPage(PDRectangle.LETTER)
                 doc.addPage(page)
                 PDPageContentStream(doc, page).use { cs ->
                     var y = 720f
-                    wrap(LOREM, 70).forEach { l -> cs.line(l, 11f, 72f, y); y -= 16f }
+                    val body = "Section ${p + 1} begins here with its own opening words. $LOREM"
+                    wrap(body, 70).forEach { l -> cs.line(l, 11f, 72f, y); y -= 16f }
                 }
             }
             doc.save(f)

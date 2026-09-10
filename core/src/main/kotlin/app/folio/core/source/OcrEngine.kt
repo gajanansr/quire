@@ -14,6 +14,15 @@ data class OcrPage(
     val pageIndex: Int,
     val lines: List<OcrLine>,
     val meanConfidence: Float,
+    /**
+     * Pixel size of the rendered image the boxes were measured in.
+     *
+     * Recognition happens on a raster at [app.folio.core.FolioConstants.OCR_RENDER_DPI],
+     * so its coordinates are in pixels, not PDF points. Without the image size the
+     * pipeline cannot convert them and every box lands far outside the page.
+     */
+    val imageWidth: Float,
+    val imageHeight: Float,
 )
 
 /**
@@ -35,28 +44,40 @@ interface PageRasterizer {
 }
 
 /**
- * Converts recognised lines into [TextRun]s.
+ * Converts recognised lines into [TextRun]s in the page's own coordinate space.
  *
  * This is the join that keeps the pipeline honest: once OCR output wears the same
  * shape as extracted text, reflow, structure detection and normalization are
  * literally the same code for a scan as for a text PDF. Nothing downstream needs
  * to know which it was handed.
  *
- * Font size is inferred from the recognised box height, since OCR reports no font.
- * That is enough for the relative-size comparison heading detection relies on.
+ * Scaling is essential, not cosmetic. Boxes arrive in raster pixels; the rest of
+ * the pipeline reasons in PDF points against [target]. Left unscaled, a 300 DPI
+ * page reports coordinates roughly four times the page height, which puts every
+ * line of the book inside the top margin band — where the header detector
+ * reasonably concludes it is running furniture and removes it.
+ *
+ * Font size is inferred from box height, since OCR reports no font. That is enough
+ * for the relative-size comparison heading detection relies on.
  */
-fun OcrPage.toTextRuns(): List<TextRun> = lines
-    .filter { it.text.isNotBlank() }
-    .map { line ->
-        TextRun(
-            text = line.text,
-            x = line.x,
-            y = line.y,
-            width = line.width,
-            height = line.height,
-            fontSize = line.height,
-            fontName = "OCR",
-            bold = false,
-            italic = false,
-        )
-    }
+fun OcrPage.toTextRuns(target: PageGeometry): List<TextRun> {
+    val sx = if (imageWidth > 0f) target.width / imageWidth else 1f
+    val sy = if (imageHeight > 0f) target.height / imageHeight else 1f
+
+    return lines
+        .filter { it.text.isNotBlank() }
+        .map { line ->
+            val height = line.height * sy
+            TextRun(
+                text = line.text,
+                x = line.x * sx,
+                y = line.y * sy,
+                width = line.width * sx,
+                height = height,
+                fontSize = height,
+                fontName = "OCR",
+                bold = false,
+                italic = false,
+            )
+        }
+}

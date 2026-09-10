@@ -126,7 +126,7 @@ class PdfPipeline(
                 val image = rasterizer.rasterize(index, FolioConstants.OCR_RENDER_DPI)
                 ocr.recognize(index, image)
             }.onSuccess { page ->
-                out[index] = PdfPage(geometry, page.toTextRuns())
+                out[index] = PdfPage(geometry, page.toTextRuns(geometry))
                 confidences += page.meanConfidence
             }
         }

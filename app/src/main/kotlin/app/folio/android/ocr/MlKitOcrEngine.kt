@@ -25,12 +25,23 @@ import kotlin.coroutines.resumeWithException
  */
 class MlKitOcrEngine : OcrEngine {
 
-    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    /**
+     * Created on first use, not at construction.
+     *
+     * `TextRecognition.getClient` needs ML Kit's context to be initialized, which
+     * only happens in a real app process. Building it eagerly makes merely
+     * constructing the object graph fail everywhere else — including under
+     * Robolectric, where it took out every JVM-side Android test at once.
+     */
+    private val recognizer by lazy {
+        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    }
 
     override suspend fun recognize(pageIndex: Int, image: ByteArray): OcrPage {
         val bitmap = BitmapFactory.decodeByteArray(image, 0, image.size)
             ?: error("could not decode page $pageIndex for recognition")
         val height = bitmap.height
+        val width = bitmap.width
 
         return try {
             val text = suspendCancellableCoroutine { cont ->
@@ -58,6 +69,8 @@ class MlKitOcrEngine : OcrEngine {
                 lines = lines,
                 meanConfidence = if (lines.isEmpty()) 0f
                 else lines.map { it.confidence }.average().toFloat(),
+                imageWidth = width.toFloat(),
+                imageHeight = height.toFloat(),
             )
         } finally {
             bitmap.recycle()

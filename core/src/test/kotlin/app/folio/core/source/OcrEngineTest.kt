@@ -11,10 +11,12 @@ import kotlin.test.assertTrue
 
 class OcrEngineTest {
 
+    private val letter = PageGeometry(0, 612f, 792f)
+
     @Test
     fun `ocr output converts to text runs with positions preserved`() = runBlocking {
         val engine = FakeOcrEngine({ listOf("First recognised line", "Second recognised line") })
-        val runs = engine.recognize(0, ByteArray(0)).toTextRuns()
+        val runs = engine.recognize(0, ByteArray(0)).toTextRuns(PageGeometry(0, 612f, 792f))
 
         assertEquals(2, runs.size)
         assertEquals("First recognised line", runs[0].text)
@@ -26,7 +28,7 @@ class OcrEngineTest {
     @Test
     fun `blank recognised lines are dropped`() = runBlocking {
         val engine = FakeOcrEngine({ listOf("real text", "   ", "more text") })
-        assertEquals(2, engine.recognize(0, ByteArray(0)).toTextRuns().size)
+        assertEquals(2, engine.recognize(0, ByteArray(0)).toTextRuns(PageGeometry(0, 612f, 792f)).size)
     }
 
     @Test
@@ -39,7 +41,7 @@ class OcrEngineTest {
                 "coherent system, which is the whole point.",
             )
         })
-        val runs = engine.recognize(0, ByteArray(0)).toTextRuns()
+        val runs = engine.recognize(0, ByteArray(0)).toTextRuns(PageGeometry(0, 612f, 792f))
         val page = PdfPage(PageGeometry(0, 612f, 792f), runs)
         val blocks = ParagraphAssembler().assemble(LineAssembler().assemble(page))
 
@@ -48,6 +50,19 @@ class OcrEngineTest {
             text.contains("Distributed systems are a collection of independent computers"),
             "OCR lines did not reflow into a paragraph: $text",
         )
+    }
+
+    @Test
+    fun `boxes are scaled from raster pixels into page space`() = runBlocking {
+        // A 300 DPI raster of a Letter page is 2550x3300 px. Unscaled, every line
+        // would sit far above the page and the header detector would delete the book.
+        val engine = FakeOcrEngine({ listOf("a line near the top") })
+        val raw = engine.recognize(0, ByteArray(0))
+        val big = raw.copy(imageWidth = 2550f, imageHeight = 3300f)
+
+        val run = big.toTextRuns(letter).single()
+        assertTrue(run.y in 0f..792f, "y ${run.y} escaped the page")
+        assertTrue(run.x in 0f..612f, "x ${run.x} escaped the page")
     }
 
     @Test

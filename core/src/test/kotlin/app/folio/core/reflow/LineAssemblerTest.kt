@@ -108,7 +108,10 @@ class LineAssemblerTest {
         PdfBoxTextSource(Fixtures.singleColumnPdf()).use { s ->
             val lines = assembler.assemble(s.page(0))
             assertTrue(lines.size >= 5, "expected several lines, got ${lines.size}")
-            assertTrue(lines.first().text.startsWith("Distributed"))
+            assertTrue(
+                lines.first().text.startsWith("Section 1 begins here"),
+                "unexpected first line: ${lines.first().text}",
+            )
             // Descending y, since the origin is bottom-left.
             val ys = lines.map { it.y }
             assertEquals(ys.sortedDescending(), ys, "lines not ordered top to bottom")

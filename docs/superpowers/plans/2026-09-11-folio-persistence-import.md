@@ -211,7 +211,7 @@ process death resumes at its last completed stage rather than restarting.
 
 ---
 
-### Task 7: `FolioApp` wiring
+### [done] Task 7: `FolioApp` wiring
 
 **Files:**
 - Create: `app/src/main/kotlin/app/folio/android/FolioApp.kt`
@@ -223,7 +223,7 @@ holder is clearer than a library.
 
 ---
 
-### Task 8: Instrumented tests on the emulator
+### [done] Task 8: Instrumented tests on the emulator
 
 **Files:**
 - Create: `app/src/androidTest/kotlin/app/folio/android/OcrInstrumentedTest.kt`

@@ -1,7 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
     <application
+        android:name=".FolioApp"
         android:label="Folio"
         android:allowBackup="false"
-        android:supportsRtl="true" />
+        android:supportsRtl="true">
+
+        <!--
+          Folio provides its own WorkManager configuration so ImportWorker can be
+          constructed with its dependencies. The default initializer must be removed
+          or it wins the race and the custom factory is never used.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+    </application>
 </manifest>

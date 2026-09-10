@@ -29,7 +29,7 @@ class FakeOcrEngine(
                 confidence = confidence,
             ).also { y -= 16f }
         }
-        return OcrPage(pageIndex, lines, confidence)
+        return OcrPage(pageIndex, lines, confidence, imageWidth = 612f, imageHeight = 792f)
     }
 }
 

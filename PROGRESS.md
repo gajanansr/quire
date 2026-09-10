@@ -28,7 +28,7 @@ Append to the log; never rewrite history.
 ## Plan sequence
 
 - [x] Plan 1 — `:core` pipeline **COMPLETE** (153 tests) · `docs/superpowers/plans/2026-09-11-folio-pipeline.md`
-- [ ] Plan 2 — persistence + import · `docs/superpowers/plans/2026-09-11-folio-persistence-import.md`
+- [x] Plan 2 — persistence + import **COMPLETE** (216 JVM + 14 device tests)
 - [ ] Plan 3 — design system + Library/Details UI · *to be written*
 - [ ] Plan 4 — reader + pagination + bookmarks · *to be written*
 - [ ] Plan 5 — habits, errors, polish · *to be written*
@@ -414,3 +414,49 @@ Gate: `./scripts/check.sh` → 215 tests, 0 failures.
 
 Only two things left in Plan 2: `FolioApp` wiring (Task 7) and the instrumented
 import tests (Task 8).
+
+### 2026-09-11 04:35 — PLAN 2 COMPLETE. 216 JVM tests + 14 device tests, all green
+
+Gates: `./scripts/check.sh` → 216, 0 failures. `./scripts/check-device.sh` → 14, 0 failures.
+
+Tasks 7–8 done: `FolioApp` wires the graph and supplies WorkManager's factory, and
+the instrumented suite runs the whole import path on device with **no fakes below the
+picker** — real `PdfRenderer`, real ML Kit, real Room.
+
+**The device suite immediately earned its keep by catching a bug nothing else could.**
+
+`importsAScannedPdfThroughRealOcr` failed with `EMPTY_DOCUMENT`. ML Kit was working —
+its own test passed — but the whole book was vanishing. Cause: **ML Kit reports boxes
+in raster pixels at 300 DPI, while the pipeline reasons in PDF points.** On a Letter
+page that is a 4× mismatch, so every recognised line landed far above the page's top
+margin band. The header detector then did exactly its job — saw identical lines
+recurring at the top of every page and removed them as running furniture — and deleted
+the entire book.
+
+Two independent defects, both real:
+
+1. *No coordinate conversion.* `OcrPage` now carries the image size it was measured
+   in, and `toTextRuns(target)` scales into page space. A unit test asserts a
+   2550×3300 raster maps back inside a 612×792 page.
+2. *The fixture repeated identical text on all six pages.* Real books do not, and it
+   made the header detector look wrong when it was right. `singleColumnPdf` now opens
+   each page with its own sentence.
+
+**A third bug came from Task 7 itself.** Registering `FolioApp` in the manifest made
+Robolectric instantiate it, and `FolioGraph` built `MlKitOcrEngine()` eagerly —
+`TextRecognition.getClient` needs ML Kit's context, which does not exist off-device.
+That single line of work-in-a-constructor failed **42 tests at once**, across classes
+with nothing to do with OCR. The graph and the recogniser are now both lazy, so
+constructing the object graph does no work and `Application.onCreate` stays cheap.
+
+Worth noting the shape of all three: none were logic errors in the algorithms, which
+are the part with 150 tests. They were seams — pixels versus points, eager versus
+lazy, a fixture that did not resemble a book.
+
+---
+
+## Plan 3 begins: design system and Library UI
+
+From here the work is Compose and the design handoff. Expect the OKLCH conversion
+risk flagged in the spec (§14.1) to be the first real hazard: an unverified transform
+shifts every colour in the app slightly, and it is easy to miss.

@@ -64,7 +64,7 @@ class MlKitOcrEngineTest {
         // as extracted text, so :core's reflow runs over it with no OCR-specific path.
         val image = AndroidPageRasterizer(DeviceFixtures.scannedPdf())
             .rasterize(0, FolioConstants.OCR_RENDER_DPI)
-        val runs = engine.recognize(0, image).toTextRuns()
+        val runs = engine.recognize(0, image).toTextRuns(PageGeometry(0, 612f, 792f))
         assertTrue("no runs produced", runs.isNotEmpty())
 
         val pdfPage = PdfPage(PageGeometry(0, 612f, 792f), runs)
@@ -82,7 +82,7 @@ class MlKitOcrEngineTest {
     fun ordersRecognisedLinesTopToBottom() = runBlocking {
         val image = AndroidPageRasterizer(DeviceFixtures.scannedPdf())
             .rasterize(0, FolioConstants.OCR_RENDER_DPI)
-        val runs = engine.recognize(0, image).toTextRuns()
+        val runs = engine.recognize(0, image).toTextRuns(PageGeometry(0, 612f, 792f))
         val assembled = LineAssembler().assemble(PdfPage(PageGeometry(0, 612f, 792f), runs))
         val ys = assembled.map { it.y }
         assertTrue("lines not ordered top to bottom", ys == ys.sortedDescending())
