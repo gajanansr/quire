@@ -906,3 +906,38 @@ Copy adapts to what actually happened rather than assuming success:
 A reader on their first day is never congratulated on a week they have not had.
 
 Remaining in Plan 5: Settings (Task 6) and the share sheets (Task 7).
+
+### 2026-09-11 11:00 — PLAN 5 COMPLETE. All five plans done. 387 + 15 tests
+
+Final verification, both gates from clean: **387 JVM tests, 15 device tests, zero
+failures.** Screenshot: `10-settings.png`.
+
+- **Settings** — grouped cards on the soft canvas, Reading / Library / About.
+  Chevrons appear only on rows that do something, so the affordance matches the
+  behaviour. "Imported books: 4" is real. "Your books · Never leave this device" says
+  the privacy guarantee plainly instead of burying it in a policy.
+- **Share sheets** — the 9:16 story card for a quote and for a streak, caption row,
+  destinations.
+
+**Share destinations use plain glyphs, not brand marks.** The handoff is explicit
+that no real logos were used and none should be added without the actual SDKs and
+brand guidelines. Drawing a recognisable mark without permission is a trademark
+problem rather than a design shortcut, so "Save" is the destination that genuinely
+works and the rest hand off to the system share sheet.
+
+---
+
+## All five plans are complete
+
+Import, processing, OCR, storage, Library, Book Details, the Reader, and the habit
+system all work on a real device with real books, on real recorded data.
+
+**Deliberately not built**, each for a stated reason:
+
+- **Text highlights.** Bookmarks cover the load-bearing half — marking and returning
+  to a place. Colour-picking a selection is polish on top of that.
+- **Real share destinations.** Blocked by the handoff's own instruction about brand
+  marks and SDKs; the sheet and cards exist behind a system-share hand-off.
+- **Cloud sync.** Explicitly out of scope in the spec and the brief.
+- **Onboarding flow.** The goal screen exists as a composable but is not yet wired
+  as a first-run gate.
