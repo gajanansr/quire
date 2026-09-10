@@ -27,7 +27,7 @@ Append to the log; never rewrite history.
 
 ## Plan sequence
 
-- [ ] Plan 1 — `:core` pipeline · `docs/superpowers/plans/2026-09-11-folio-pipeline.md`
+- [x] Plan 1 — `:core` pipeline **COMPLETE** (153 tests) · `docs/superpowers/plans/2026-09-11-folio-pipeline.md`
 - [ ] Plan 2 — persistence + import (Room, WorkManager, SAF) · *to be written*
 - [ ] Plan 3 — design system + Library/Details UI · *to be written*
 - [ ] Plan 4 — reader + pagination + bookmarks · *to be written*
@@ -239,3 +239,40 @@ the label and takes its name from the strongest member — the typographic title
 than the label — so the table of contents reads "The Weight of Silence".
 
 Next: Task 17 — `ScannedDetector`.
+
+### 2026-09-11 02:55 — PLAN 1 COMPLETE. Tasks 17–20 done, 153 tests green
+
+Gate: `./gradlew :core:test --rerun-tasks` → 153 tests, 0 failures, 20 test classes.
+
+- **Task 17** `ScannedDetector`. Sampled median chars/page. Samples the head plus a
+  spread of the tail, capped at 40 pages, so classifying a 400-page book does not
+  cost as much as extracting it. A healthy book with the odd image page is left
+  alone — those are plates, and the median is what says so.
+- **Task 18** `OcrEngine` / `PageRasterizer` interfaces and fakes. `toTextRuns()` is
+  the join that matters: once OCR output wears the same shape as extracted text,
+  reflow, structure detection and normalization are *literally the same code* for a
+  scan as for a text PDF. A test asserts OCR lines reflow through that path.
+- **Task 19** `PdfPipeline` + `Normalizer`. Per-page OCR only where a text layer is
+  missing, folded back into the page stream. A page that fails to recognise is
+  skipped rather than aborting the import. Passed first run.
+- **Task 20** `FormatDetector` and the end-to-end suite. Detection is by signature,
+  not extension, so the PNG named `.epub` is refused at the door instead of failing
+  confusingly inside a parser.
+
+**Plan 1 delivers a complete, tested book-processing library with no Android
+dependency.** EPUB, TXT, text PDF and scanned PDF all normalize into the same model;
+every fixture either imports Ready or fails with a reason, and nothing throws.
+
+The end-to-end suite pins the reader's contract directly: for every format, chapter
+offsets are cumulative, `totalChars` reconciles, position START is 0% and the end of
+the last chapter is exactly 100%. Those are the invariants resume depends on.
+
+---
+
+## Plan 2 begins: persistence and import
+
+Next up is the first Android module. Expect friction the pipeline did not have:
+AGP 9.4.0, Room 2.8.5 with KSP 2.3.12 (the reason Kotlin is pinned to 2.3.21),
+WorkManager 2.11.2, and the emulator. The AVD `folio_test` boots headless in ~40s.
+
+Writing Plan 2 next.

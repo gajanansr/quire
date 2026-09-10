@@ -1145,24 +1145,24 @@ Order of authority: PDF outline, then EPUB spine, then scored heuristics. **With
 confident signal, return a single chapter containing every block.** Test that explicitly
 against a fixture with no headings.
 
-**Task 17 — Scanned detection.** `core/pdf/ScannedDetector.kt`. Produces
+**[done] Task 17 — Scanned detection.** `core/pdf/ScannedDetector.kt`. Produces
 `class ScannedDetector { fun classify(source: PdfTextSource): ScanVerdict }` with
 `data class ScanVerdict(isScanned: Boolean, medianCharsPerPage: Int, pagesNeedingOcr: List<Int>)`.
 Samples the first 5 pages plus 10% of the rest. Must classify `Fixtures.imageOnlyPdf()`
 as scanned and `Fixtures.singleColumnPdf()` as not.
 
-**Task 18 — OCR interface and fake.** `core/source/OcrEngine.kt` produces
+**[done] Task 18 — OCR interface and fake.** `core/source/OcrEngine.kt` produces
 `data class OcrLine(text, x, y, width, height, confidence)`,
 `data class OcrPage(pageIndex, lines, meanConfidence)`,
 `interface OcrEngine { suspend fun recognize(pageIndex: Int, image: ByteArray): OcrPage }`.
 Test fake returns known text so OCR-output reflow is testable with no device.
 `OcrPage` maps to `List<TextRun>` so everything downstream is shared with text PDFs.
 
-**Task 19 — PDF pipeline.** `core/pdf/PdfPipeline.kt`. Produces
+**[done] Task 19 — PDF pipeline.** `core/pdf/PdfPipeline.kt`. Produces
 `class PdfPipeline(source, ocr, rasterizer) { suspend fun process(id: String): Book }`
 composing classify → optional OCR → reflow → chapter detection → normalize.
 
-**Task 20 — Normalizer and end-to-end tests.** `core/normalize/Normalizer.kt` produces
+**[done] Task 20 — Normalizer and end-to-end tests.** `core/normalize/Normalizer.kt` produces
 `class Normalizer { fun assemble(...): Book }` computing cumulative char offsets.
 End-to-end tests assert every fixture — including `corruptPdf`, `unsupportedFile`, and
 `largeBook` — produces either a `Ready` book or a `Failed` book with the right
