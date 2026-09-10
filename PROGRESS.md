@@ -1,5 +1,32 @@
 # Folio — Build Progress
 
+## Where things stand
+
+**Plans 1–4 complete. 337 JVM tests + 15 device tests, all passing.**
+The app installs, runs, imports real books, and reads them.
+
+| | |
+|---|---|
+| Verify (JVM) | `./scripts/check.sh` |
+| Verify (device) | `./scripts/check-device.sh` |
+| Run it | `./gradlew :app:assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk` |
+| Screenshots | `docs/screenshots/` |
+| Spec | `docs/superpowers/specs/2026-09-11-folio-android-design.md` |
+| Plans | `docs/superpowers/plans/` |
+
+**Working end to end:** import (EPUB, TXT, text PDF, scanned PDF via real on-device
+ML Kit OCR) → reflow and chapter detection → Library → Book Details → Reader with
+measured pagination, page turns, typography, table of contents, four themes,
+bookmarks, and a PDF fallback for books that could not be reflowed. Reading position
+persists and resumes exactly, including across a type-size change.
+
+**Not yet built (Plan 5):** reading sessions, daily goals, streaks, XP, levels,
+milestones, the share sheets, the Settings screen, and text highlights.
+
+**One open question for you** is recorded under "Open questions" below.
+
+---
+
 State file for the autonomous overnight build. **Read this first on every wake-up.**
 Append to the log; never rewrite history.
 
@@ -748,3 +775,21 @@ that.
 Highlights are deferred with the share sheets; bookmarks were the load-bearing half.
 
 Remaining in Plan 4: the PDF fallback viewer (Task 8) and the bookmarks list screen.
+
+### 2026-09-11 08:50 — PLAN 4 COMPLETE. The Reader is finished. 337 + 15 tests
+
+Tasks 8–9 done.
+
+- **PDF fallback viewer.** A book Folio could not reflow confidently is offered as
+  its original pages rather than rejected, which the brief asks for explicitly.
+  Pages rasterize lazily and cache once seen; rendering a long PDF up front would be
+  gigabytes of bitmap.
+- **Bookmarks list** across the whole library, each row showing the passage rather
+  than a position — a chapter and offset mean nothing to someone scanning a list.
+
+Verified against the live device database rather than inferred: one bookmark stored
+with snippet "What the River Kept", reading position at chapter 1 offset 40,
+progress 0.42.
+
+**Plans 1–4 are complete.** Import, processing, storage, the Library, Book Details
+and the Reader all work on a real device with real books.
