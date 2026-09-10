@@ -102,7 +102,7 @@ Nothing else can be trusted until the build itself is proven. This task exists t
 - Consumes: nothing
 - Produces: a working `./gradlew :core:test` command that every later task depends on
 
-- [ ] **Step 1: Generate the Gradle wrapper**
+- [x] **Step 1: Generate the Gradle wrapper**
 
 There is no Gradle on this machine. Bootstrap it with Homebrew, then immediately pin the wrapper so the Homebrew version stops mattering.
 
@@ -112,7 +112,7 @@ cd /Users/gajananrathod/Documents/Gajanan/my-projects/folio
 gradle wrapper --gradle-version 9.7.1
 ```
 
-- [ ] **Step 2: Write the version catalog**
+- [x] **Step 2: Write the version catalog**
 
 Create `gradle/libs.versions.toml`:
 
@@ -138,7 +138,7 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ```
 
-- [ ] **Step 3: Write the build files**
+- [x] **Step 3: Write the build files**
 
 `settings.gradle.kts`:
 
@@ -191,7 +191,7 @@ tasks.test {
 }
 ```
 
-- [ ] **Step 4: Write the smoke test**
+- [x] **Step 4: Write the smoke test**
 
 Create `core/src/test/kotlin/app/folio/core/ToolchainTest.kt`. This asserts the two things most likely to be misconfigured: the JVM target, and that PDFBox 2.x (not 3.x) is on the test classpath.
 
@@ -224,7 +224,7 @@ class ToolchainTest {
 
 Add `testImplementation(kotlin("test"))` to `core/build.gradle.kts` dependencies for `assertEquals`/`assertTrue`.
 
-- [ ] **Step 5: Run the test and verify it passes**
+- [x] **Step 5: Run the test and verify it passes**
 
 ```bash
 cd /Users/gajananrathod/Documents/Gajanan/my-projects/folio
@@ -236,7 +236,7 @@ Expected: BUILD SUCCESSFUL, 2 tests passed.
 
 If dependency resolution fails on a version, **stop and report which one**. Do not silently bump versions — the pins exist for the reasons in Global Constraints.
 
-- [ ] **Step 6: Write .gitignore additions and commit**
+- [x] **Step 6: Write .gitignore additions and commit**
 
 ```bash
 cd /Users/gajananrathod/Documents/Gajanan/my-projects/folio
