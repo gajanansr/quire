@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Light palette's accent and page colours, converted from the handoff's OKLCH
+  tokens by the same transform FolioColors uses:
+    accent  oklch(0.42 0.09 250)  -> #214F7C
+    bg      oklch(0.985 0.006 70) -> #FDF9F6
+  Hard-coded here because a launcher icon is resolved by the system before any of
+  Folio's code runs, so it cannot be themed at runtime. IcLauncherColorTest pins
+  these to the tokens.
+-->
+<resources>
+    <color name="ic_launcher_background">#FF214F7C</color>
+    <color name="ic_launcher_ink">#FFFDF9F6</color>
+</resources>

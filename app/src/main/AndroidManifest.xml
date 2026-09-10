@@ -2,9 +2,27 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+      Folio makes no network calls. It does not declare INTERNET either, and
+      that is not the same thing: ML Kit's bundled text recogniser runs wholly
+      on-device but its dependency graph pulls in Google's datatransport
+      logging backend, which declares INTERNET for itself and schedules its own
+      uploads. Removing the permission is the enforceable version of the
+      promise Settings makes to the reader — with no INTERNET the OS refuses
+      the socket, whatever a transitive dependency intends.
+
+      The WorkManager permissions that survive the merge (WAKE_LOCK,
+      FOREGROUND_SERVICE, RECEIVE_BOOT_COMPLETED, ACCESS_NETWORK_STATE) are
+      kept on purpose: they schedule and sustain local work — a long OCR import
+      must survive the screen going off — and none of them can move a byte off
+      the device. NoNetworkPermissionTest holds this line.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+
     <application
         android:name=".FolioApp"
         android:label="Folio"
+        android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
         android:supportsRtl="true"
         android:theme="@style/Theme.Folio">

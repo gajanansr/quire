@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Folio "F", taken from Source Serif Semibold — the same face the app sets its
+  wordmark and chapter titles in. The outline is the font's own glyph rather than a
+  drawn approximation, so the icon and the type inside the app are the same letter.
+
+  108dp viewport with the mark sized to a 46dp cap height: that keeps it inside the
+  66dp safe circle whichever mask a launcher applies.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/ic_launcher_ink"
+        android:pathData="M35.261 77V72.982L44.405 72.428H48.354L58.053 72.982V77ZM41.426 77
+        Q41.495 73.467 41.495 69.968Q41.495 66.47 41.495 62.902Q41.495 59.334 41.495 55.801
+        V52.199Q41.495 48.666 41.495 45.133Q41.495 41.599 41.495 38.066Q41.495 34.533 41.426 31
+        H51.056Q51.056 34.464 51.021 37.997Q50.986 41.53 50.986 45.063
+        Q50.986 48.596 50.986 52.199V55.455Q50.986 59.127 50.986 62.729
+        Q50.986 66.331 51.021 69.899Q51.056 73.467 51.056 77ZM46.206 55.663V51.575H62.764V55.663
+        ZM61.239 61.828 59.992 54.693V52.684L61.239 45.756H65.327V61.828ZM35.261 35.018V31
+        H45.444V35.572H44.405ZM67.89 43.262 65.604 32.663 68.514 35.157H46.414V31H72.255
+        L72.739 43.262Z" />
+</vector>
