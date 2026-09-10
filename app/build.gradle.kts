@@ -42,6 +42,9 @@ kotlin {
 
 dependencies {
     implementation(project(":core"))
+    // :core exposes @Serializable model types, so :app needs the runtime too.
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.coroutines.core)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
