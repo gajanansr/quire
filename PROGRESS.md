@@ -29,7 +29,7 @@ Append to the log; never rewrite history.
 
 - [x] Plan 1 — `:core` pipeline **COMPLETE** (153 tests) · `docs/superpowers/plans/2026-09-11-folio-pipeline.md`
 - [x] Plan 2 — persistence + import **COMPLETE** (216 JVM + 14 device tests)
-- [ ] Plan 3 — design system + Library/Details UI · `docs/superpowers/plans/2026-09-11-folio-design-system-library.md`
+- [x] Plan 3 — design system + Library/Details UI **COMPLETE** (287 JVM + 15 device)
 - [ ] Plan 4 — reader + pagination + bookmarks · *to be written*
 - [ ] Plan 5 — habits, errors, polish · *to be written*
 

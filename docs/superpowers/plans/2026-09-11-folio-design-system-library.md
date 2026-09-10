@@ -184,7 +184,7 @@ book has one.
 
 ---
 
-### Task 6: Book Details
+### [done] Task 6: Book Details
 
 **Files:** `details/BookDetailsScreen.kt`, `details/BookDetailsViewModel.kt`
 
@@ -229,7 +229,7 @@ follows the handoff's copy exactly — "Preparing your book…", "Extracting tex
 
 ---
 
-### Task 9: Screenshot pass
+### [done] Task 9: Screenshot pass
 
 **Files:** `app/src/androidTest/.../ScreenshotTest.kt`
 

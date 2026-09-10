@@ -29,14 +29,25 @@ object DeviceFixtures {
 
     fun file(name: String): File {
         val target = File(cacheDir, name)
-        if (target.exists() && target.length() > 0) return target
+        val ctx = InstrumentationRegistry.getInstrumentation().context
+
+        // Cache by content length, not merely by name. Caching on existence alone
+        // means a regenerated fixture never reaches the device: the app keeps
+        // serving last week's book and the test silently checks the wrong file.
+        val assetLength = runCatching {
+            ctx.assets.openFd(name).use { it.length }
+        }.getOrElse {
+            // Compressed assets report no length; fall back to reading it.
+            runCatching { ctx.assets.open(name).use { it.readBytes().size.toLong() } }
+                .getOrDefault(-1L)
+        }
+        if (target.exists() && assetLength > 0 && target.length() == assetLength) return target
 
         // Create the parent at the write site rather than once at init: the cache
         // directory is not guaranteed to exist, and a stale reference to a cleared
         // cache fails the same way.
         target.parentFile?.mkdirs()
 
-        val ctx = InstrumentationRegistry.getInstrumentation().context
         ctx.assets.open(name).use { input ->
             target.outputStream().buffered().use { output -> input.copyTo(output) }
         }

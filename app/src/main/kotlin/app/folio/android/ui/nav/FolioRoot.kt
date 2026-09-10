@@ -18,6 +18,8 @@ import app.folio.android.data.BookRepository
 import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.common.EmptyState
 import app.folio.android.ui.common.ErrorState
+import app.folio.android.ui.details.BookDetailsScreen
+import app.folio.android.ui.details.BookDetailsState
 import app.folio.android.ui.importing.AddBookSheet
 import app.folio.android.ui.importing.ImportProgressScreen
 import app.folio.android.ui.library.LibraryScreen
@@ -26,6 +28,7 @@ import app.folio.android.ui.theme.FolioTheme
 import app.folio.android.ui.theme.FolioThemeName
 import app.folio.android.work.ImportProgress
 import app.folio.core.model.FailureReason
+import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.flow.map
 import java.util.Calendar
 
@@ -45,6 +48,13 @@ fun FolioRoot(
 ) {
     var destination by remember { mutableStateOf(FolioDestination.LIBRARY) }
     var showAddSheet by remember { mutableStateOf(false) }
+    var openBookId by remember { mutableStateOf<String?>(null) }
+    var details by remember { mutableStateOf(BookDetailsState()) }
+
+    LaunchedEffect(openBookId) {
+        val id = openBookId
+        details = if (id == null) BookDetailsState() else loadDetails(repository, id)
+    }
 
     val state by remember(repository) {
         repository.observeLibrary().map { LibraryState(books = it, loading = false) }
@@ -74,10 +84,20 @@ fun FolioRoot(
                     modifier = Modifier.fillMaxSize(),
                 )
 
+                openBookId != null && !details.loading -> BookDetailsScreen(
+                    state = details,
+                    onBack = { openBookId = null },
+                    onContinue = { /* Reader arrives in Plan 4 */ },
+                    onReadOriginal = { /* PDF fallback viewer arrives in Plan 4 */ },
+                    onOpenContents = { /* Contents sheet arrives in Plan 4 */ },
+                    onOpenBookmarks = { openBookId = null; destination = FolioDestination.BOOKMARKS },
+                    modifier = Modifier.fillMaxSize(),
+                )
+
                 destination == FolioDestination.LIBRARY -> LibraryScreen(
                     state = state,
                     hourOfDay = hour,
-                    onOpenBook = { /* Reader arrives in Plan 4 */ },
+                    onOpenBook = { openBookId = it },
                     onAddBook = { showAddSheet = true },
                     onOpenStreak = { /* Streak screen arrives in Plan 5 */ },
                     onOpenBookmarks = { destination = FolioDestination.BOOKMARKS },
@@ -97,8 +117,9 @@ fun FolioRoot(
                 )
             }
 
-            // The pill stays out of the way while a book is being prepared.
-            if (importProgress == null) {
+            // The pill stays out of the way while a book is being prepared, and
+            // while a book's own page is open.
+            if (importProgress == null && openBookId == null) {
                 FolioPillNav(
                     current = destination,
                     onSelect = { destination = it },
@@ -120,11 +141,33 @@ fun FolioRoot(
 }
 
 /**
+ * Reads what Book Details needs for one book.
+ *
+ * Only the current chapter is loaded from disk. Reading every chapter to fill in a
+ * subtitle would defeat the point of storing them separately.
+ */
+private suspend fun loadDetails(
+    repository: BookRepository,
+    bookId: String,
+): BookDetailsState {
+    val entity = repository.find(bookId) ?: return BookDetailsState(loading = false)
+    val position = repository.progressOf(bookId)
+    val chapterTitle = repository.loadChapter(bookId, position.chapterIndex)?.title
+    return BookDetailsState.from(
+        entity = entity,
+        progress = repository.storedProgress(bookId) ?: 0.0,
+        chapterIndex = position.chapterIndex,
+        chapterTitle = chapterTitle,
+        dailyGoalMinutes = 20,
+    )
+}
+
+/**
  * Turns the worker's failure string back into a reason.
  *
  * WorkManager output data is strings, so this crosses a stringly-typed boundary.
- * An unrecognised value maps to a generic failure rather than crashing — a new
- * reason added later should degrade to a vague message, not an exception.
+ * An unrecognised value maps to a generic failure rather than crashing — a reason
+ * added later should degrade to a vague message, not an exception.
  */
 private fun failureReasonOf(name: String): FailureReason =
     FailureReason.entries.firstOrNull { it.name == name } ?: FailureReason.EXTRACTION_FAILED

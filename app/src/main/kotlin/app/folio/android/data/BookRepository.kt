@@ -94,6 +94,10 @@ class BookRepository(
         )
     }
 
+    /** The stored progress fraction, or null when the book has never been opened. */
+    suspend fun storedProgress(bookId: String): Double? =
+        db.progress().find(bookId)?.progress
+
     /** An unread book resumes at the start rather than reporting "no position". */
     suspend fun progressOf(bookId: String): ReadingPosition =
         db.progress().find(bookId)?.let {
