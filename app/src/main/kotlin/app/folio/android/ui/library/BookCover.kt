@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -56,19 +57,34 @@ fun BookCover(
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier.fillMaxSize().background(CoverGradient.of(bookId)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = title,
-                    color = Color.White.copy(alpha = 0.92f),
-                    textAlign = TextAlign.Center,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(10.dp),
-                )
+                // The same swatch serves a 54dp Continue Reading thumbnail and a
+                // full grid tile. One type size cannot do both: at thumbnail size
+                // a title set for the grid overflows into "A Hist or...".
+                val compact = maxWidth < 90.dp
+                if (!compact) {
+                    Text(
+                        text = title,
+                        color = Color.White.copy(alpha = 0.92f),
+                        textAlign = TextAlign.Center,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(10.dp),
+                    )
+                } else {
+                    // Too small for a legible title; the title is already beside it.
+                    Text(
+                        text = title.take(1).uppercase(),
+                        color = Color.White.copy(alpha = 0.85f),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
+                }
             }
         }
     }

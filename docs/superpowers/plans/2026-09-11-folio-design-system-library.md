@@ -202,7 +202,7 @@ A book with `reflowFailed` shows **Read original PDF** instead of Continue Readi
 
 ---
 
-### Task 7: Add Book and import progress
+### [done] Task 7: Add Book and import progress
 
 **Files:** `importing/AddBookSheet.kt`, `importing/ImportProgressScreen.kt`
 
@@ -217,7 +217,7 @@ follows the handoff's copy exactly — "Preparing your book…", "Extracting tex
 
 ---
 
-### Task 8: Error and empty states
+### [done] Task 8: Error and empty states
 
 **Files:** `common/ErrorState.kt`, `common/EmptyState.kt`
 

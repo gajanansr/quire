@@ -80,7 +80,9 @@ fun LibraryScreen(
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         modifier = modifier.fillMaxSize().background(colors.bg),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 110.dp),
+        // The floating pill sits ~88dp tall including its inset; the last row's
+        // title needs to clear it, not sit behind it.
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 150.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
