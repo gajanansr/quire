@@ -69,3 +69,28 @@ Two version traps found and avoided before any code was written:
   APIs the Android implementation does not have.
 
 Next: Plan 1, Task 1 — Gradle scaffold and toolchain smoke test.
+
+### 2026-09-11 01:40 — Tasks 1–5 complete, 19 tests green
+
+Gate: `./scripts/check.sh` → BUILD SUCCESSFUL, 19 tests passed.
+
+- **Task 1** Gradle scaffold. Wrapper 9.7.1, Kotlin 2.3.21, JDK 21 toolchain. Every
+  pinned version resolved on first try. Smoke test asserts JDK ≥ 21 and that Apache
+  PDFBox **2.x** is on the test classpath.
+- **Task 2** Fixture corpus — 12 files generated, all verified by assertion rather than
+  by eyeball: `scanned.pdf` (510K) confirmed to have **no** extractable text layer,
+  `single-column.pdf` confirmed to have one, `header-footer.pdf` confirmed to repeat its
+  running header on ≥5 pages, `large.pdf` confirmed at 420 pages.
+- **Task 3** `FolioConstants` — the eight tunables in one place.
+- **Task 4** Normalized model. Character-based `ReadingPosition`; `progressAt` clamps to
+  0..1 rather than throwing on a stale position, and returns 0 for an empty book instead
+  of dividing by zero.
+- **Task 5** TXT parser. Conservative heading detection: a 130-char sentence beginning
+  "Chapter 4" stays body text, and text with no markers becomes one chapter rather than
+  invented structure. Both are explicit tests.
+
+One shell gotcha worth remembering: heredocs into a not-yet-created directory abort the
+whole script. `mkdir -p` first.
+
+Next: Task 6 — EPUB container parsing (`EpubContainer`), against `cleanEpub`,
+`epubNoNav`, and `malformedEpub`.

@@ -273,7 +273,7 @@ Every later task tests against these files. Building them first means reflow is 
   - `fun Fixtures.corruptPdf(): File` — truncated bytes
   - `fun Fixtures.unsupportedFile(): File` — a PNG named `.epub`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```kotlin
 package app.folio.core.fixtures
@@ -318,7 +318,7 @@ class FixtureBuilderTest {
 }
 ```
 
-- [ ] **Step 2: Run it to confirm it fails**
+- [x] **Step 2: Run it to confirm it fails**
 
 ```bash
 ./gradlew :core:test --tests '*FixtureBuilderTest*'
@@ -326,7 +326,7 @@ class FixtureBuilderTest {
 
 Expected: FAIL — `Fixtures` unresolved.
 
-- [ ] **Step 3: Implement the fixture builder**
+- [x] **Step 3: Implement the fixture builder**
 
 Create `core/src/test/kotlin/app/folio/core/fixtures/FixtureBuilder.kt`. Fixtures are generated once and cached on disk; regenerate if absent.
 
@@ -609,7 +609,7 @@ object Fixtures {
 }
 ```
 
-- [ ] **Step 4: Run the tests and verify they pass**
+- [x] **Step 4: Run the tests and verify they pass**
 
 ```bash
 ./gradlew :core:test --tests '*FixtureBuilderTest*'
@@ -619,7 +619,7 @@ Expected: PASS, 3 tests.
 
 Note `twoColumnPdf` has a deliberate compile error in the draft above (`cs.line(l, 10f, 60f)` is missing its `y` argument). Fix it to `cs.line(l, 10f, 60f, y)`. This is the kind of thing the compiler catches immediately — do not "fix" it by changing the `line` signature.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -637,7 +637,7 @@ git commit -m "test: generated fixture corpus for every supported and unsupporte
 **Interfaces:**
 - Produces: `object FolioConstants` with the fields below. Every later task reads thresholds from here.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```kotlin
 package app.folio.core
@@ -659,9 +659,9 @@ class FolioConstantsTest {
 }
 ```
 
-- [ ] **Step 2: Run it, confirm it fails** — `./gradlew :core:test --tests '*FolioConstantsTest*'`, FAIL, unresolved.
+- [x] **Step 2: Run it, confirm it fails** — `./gradlew :core:test --tests '*FolioConstantsTest*'`, FAIL, unresolved.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```kotlin
 package app.folio.core
@@ -699,8 +699,8 @@ object FolioConstants {
 }
 ```
 
-- [ ] **Step 4: Run, verify pass.**
-- [ ] **Step 5: Commit** — `git commit -am "feat: centralize tunable heuristic thresholds"`
+- [x] **Step 4: Run, verify pass.**
+- [x] **Step 5: Commit** — `git commit -am "feat: centralize tunable heuristic thresholds"`
 
 ---
 
@@ -726,7 +726,7 @@ object FolioConstants {
   - `data class ReadingPosition(chapterIndex, blockIndex, charOffset)`
   - `fun Book.progressAt(position: ReadingPosition): Double`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```kotlin
 package app.folio.core.model
@@ -773,9 +773,9 @@ class ModelTest {
 }
 ```
 
-- [ ] **Step 2: Run it, confirm it fails.**
+- [x] **Step 2: Run it, confirm it fails.**
 
-- [ ] **Step 3: Implement the model**
+- [x] **Step 3: Implement the model**
 
 `ContentBlock.kt`:
 
@@ -924,8 +924,8 @@ fun Book.progressAt(position: ReadingPosition): Double {
 }
 ```
 
-- [ ] **Step 4: Run the tests, verify pass.**
-- [ ] **Step 5: Commit** — `git commit -am "feat: normalized book model with character-based positions"`
+- [x] **Step 4: Run the tests, verify pass.**
+- [x] **Step 5: Commit** — `git commit -am "feat: normalized book model with character-based positions"`
 
 ---
 
@@ -941,7 +941,7 @@ Simplest complete path through the pipeline — proves the model before harder f
 - Consumes: `Book`, `Chapter`, `ContentBlock`, `SourceFormat` (Task 4); `Fixtures.plainTxt()` (Task 2)
 - Produces: `class TxtParser { fun parse(file: java.io.File, id: String): Book }`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```kotlin
 package app.folio.core.txt
@@ -993,9 +993,9 @@ class TxtParserTest {
 }
 ```
 
-- [ ] **Step 2: Run it, confirm it fails.**
+- [x] **Step 2: Run it, confirm it fails.**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```kotlin
 package app.folio.core.txt
@@ -1067,8 +1067,8 @@ class TxtParser {
 }
 ```
 
-- [ ] **Step 4: Run the tests, verify pass.** Fix the parser, not the tests, if `detects chapter headings` fails — the fixture has `Chapter 1` and `Chapter 2` on their own lines.
-- [ ] **Step 5: Commit** — `git commit -am "feat: TXT parser with conservative chapter grouping"`
+- [x] **Step 4: Run the tests, verify pass.** Fix the parser, not the tests, if `detects chapter headings` fails — the fixture has `Chapter 1` and `Chapter 2` on their own lines.
+- [x] **Step 5: Commit** — `git commit -am "feat: TXT parser with conservative chapter grouping"`
 
 ---
 
