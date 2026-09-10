@@ -56,21 +56,21 @@ day on stop. Rolls up into `ReadingDay`.
 
 ---
 
-### Task 3: Goal selection
+### [done] Task 3: Goal selection
 
 The onboarding "How much would you like to read today?" screen and the Settings row.
 5 / 10 / 20 / 30, with 5 marked Recommended per the handoff.
 
 ---
 
-### Task 4: Streak, milestones and level screens
+### [done] Task 4: Streak, milestones and level screens
 
 The 4×7 heatmap, the milestone cards (achieved filled, locked outline, no numeric
 badges), and the level list with the current one as a filled accent pill.
 
 ---
 
-### Task 5: Library habit card on real data
+### [done] Task 5: Library habit card on real data
 
 Replace the placeholder strip with the real 7-day history and streak.
 

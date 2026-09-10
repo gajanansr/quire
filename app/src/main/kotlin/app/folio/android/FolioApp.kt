@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.work.Configuration
 import app.folio.android.data.BookRepository
 import app.folio.android.data.BookStore
+import app.folio.android.data.HabitRepository
 import app.folio.android.data.FolioDatabase
 import app.folio.android.importer.BookImporter
 import app.folio.android.importer.ContentResolverUriOpener
@@ -61,6 +62,8 @@ class FolioGraph(context: Context) {
     val store: BookStore by lazy { BookStore(app.filesDir) }
 
     val repository: BookRepository by lazy { BookRepository(database, store) }
+
+    val habits: HabitRepository by lazy { HabitRepository(database) }
 
     val importProgress: ImportProgressStore by lazy { ImportProgressStore(store) }
 

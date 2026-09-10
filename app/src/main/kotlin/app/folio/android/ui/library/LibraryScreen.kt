@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.folio.android.data.HabitSummary
 import app.folio.android.data.LibraryBook
 import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.common.EmptyState
@@ -45,6 +46,7 @@ import kotlin.math.roundToInt
 @Composable
 fun LibraryScreen(
     state: LibraryState,
+    habits: HabitSummary,
     hourOfDay: Int,
     onOpenBook: (String) -> Unit,
     onAddBook: () -> Unit,
@@ -65,7 +67,7 @@ fun LibraryScreen(
                 .background(colors.bg)
                 .padding(horizontal = 20.dp),
         ) {
-            LibraryHeader(hourOfDay, state, onOpenBookmarks, onOpenSettings)
+            LibraryHeader(hourOfDay, state, habits, onOpenBookmarks, onOpenSettings)
             EmptyState(
                 title = FolioStrings.LIBRARY_EMPTY,
                 hint = FolioStrings.LIBRARY_EMPTY_HINT,
@@ -88,8 +90,8 @@ fun LibraryScreen(
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
-                LibraryHeader(hourOfDay, state, onOpenBookmarks, onOpenSettings)
-                HabitCard(onClick = onOpenStreak)
+                LibraryHeader(hourOfDay, state, habits, onOpenBookmarks, onOpenSettings)
+                HabitCard(habits = habits, onClick = onOpenStreak)
                 state.continueReading?.let { book ->
                     Spacer(Modifier.height(20.dp))
                     ContinueReadingCard(book, onClick = { onOpenBook(book.id) })
@@ -116,6 +118,7 @@ fun LibraryScreen(
 private fun LibraryHeader(
     hourOfDay: Int,
     state: LibraryState,
+    habits: HabitSummary,
     onOpenBookmarks: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -131,7 +134,7 @@ private fun LibraryHeader(
                 style = MaterialTheme.typography.headlineMedium,
             )
             Text(
-                text = subtitleFor(state),
+                text = subtitleFor(state, habits),
                 color = colors.muted,
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -143,17 +146,29 @@ private fun LibraryHeader(
 }
 
 /**
- * The header's second line.
+ * The header's second line — the handoff's "7 day reading streak · 12 min today",
+ * built from real data.
  *
- * The handoff shows "7 day reading streak · 12 min today". Until the habit system
- * exists (Plan 5) this reports what is actually known — how many books are in the
- * library — rather than a fabricated streak. Showing an invented "7 day streak" to
- * someone on their first day would be a lie the design never intended.
+ * Each half appears only when it is true. A reader on their first day is told how
+ * many books they have, not handed an invented streak.
  */
-private fun subtitleFor(state: LibraryState): String = when (state.books.size) {
-    0 -> ""
-    1 -> "1 book in your library"
-    else -> "${state.books.size} books in your library"
+private fun subtitleFor(state: LibraryState, habits: HabitSummary): String {
+    val parts = buildList {
+        if (habits.currentStreak > 0) {
+            add(
+                if (habits.currentStreak == 1) "1 day reading streak"
+                else "${habits.currentStreak} day reading streak"
+            )
+        }
+        if (habits.minutesToday > 0) add("${habits.minutesToday} min today")
+    }
+    if (parts.isNotEmpty()) return parts.joinToString(" · ")
+
+    return when (state.books.size) {
+        0 -> ""
+        1 -> "1 book in your library"
+        else -> "${state.books.size} books in your library"
+    }
 }
 
 @Composable
@@ -172,8 +187,10 @@ private fun IconButtonBox(onClick: () -> Unit, description: String) {
 }
 
 @Composable
-private fun HabitCard(onClick: () -> Unit) {
+private fun HabitCard(habits: HabitSummary, onClick: () -> Unit) {
     val colors = Folio.colors
+    val week = habits.week()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -183,31 +200,52 @@ private fun HabitCard(onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // The real seven days, empty ones included. Drawing only the days that
+        // were read would make every reader look perfect.
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            repeat(7) {
+            week.forEach { day ->
+                val ratio = if (habits.goalMinutes <= 0) 0f
+                else (day.minutes.toFloat() / habits.goalMinutes).coerceIn(0f, 1f)
                 Box(
                     Modifier
                         .size(width = 7.dp, height = 20.dp)
                         .clip(FolioShapes.chip)
-                        .background(colors.border),
+                        .background(
+                            if (ratio <= 0f) colors.border
+                            else colors.accent.copy(alpha = 0.3f + 0.7f * ratio)
+                        ),
                 )
             }
         }
         Spacer(Modifier.size(14.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                FolioStrings.HABIT_STREAK,
+                habitTitle(habits),
                 color = colors.ink,
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                FolioStrings.HABIT_SUBTITLE,
+                habitSubtitle(habits),
                 color = colors.muted,
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
         Text("›", color = colors.muted, style = MaterialTheme.typography.titleLarge)
     }
+}
+
+private fun habitTitle(habits: HabitSummary): String = when {
+    habits.currentStreak >= 7 -> FolioStrings.HABIT_STREAK
+    habits.currentStreak > 0 -> "${habits.currentStreak}-day streak"
+    else -> "Start a reading habit"
+}
+
+private fun habitSubtitle(habits: HabitSummary): String = when {
+    habits.goalMet -> "Today's goal is done."
+    habits.minutesToday > 0 ->
+        "${habits.minutesToday} of ${habits.goalMinutes} minutes today"
+    habits.currentStreak >= 7 -> FolioStrings.HABIT_SUBTITLE
+    else -> "${habits.goalMinutes} minutes a day"
 }
 
 @Composable

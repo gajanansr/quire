@@ -15,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.folio.android.data.BookRepository
+import app.folio.android.data.HabitRepository
+import app.folio.android.data.HabitSummary
 import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.common.EmptyState
 import app.folio.android.ui.common.ErrorState
@@ -24,6 +26,9 @@ import app.folio.android.ui.importing.AddBookSheet
 import app.folio.android.ui.importing.ImportProgressScreen
 import app.folio.android.ui.library.LibraryScreen
 import app.folio.android.ui.bookmarks.BookmarksScreen
+import app.folio.android.ui.habit.LevelScreen
+import app.folio.android.ui.habit.MilestonesScreen
+import app.folio.android.ui.habit.StreakScreen
 import app.folio.android.ui.library.LibraryState
 import app.folio.android.ui.reader.PdfFallbackScreen
 import app.folio.android.ui.reader.ReaderHost
@@ -44,6 +49,7 @@ import java.util.Calendar
 @Composable
 fun FolioRoot(
     repository: BookRepository,
+    habitRepository: HabitRepository,
     importProgress: ImportProgress?,
     theme: FolioThemeName = FolioThemeName.LIGHT,
     onThemeChange: (FolioThemeName) -> Unit = {},
@@ -68,6 +74,11 @@ fun FolioRoot(
 
     val bookmarks by remember(repository) { repository.observeAllBookmarks() }
         .collectAsState(initial = emptyList())
+
+    val habits by remember(habitRepository) { habitRepository.observeSummary() }
+        .collectAsState(initial = HabitSummary())
+
+    var habitScreen by remember { mutableStateOf<HabitScreen?>(null) }
 
     val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
 
@@ -119,12 +130,28 @@ fun FolioRoot(
                     modifier = Modifier.fillMaxSize(),
                 )
 
+                habitScreen == HabitScreen.STREAK -> StreakScreen(
+                    summary = habits,
+                    onContinue = { habitScreen = null },
+                    onShare = { /* Share sheets: Plan 5 Task 7 */ },
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                habitScreen == HabitScreen.MILESTONES -> MilestonesScreen(
+                    summary = habits, modifier = Modifier.fillMaxSize(),
+                )
+
+                habitScreen == HabitScreen.LEVEL -> LevelScreen(
+                    summary = habits, modifier = Modifier.fillMaxSize(),
+                )
+
                 destination == FolioDestination.LIBRARY -> LibraryScreen(
                     state = state,
+                    habits = habits,
                     hourOfDay = hour,
                     onOpenBook = { openBookId = it },
                     onAddBook = { showAddSheet = true },
-                    onOpenStreak = { /* Streak screen arrives in Plan 5 */ },
+                    onOpenStreak = { habitScreen = HabitScreen.STREAK },
                     onOpenBookmarks = { destination = FolioDestination.BOOKMARKS },
                     onOpenSettings = { destination = FolioDestination.SETTINGS },
                 )
@@ -144,7 +171,9 @@ fun FolioRoot(
 
             // The pill stays out of the way while a book is being prepared, and
             // while a book's own page is open.
-            if (importProgress == null && openBookId == null && readingBookId == null) {
+            if (importProgress == null && openBookId == null && readingBookId == null &&
+                habitScreen == null
+            ) {
                 FolioPillNav(
                     current = destination,
                     onSelect = { destination = it },
@@ -196,3 +225,6 @@ private suspend fun loadDetails(
  */
 private fun failureReasonOf(name: String): FailureReason =
     FailureReason.entries.firstOrNull { it.name == name } ?: FailureReason.EXTRACTION_FAILED
+
+/** The habit screens, which sit above the tab destinations rather than beside them. */
+enum class HabitScreen { STREAK, MILESTONES, LEVEL }

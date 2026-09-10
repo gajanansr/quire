@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
 
             FolioRoot(
                 repository = graph.repository,
+                habitRepository = graph.habits,
                 importProgress = progress,
                 theme = theme,
                 onThemeChange = { theme = it },
