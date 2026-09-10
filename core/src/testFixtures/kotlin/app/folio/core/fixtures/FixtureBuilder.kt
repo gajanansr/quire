@@ -24,8 +24,14 @@ import java.util.zip.ZipOutputStream
  */
 object Fixtures {
 
+    /**
+     * Where generated fixtures live. Defaults to the module's test resources, but
+     * instrumented tests override it via `folio.fixtures.dir` because an app on
+     * device cannot write into the project tree.
+     */
     private val root: File by lazy {
-        File("src/test/resources/generated").apply { mkdirs() }
+        val override = System.getProperty("folio.fixtures.dir")
+        File(override ?: "src/test/resources/generated").apply { mkdirs() }
     }
 
     private fun cached(name: String, build: (File) -> Unit): File {

@@ -28,3 +28,22 @@ tasks.test {
     useJUnitPlatform()
     testLogging { events("passed", "failed", "skipped") }
 }
+
+/**
+ * Writes the shared fixture corpus to a directory other modules can package.
+ *
+ * Lives here because Gradle 9 forbids resolving another project's configurations,
+ * and :core owns the testFixtures runtime classpath this needs.
+ */
+val fixtureAssetsDir: java.io.File = layout.buildDirectory.get().asFile
+    .resolve("generated/fixtureAssets")
+
+val generateFixtureAssets by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Generates the test book corpus for instrumented tests."
+    dependsOn(tasks.named("testFixturesClasses"))
+    classpath = sourceSets["testFixtures"].runtimeClasspath
+    mainClass.set("app.folio.core.fixtures.FixtureCli")
+    argumentProviders.add { listOf(fixtureAssetsDir.absolutePath) }
+    outputs.dir(fixtureAssetsDir)
+}

@@ -150,7 +150,7 @@ the same logic against `com.tom_roush.pdfbox`. Package names differ, the API doe
 
 ---
 
-### Task 4: `AndroidPageRasterizer` and `MlKitOcrEngine`
+### [done] Task 4: `AndroidPageRasterizer` and `MlKitOcrEngine`
 
 **Files:**
 - Create: `app/src/main/kotlin/app/folio/android/pdf/AndroidPageRasterizer.kt`
