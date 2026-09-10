@@ -1106,17 +1106,17 @@ one chapter per spine document, titles from nav when present else from the first
 `core/src/test/.../fixtures/PdfBoxTextSource.kt` implements it with Apache PDFBox 2.0.37
 by subclassing `PDFTextStripper` and overriding `writeString(String, List<TextPosition>)`.
 
-**Task 10 — Line assembly.** `core/reflow/LineAssembler.kt`. Produces
+**[done] Task 10 — Line assembly.** `core/reflow/LineAssembler.kt`. Produces
 `data class Line(text, x, y, width, height, medianFontSize, bold, runs)` and
 `class LineAssembler { fun assemble(page: PdfPage): List<Line> }`, clustering runs into
 y-bands with tolerance from median glyph height, ordered top-to-bottom then left-to-right.
 
-**Task 11 — Column detection.** `core/reflow/ColumnDetector.kt`. Produces
+**[done] Task 11 — Column detection.** `core/reflow/ColumnDetector.kt`. Produces
 `class ColumnDetector { fun detect(pages: List<List<Line>>): ColumnLayout }` and
 `sealed interface ColumnLayout { data object Single; data class Multi(val boundaries: List<Float>) }`.
 Applies a split only when consistent across `FolioConstants.COLUMN_CONSISTENCY` of pages.
 
-**Task 12 — Header/footer removal.** `core/reflow/HeaderFooterDetector.kt`. Produces
+**[done] Task 12 — Header/footer removal.** `core/reflow/HeaderFooterDetector.kt`. Produces
 `class HeaderFooterDetector { fun strip(pages: List<List<Line>>): StripResult }` with
 `data class StripResult(pages: List<List<Line>>, removedHeaders: Int, removedFooters: Int, confidence: Double)`.
 Must pass on `Fixtures.headerFooterPdf()`: the running header and the page numbers go,

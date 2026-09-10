@@ -24,6 +24,17 @@ object FolioConstants {
     /** Fraction of pages a line must recur on to count as a running header or footer. */
     const val HEADER_RECURRENCE = 0.50
 
+    /**
+     * Fraction of page height at each edge that can hold a running header or footer.
+     *
+     * Load-bearing and easy to get wrong. On US Letter with 1-inch margins the first
+     * body line sits about 9% down the page, so a band of 0.12 classifies prose as
+     * furniture — and because body lines on consecutive pages often normalize to the
+     * same string, that deletes the top line of every page. Running heads sit above
+     * the text block, nearer 5%.
+     */
+    const val MARGIN_BAND = 0.06f
+
     /** Multiple of median leading that forces a paragraph break. */
     const val PARAGRAPH_GAP_FACTOR = 1.5
 

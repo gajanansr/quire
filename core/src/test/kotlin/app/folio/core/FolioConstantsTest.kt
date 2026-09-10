@@ -14,5 +14,8 @@ class FolioConstantsTest {
         assertTrue(PARAGRAPH_GAP_FACTOR > 1.0)
         assertTrue(OCR_RENDER_DPI in 72..600)
         assertTrue(IDLE_TIMEOUT_MINUTES in 1..30)
+        // A margin band deep enough to reach the text block deletes body text.
+        assertTrue(MARGIN_BAND > 0f && MARGIN_BAND < 0.09f,
+            "MARGIN_BAND $MARGIN_BAND would reach the 1-inch text block")
     }
 }

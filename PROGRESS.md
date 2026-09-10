@@ -135,3 +135,41 @@ the shortfall belongs to the pipeline (Task 19/20), not the text source, and is 
 recorded as an open question below.
 
 Next: Task 10 — `LineAssembler`, clustering runs into lines by y-band.
+
+### 2026-09-11 02:10 — Tasks 10–12 complete, 82 tests green
+
+Gate: `./gradlew :core:test --rerun-tasks` → 82 tests, 0 failures.
+
+- **Task 10** `LineAssembler`. Clusters runs by baseline, tolerance scaled to page
+  type size. Inserts a space between runs only where the producer left a visible gap,
+  so runs split mid-word rejoin without a spurious space.
+- **Task 11** `ColumnDetector` + a column-aware `LineAssembler.assemble` overload.
+  Detection runs on raw runs, not lines, because line assembly merges across a gutter
+  by design and would hide the gap being looked for.
+- **Task 12** `HeaderFooterDetector`. Removes running heads and page numbers; body
+  text survives.
+
+**Three bugs found, all in the direction that destroys content. Worth recording.**
+
+1. *Two-column fixture was unbalanced.* `wrap(LOREM, 34)` produces ~24 lines and my
+   `take(20)`/`drop(20)` split left 20 lines against 4 — the right side carried 17% of
+   the text, so `MIN_SIDE_SHARE` correctly read it as a ragged margin, not a gutter.
+   The detector was right and the fixture was wrong; columns are now split evenly.
+
+2. *Page height was inferred, not supplied.* `strip` derived page height from the
+   tallest line. On a page whose tallest line **is** the running header, the inferred
+   height collapses the margin band onto the body. `strip` now requires real
+   `pageHeights` from document geometry.
+
+3. *`MARGIN_BAND = 0.12` deleted the top line of every page.* On US Letter with 1-inch
+   margins the first body line sits ~9% down, inside a 12% band. Because consecutive
+   pages' body lines normalize to the same string once digits are masked, they looked
+   like a recurring header and were removed. Now 0.06, and promoted from a private
+   companion into `FolioConstants` with the reasoning attached, plus a test asserting
+   it can never again reach the text block.
+
+That third one is the exact failure the conservatism rule exists to prevent, and it
+was only caught because `body text is never removed` asserts the survivors rather
+than just asserting that something was removed. Worth keeping that test shape.
+
+Next: Task 13 — `ParagraphAssembler`.
