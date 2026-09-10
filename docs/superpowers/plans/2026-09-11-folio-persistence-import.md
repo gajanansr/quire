@@ -66,7 +66,7 @@ app/src/main/kotlin/app/folio/android/
 
 ---
 
-### Task 1: Storage layout and `BookStore`
+### [done] Task 1: Storage layout and `BookStore`
 
 **Files:**
 - Create: `app/src/main/kotlin/app/folio/android/data/BookStore.kt`
@@ -100,7 +100,7 @@ app/src/main/kotlin/app/folio/android/
 
 ---
 
-### Task 2: `BookRepository`
+### [done] Task 2: `BookRepository`
 
 **Files:**
 - Create: `app/src/main/kotlin/app/folio/android/data/BookRepository.kt`

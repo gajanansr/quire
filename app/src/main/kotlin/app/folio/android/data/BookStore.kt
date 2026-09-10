@@ -23,14 +23,24 @@ class BookStore(private val root: File) {
         encodeDefaults = true
     }
 
-    fun bookDir(id: String): File = File(root, "books/$id").apply { mkdirs() }
+    /**
+     * A book's directory as a path, with no side effect.
+     *
+     * Deliberately does not create anything. An earlier version called `mkdirs()`
+     * here, which meant merely *reading* a missing chapter recreated the book's
+     * directory — so a deleted book left an empty folder behind every time anything
+     * looked for it. Creation belongs to the write paths only.
+     */
+    fun bookDir(id: String): File = File(root, "books/$id")
+
+    private fun ensureBookDir(id: String): File = bookDir(id).apply { mkdirs() }
 
     private fun chapterFile(id: String, index: Int) =
         File(bookDir(id), "chapters/%03d.json".format(index))
 
     /** Streams rather than buffering: an imported book can be hundreds of megabytes. */
     fun writeOriginal(id: String, source: InputStream, extension: String): File {
-        val target = File(bookDir(id), "original.$extension")
+        val target = File(ensureBookDir(id), "original.$extension")
         target.outputStream().buffered().use { out -> source.copyTo(out, DEFAULT_BUFFER_SIZE) }
         return target
     }
@@ -39,7 +49,7 @@ class BookStore(private val root: File) {
         bookDir(id).listFiles()?.firstOrNull { it.name.startsWith("original.") }
 
     fun writeChapters(id: String, chapters: List<Chapter>) {
-        File(bookDir(id), "chapters").mkdirs()
+        File(ensureBookDir(id), "chapters").mkdirs()
         chapters.forEach { chapter ->
             chapterFile(id, chapter.index).writeText(json.encodeToString(chapter))
         }
@@ -56,14 +66,14 @@ class BookStore(private val root: File) {
         File(bookDir(id), "chapters").listFiles()?.count { it.extension == "json" } ?: 0
 
     fun writeCover(id: String, bytes: ByteArray): String {
-        val f = File(bookDir(id), "cover.jpg")
+        val f = File(ensureBookDir(id), "cover.jpg")
         f.writeBytes(bytes)
         return f.absolutePath
     }
 
     /** Removes every trace of a book. Safe to call on a book that was never written. */
     fun delete(id: String) {
-        File(root, "books/$id").deleteRecursively()
+        bookDir(id).deleteRecursively()
     }
 
     fun freeBytes(): Long = root.usableSpace

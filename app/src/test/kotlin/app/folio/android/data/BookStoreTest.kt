@@ -119,6 +119,15 @@ class BookStoreTest {
     }
 
     @Test
+    fun `reading a missing book does not create its directory`() {
+        val s = store()
+        s.readChapter("ghost", 0)
+        s.chapterCount("ghost")
+        s.originalOf("ghost")
+        assertFalse(File(temp.root, "books/ghost").exists())
+    }
+
+    @Test
     fun `storage headroom accounts for the copy plus its normalized output`() {
         val s = store()
         assertTrue(s.freeBytes() > 0)
