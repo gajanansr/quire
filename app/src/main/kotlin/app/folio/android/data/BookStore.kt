@@ -76,6 +76,11 @@ class BookStore(private val root: File) {
         bookDir(id).deleteRecursively()
     }
 
+    /** Ids of every book directory currently on disk, imported or not. */
+    fun allBookIds(): List<String> =
+        File(root, "books").listFiles()?.filter { it.isDirectory }?.map { it.name }?.sorted()
+            ?: emptyList()
+
     fun freeBytes(): Long = root.usableSpace
 
     /** True when [needed] bytes plus a working margin will fit. */

@@ -387,3 +387,30 @@ Gates: `./scripts/check.sh` → 186 tests, 0 failures.
    the write side instead.
 
 Next: Task 5 — `BookImporter`.
+
+### 2026-09-11 04:10 — Plan 2 Tasks 5–6 complete, 215 tests green
+
+Gate: `./scripts/check.sh` → 215 tests, 0 failures.
+
+- **Task 5** `BookImporter`. Copies *then* identifies, deliberately: the pipeline then
+  works on a stable local file rather than a content URI whose permission can be
+  revoked mid-read, and detection reads the bytes actually kept rather than what the
+  extension claimed. Every failure path funnels through one cleanup, so a
+  half-imported book never reaches the Library — asserted directly. 14 tests covering
+  all four formats plus unsupported, corrupt, empty, and out-of-space.
+  The importer test drives the **production** `AndroidPdfTextSource`, not a JVM
+  stand-in, so it exercises the PDF path the app actually ships.
+
+- **Task 6** `ImportProgressStore`, `ImportWorker`, `FolioWorkerFactory`,
+  `ImportCoordinator`. Unique work per book id with `KEEP`, so a double tap cannot
+  import the same file twice. Progress is written atomically — temp file then rename —
+  because a process killed mid-write would otherwise leave a truncated state file that
+  reads as corrupt on restart; there is a test that a truncated file reads as absent
+  rather than throwing, and another that no `.tmp` survives a save.
+
+  OCR page counts are persisted so a restarted import does not redo recognition it
+  already finished. On a 400-page scan that is the difference between resuming and
+  starting over.
+
+Only two things left in Plan 2: `FolioApp` wiring (Task 7) and the instrumented
+import tests (Task 8).

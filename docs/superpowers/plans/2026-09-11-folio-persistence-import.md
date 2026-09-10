@@ -193,7 +193,7 @@ save. On any failure, delete the directory and return the `FailureReason`.
 
 ---
 
-### Task 6: `ImportWorker` and interrupted-import recovery
+### [done] Task 6: `ImportWorker` and interrupted-import recovery
 
 **Files:**
 - Create: `app/src/main/kotlin/app/folio/android/work/ImportWorker.kt`
