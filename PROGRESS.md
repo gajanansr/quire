@@ -29,7 +29,7 @@ Append to the log; never rewrite history.
 
 - [x] Plan 1 — `:core` pipeline **COMPLETE** (153 tests) · `docs/superpowers/plans/2026-09-11-folio-pipeline.md`
 - [x] Plan 2 — persistence + import **COMPLETE** (216 JVM + 14 device tests)
-- [ ] Plan 3 — design system + Library/Details UI · *to be written*
+- [ ] Plan 3 — design system + Library/Details UI · `docs/superpowers/plans/2026-09-11-folio-design-system-library.md`
 - [ ] Plan 4 — reader + pagination + bookmarks · *to be written*
 - [ ] Plan 5 — habits, errors, polish · *to be written*
 
@@ -460,3 +460,41 @@ lazy, a fixture that did not resemble a book.
 From here the work is Compose and the design handoff. Expect the OKLCH conversion
 risk flagged in the spec (§14.1) to be the first real hazard: an unverified transform
 shifts every colour in the app slightly, and it is easy to miss.
+
+### 2026-09-11 05:00 — Plan 3 written; Tasks 1–3 complete, 230 tests green
+
+Gate: `./scripts/check.sh` → 230 tests, 0 failures.
+
+**The spec's flagged colour risk (§14.1) is closed.** The handoff specifies every
+token in OKLCH and Compose has no OKLCH literal, so an unverified transform would
+have shifted every colour in the app slightly — wrong on every screen and nearly
+invisible in review.
+
+Rather than paste hex values, `oklch()` does the conversion and the palettes are
+written in the handoff's own numbers, so the handoff stays the source of truth. The
+transform is checked against values computed independently from Ottosson's OKLab
+specification: **two implementations of the same spec agreeing on all 23 tokens.** A
+conversion that only agrees with itself would prove nothing.
+
+Sanity of the result is reassuring: light `bg #FDF9F6` is a warm off-white, `ink
+#111B28` a near-black blue, `accent #214F7C` a muted editorial blue.
+
+Also asserted, because they are the kind of thing that silently rots:
+
+- E-ink's palette is **identical** to Light. The handoff says e-ink is a grayscale
+  post-process, so if that equality ever breaks, someone has hand-tuned a fifth
+  palette by mistake.
+- Light's background is lighter than its ink and Dark's is darker — a guard against
+  a copy-paste inversion.
+- Button text clears a luminance delta of 0.3 against its background in all four
+  themes, so no theme ships unreadable buttons.
+
+**Fonts are bundled, not downloaded.** Downloadable Fonts needs Play Services and a
+connection, which would break the offline guarantee for a purely cosmetic reason.
+Eight OFL-1.1 faces (408KB total) are committed as resources with the licence.
+
+One piece of my own work I threw away: the theme file initially carried a
+`private typealias` block whose only purpose was to stop unused imports failing the
+build. That is a hack pretending to be code — the imports are simply gone now.
+
+Next: Task 4 — Pill navigation, then the Library screen on real data.

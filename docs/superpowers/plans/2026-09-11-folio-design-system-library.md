@@ -76,7 +76,7 @@ app/src/main/res/font/        bundled OFL TTFs
 
 ---
 
-### Task 1: OKLCH conversion
+### [done] Task 1: OKLCH conversion
 
 **Files:**
 - Create: `app/src/main/kotlin/app/folio/android/ui/theme/Oklch.kt`
@@ -100,7 +100,7 @@ app/src/main/res/font/        bundled OFL TTFs
 
 ---
 
-### Task 2: Palettes and theme
+### [done] Task 2: Palettes and theme
 
 **Files:**
 - Create: `theme/FolioColors.kt`, `theme/FolioTheme.kt`, `theme/FolioShapes.kt`
@@ -122,7 +122,7 @@ instruction to post-process rather than hand-tune a fifth palette.
 
 ---
 
-### Task 3: Typography
+### [done] Task 3: Typography
 
 **Files:**
 - Create: `theme/FolioType.kt`, `app/src/main/res/font/*.ttf`
