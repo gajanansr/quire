@@ -498,3 +498,47 @@ One piece of my own work I threw away: the theme file initially carried a
 build. That is a hack pretending to be code — the imports are simply gone now.
 
 Next: Task 4 — Pill navigation, then the Library screen on real data.
+
+### 2026-09-11 05:25 — Tasks 4–5 complete. THE APP RUNS. 246 tests green
+
+Gate: `./scripts/check.sh` → 246 tests, 0 failures.
+The APK installs, launches, and renders. Screenshot: `docs/screenshots/01-library-empty.png`.
+
+- **Task 4** Pill navigation — three destinations, only the active one labelled.
+- **Task 5** Library screen, `LibraryState`, `BookCover`, empty and error states,
+  `FolioStrings`, `MainActivity` with the SAF picker, and `FolioRoot`.
+
+**Seeing the screen immediately paid for itself.** "Good evening" was clipped against
+the left edge: the populated branch gets its gutters from the grid's `contentPadding`,
+and the empty branch — having no grid — had none. Every test passed. No test would
+ever have caught it. Fixed and re-verified against a second screenshot.
+
+The rendering confirms the design system is right: the warm off-white ground, the
+Source Serif headline against Work Sans body, the near-black button, and the
+accent-blue pill are all visibly the handoff's palette. The OKLCH work holds up on
+a real screen, not just in assertions.
+
+**Two decisions where I chose honesty over appearance.**
+
+1. *The pill is translucent, not blurred.* The handoff calls it "glass", and my first
+   attempt reached for `Modifier.blur` — which blurs a composable's **own content**,
+   not the backdrop. It would have been decoration that does nothing. Compose has no
+   backdrop-blur API; real backdrop sampling needs a custom RenderNode or
+   window-level `setBackgroundBlurRadius`. The code says so plainly rather than
+   shipping a no-op that looks like an implementation.
+
+2. *The header subtitle reports book count, not a streak.* The handoff shows "7 day
+   reading streak · 12 min today", but the habit system does not exist until Plan 5.
+   Rendering an invented streak to someone on their first day is exactly the "fake
+   streak calculations" the brief forbids, so it shows what is actually known and
+   will show the real streak when there is one.
+
+Also deleted a second piece of my own scaffolding: `FolioNav` briefly had a phantom
+`Box` and an identity `matchParentSizeSafe()` that existed only to make a dead
+`Modifier` chain look used.
+
+`FolioStrings` now centralises copy with two guards: no `FailureReason` name can
+reach the screen, and every pipeline stage maps to the handoff's words — asserted,
+because "ocr" appearing in the UI would violate the brief's no-jargon rule.
+
+Next: Task 6 — Book Details on real data.
