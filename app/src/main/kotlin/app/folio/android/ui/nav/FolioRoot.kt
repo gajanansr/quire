@@ -44,6 +44,7 @@ fun FolioRoot(
     repository: BookRepository,
     importProgress: ImportProgress?,
     theme: FolioThemeName = FolioThemeName.LIGHT,
+    onThemeChange: (FolioThemeName) -> Unit = {},
     onChooseFile: () -> Unit,
     onDismissImport: () -> Unit,
 ) {
@@ -89,6 +90,8 @@ fun FolioRoot(
                 readingBookId != null -> ReaderHost(
                     repository = repository,
                     bookId = readingBookId!!,
+                    theme = theme,
+                    onThemeChange = onThemeChange,
                     onExit = { readingBookId = null },
                     modifier = Modifier.fillMaxSize(),
                 )

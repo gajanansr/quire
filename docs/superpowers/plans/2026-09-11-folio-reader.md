@@ -81,14 +81,14 @@ dismissed, per the handoff.
 
 ---
 
-### Task 5: Typography sheet
+### [done] Task 5: Typography sheet
 
 Font (2×2: Serif/Lora/Sans/System), size stepper 15–24, alignment left/justify, and
 the four theme swatches. Changes apply live and repaginate the current chapter first.
 
 ---
 
-### Task 6: Table of contents
+### [done] Task 6: Table of contents
 
 Flat chapter list, current chapter in accent with a dot marker. Tapping jumps and
 dismisses.

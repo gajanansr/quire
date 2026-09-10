@@ -44,12 +44,28 @@ class BookStoreTest {
     }
 
     @Test
-    fun `chapters are written one file each`() {
+    fun `chapters are written one file each, plus an index`() {
         val s = store()
         s.writeChapters("b1", (0..4).map { chapter(it, "text $it") })
-        val files = File(s.bookDir("b1"), "chapters").listFiles()!!
-        assertEquals(5, files.size)
+        val files = File(s.bookDir("b1"), "chapters").listFiles()!!.map { it.name }
+        assertEquals(5, files.count { it != "index.json" })
+        assertTrue("no chapter index was written", files.contains("index.json"))
+        // The index must not be counted as a chapter.
         assertEquals(5, s.chapterCount("b1"))
+    }
+
+    @Test
+    fun `the chapter index carries titles without content`() {
+        val s = store()
+        s.writeChapters("b1", (0..2).map { chapter(it, "text $it") })
+        val index = s.readChapterIndex("b1")
+        assertEquals(listOf("Chapter 0", "Chapter 1", "Chapter 2"), index.map { it.title })
+        assertEquals(listOf(0, 1, 2), index.map { it.index })
+    }
+
+    @Test
+    fun `a book with no index reports an empty list rather than throwing`() {
+        assertTrue(store().readChapterIndex("never-imported").isEmpty())
     }
 
     @Test

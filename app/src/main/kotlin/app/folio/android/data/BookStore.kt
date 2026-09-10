@@ -1,6 +1,8 @@
 package app.folio.android.data
 
 import app.folio.core.model.Chapter
+import app.folio.core.model.ChapterRef
+import app.folio.core.model.toRef
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.InputStream
@@ -53,6 +55,20 @@ class BookStore(private val root: File) {
         chapters.forEach { chapter ->
             chapterFile(id, chapter.index).writeText(json.encodeToString(chapter))
         }
+        // An index alongside the chapters, so the table of contents costs one read
+        // rather than one per chapter. On a four-hundred-chapter book the
+        // difference is the sheet opening instantly or visibly stalling.
+        indexFile(id).writeText(json.encodeToString(chapters.map { it.toRef() }))
+    }
+
+    private fun indexFile(id: String) = File(bookDir(id), "chapters/index.json")
+
+    /** Chapter titles and offsets without their content. */
+    fun readChapterIndex(id: String): List<ChapterRef> {
+        val f = indexFile(id)
+        if (!f.exists()) return emptyList()
+        return runCatching { json.decodeFromString<List<ChapterRef>>(f.readText()) }
+            .getOrDefault(emptyList())
     }
 
     /** Returns null for a missing or unreadable chapter rather than throwing. */
@@ -63,7 +79,8 @@ class BookStore(private val root: File) {
     }
 
     fun chapterCount(id: String): Int =
-        File(bookDir(id), "chapters").listFiles()?.count { it.extension == "json" } ?: 0
+        File(bookDir(id), "chapters").listFiles()
+            ?.count { it.extension == "json" && it.name != "index.json" } ?: 0
 
     fun writeCover(id: String, bytes: ByteArray): String {
         val f = File(ensureBookDir(id), "cover.jpg")

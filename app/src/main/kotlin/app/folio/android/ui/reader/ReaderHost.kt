@@ -16,7 +16,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.text.rememberTextMeasurer
 import app.folio.android.data.BookRepository
+import app.folio.android.ui.theme.FolioThemeName
+import app.folio.android.ui.theme.ReaderFont
 import app.folio.core.model.Chapter
+import app.folio.core.model.ChapterRef
 import app.folio.core.model.ReadingPosition
 import app.folio.core.paginate.Paginator
 import app.folio.core.paginate.Viewport
@@ -39,11 +42,14 @@ import kotlinx.coroutines.withContext
 fun ReaderHost(
     repository: BookRepository,
     bookId: String,
+    theme: FolioThemeName,
+    onThemeChange: (FolioThemeName) -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var state by remember(bookId) { mutableStateOf(ReaderState()) }
     var viewport by remember { mutableStateOf(Viewport(0f, 0f)) }
+    var contents by remember(bookId) { mutableStateOf<List<ChapterRef>>(emptyList()) }
 
     val composeMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -108,6 +114,36 @@ fun ReaderHost(
         }
     }
 
+    suspend fun persistNow() {
+        repository.saveProgress(bookId, state.position, state.progress)
+    }
+
+    /**
+     * Re-pages after a typography change, keeping the reader in place.
+     *
+     * Runs off the main thread and applies the new pages in one state update, so
+     * changing type size never shows a half-laid-out page.
+     */
+    fun applyPreferences(next: ReaderPreferences) {
+        val chapter = state.chapter
+        if (chapter == null || viewport.widthPx <= 0f) {
+            state = state.copy(preferences = next)
+            return
+        }
+        scope.launch {
+            val pages = withContext(Dispatchers.Default) {
+                Paginator(
+                    ComposeTextMeasurer(composeMeasurer, density, next.font.family()),
+                ).paginate(
+                    chapter, viewport, next.toSettings(pixelsPerSp),
+                    if (state.showsChapterHeader) headerInsetPx() else 0f,
+                )
+            }
+            state = ReaderTransitions.repaginated(state, pages, next)
+            persistNow()
+        }
+    }
+
     fun persist() {
         val snapshot = state
         scope.launch {
@@ -139,6 +175,8 @@ fun ReaderHost(
         }
     }
 
+    LaunchedEffect(bookId) { contents = repository.chapterIndex(bookId) }
+
     Box(modifier = modifier.fillMaxSize()) {
         ReaderScreen(
             onContentSize = { viewport = Viewport(it.width.toFloat(), it.height.toFloat()) },
@@ -152,5 +190,31 @@ fun ReaderHost(
             onBookmark = { /* Task 7 */ },
             onFinish = { persist(); onExit() },
         )
+
+        when (state.overlay) {
+            ReaderOverlay.TYPOGRAPHY -> TypographySheet(
+                preferences = state.preferences,
+                theme = theme,
+                onFontChange = { applyPreferences(state.preferences.copy(font = it)) },
+                onSizeChange = {
+                    applyPreferences(ReaderTransitions.fontSizeChanged(state, it))
+                },
+                onJustifyChange = { applyPreferences(state.preferences.copy(justify = it)) },
+                onThemeChange = onThemeChange,
+                onDismiss = { state = ReaderTransitions.withOverlay(state, ReaderOverlay.NONE) },
+            )
+
+            ReaderOverlay.CONTENTS -> ContentsSheet(
+                chapters = contents,
+                currentIndex = state.chapterIndex,
+                onSelect = { index ->
+                    state = ReaderTransitions.withOverlay(state, ReaderOverlay.NONE)
+                    scope.launch { loadChapter(index, null); persistNow() }
+                },
+                onDismiss = { state = ReaderTransitions.withOverlay(state, ReaderOverlay.NONE) },
+            )
+
+            else -> Unit
+        }
     }
 }

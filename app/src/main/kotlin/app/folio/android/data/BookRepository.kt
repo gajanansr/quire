@@ -2,6 +2,7 @@ package app.folio.android.data
 
 import app.folio.core.model.Book
 import app.folio.core.model.Chapter
+import app.folio.core.model.ChapterRef
 import app.folio.core.model.ReadingPosition
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -76,6 +77,9 @@ class BookRepository(
 
     suspend fun loadChapter(bookId: String, index: Int): Chapter? =
         store.readChapter(bookId, index)
+
+    /** Chapter titles for the table of contents, without loading any content. */
+    suspend fun chapterIndex(bookId: String): List<ChapterRef> = store.readChapterIndex(bookId)
 
     suspend fun markOpened(bookId: String) {
         db.books().touch(bookId, now())

@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import app.folio.android.ui.nav.FolioRoot
+import app.folio.android.ui.theme.FolioThemeName
 import app.folio.android.work.ImportCoordinator
 import kotlinx.coroutines.flow.flowOf
 
@@ -44,9 +45,13 @@ class MainActivity : ComponentActivity() {
                 if (id == null) flowOf(null) else imports.observe(id)
             }.collectAsState(initial = null)
 
+            var theme by remember { mutableStateOf(FolioThemeName.LIGHT) }
+
             FolioRoot(
                 repository = graph.repository,
                 importProgress = progress,
+                theme = theme,
+                onThemeChange = { theme = it },
                 onChooseFile = { pickBook.launch(SUPPORTED_MIME_TYPES) },
                 onDismissImport = { activeImportId = null },
             )
