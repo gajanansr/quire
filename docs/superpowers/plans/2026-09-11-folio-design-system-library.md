@@ -152,7 +152,7 @@ Add the OFL licence text to `app/src/main/res/raw/` and surface it in Settings.
 
 ---
 
-### Task 4: Pill navigation
+### [done] Task 4: Pill navigation
 
 **Files:** `nav/FolioNav.kt`, `nav/FolioRoot.kt`
 **Test:** `app/src/androidTest/.../NavigationTest.kt`
