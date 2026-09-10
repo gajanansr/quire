@@ -1122,12 +1122,12 @@ Applies a split only when consistent across `FolioConstants.COLUMN_CONSISTENCY` 
 Must pass on `Fixtures.headerFooterPdf()`: the running header and the page numbers go,
 and **no body line is removed**. Assert body text survives, not merely that something was removed.
 
-**Task 13 — Paragraph assembly.** `core/reflow/ParagraphAssembler.kt`. Produces
+**[done] Task 13 — Paragraph assembly.** `core/reflow/ParagraphAssembler.kt`. Produces
 `class ParagraphAssembler { fun assemble(lines: List<Line>): List<ContentBlock> }`,
 breaking on short final lines, indentation shifts, and gaps exceeding
 `FolioConstants.PARAGRAPH_GAP_FACTOR` times median leading.
 
-**Task 14 — De-hyphenation.** `core/reflow/Dehyphenator.kt`. Produces
+**[done] Task 14 — De-hyphenation.** `core/reflow/Dehyphenator.kt`. Produces
 `class Dehyphenator { fun join(lines: List<Line>): List<Line> }`. On
 `Fixtures.headerFooterPdf()`, `"Distributed sys-" + "tems are a col-" + "lection of..."`
 must become `"Distributed systems are a collection of..."`.
