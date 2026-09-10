@@ -58,7 +58,7 @@ Append to the log; never rewrite history.
 - [x] Plan 2 — persistence + import **COMPLETE** (216 JVM + 14 device tests)
 - [x] Plan 3 — design system + Library/Details UI **COMPLETE** (287 JVM + 15 device)
 - [x] Plan 4 — reader + pagination + bookmarks **COMPLETE** (337 JVM + 15 device)
-- [ ] Plan 5 — habits, errors, polish · *to be written*
+- [ ] Plan 5 — habits, settings, share sheets · `docs/superpowers/plans/2026-09-11-folio-habits.md`
 
 When a plan's tasks are all ticked, write the next plan from the spec using the same
 structure, commit it, then continue. Later plans should incorporate what was actually
