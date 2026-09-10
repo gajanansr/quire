@@ -54,7 +54,7 @@ class FolioGraph(context: Context) {
     // and neither opening a database nor constructing a recogniser belongs there.
     val database: FolioDatabase by lazy {
         Room.databaseBuilder(app, FolioDatabase::class.java, "folio.db")
-            .addMigrations(FolioDatabase.MIGRATION_1_2)
+            .addMigrations(FolioDatabase.MIGRATION_1_2, FolioDatabase.MIGRATION_2_3)
             .build()
     }
 

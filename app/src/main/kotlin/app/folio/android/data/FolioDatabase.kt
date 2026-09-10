@@ -93,15 +93,50 @@ interface BookmarkDao {
     suspend fun deleteFor(bookId: String)
 }
 
+@Dao
+interface HabitDao {
+    @Query("SELECT * FROM reading_days ORDER BY epochDay")
+    fun observeDays(): Flow<List<ReadingDayEntity>>
+
+    @Query("SELECT * FROM reading_days WHERE epochDay = :day")
+    suspend fun day(day: Long): ReadingDayEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(day: ReadingDayEntity)
+
+    @Query("SELECT COALESCE(SUM(minutes), 0) FROM reading_days")
+    suspend fun totalMinutes(): Int
+
+    @Query("SELECT COUNT(*) FROM reading_days WHERE minutes > 0")
+    suspend fun daysRead(): Int
+}
+
+@Dao
+interface SettingsDao {
+    @Query("SELECT * FROM app_settings WHERE id = 0")
+    fun observe(): Flow<AppSettingsEntity?>
+
+    @Query("SELECT * FROM app_settings WHERE id = 0")
+    suspend fun get(): AppSettingsEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(settings: AppSettingsEntity)
+}
+
 @Database(
-    entities = [BookEntity::class, ReadingProgressEntity::class, BookmarkEntity::class],
-    version = 2,
+    entities = [
+        BookEntity::class, ReadingProgressEntity::class, BookmarkEntity::class,
+        ReadingDayEntity::class, AppSettingsEntity::class,
+    ],
+    version = 3,
     exportSchema = false,
 )
 abstract class FolioDatabase : RoomDatabase() {
     abstract fun books(): BookDao
     abstract fun progress(): ProgressDao
     abstract fun bookmarks(): BookmarkDao
+    abstract fun habits(): HabitDao
+    abstract fun settings(): SettingsDao
 
     companion object {
         /**
@@ -113,6 +148,36 @@ abstract class FolioDatabase : RoomDatabase() {
          * schema change, and it is far too easy to leave in place until it does
          * exactly that to someone.
          */
+        /** Adds the habit rollup and the single settings row. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS reading_days (
+                        epochDay INTEGER NOT NULL PRIMARY KEY,
+                        minutes INTEGER NOT NULL,
+                        goalMinutes INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS app_settings (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        dailyGoalMinutes INTEGER NOT NULL DEFAULT 10,
+                        themeName TEXT NOT NULL DEFAULT 'LIGHT',
+                        readerFont TEXT NOT NULL DEFAULT 'SERIF',
+                        readerFontSizeSp REAL NOT NULL DEFAULT 19.0,
+                        readerJustify INTEGER NOT NULL DEFAULT 0,
+                        booksFinished INTEGER NOT NULL DEFAULT 0,
+                        chaptersFinished INTEGER NOT NULL DEFAULT 0,
+                        onboarded INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE books ADD COLUMN subjects TEXT NOT NULL DEFAULT ''")

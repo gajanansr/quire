@@ -44,7 +44,7 @@ streak should not break at midnight before the reader has had a chance to read.
 
 ---
 
-### Task 2: Session recording
+### [done] Task 2: Session recording
 
 **Files:** `app/.../habit/SessionTracker.kt`, Room entities for `ReadingSession` / `ReadingDay`
 

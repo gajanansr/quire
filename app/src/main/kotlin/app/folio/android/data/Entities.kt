@@ -54,3 +54,32 @@ data class BookmarkEntity(
     val snippet: String,
     val createdAt: Long,
 )
+
+/**
+ * One day's reading total, keyed by local epoch-day.
+ *
+ * Stored as a rollup rather than derived from sessions on every read: the Library
+ * card and the streak heatmap want it on every launch, and re-summing a year of
+ * sessions each time would be wasteful.
+ */
+@Entity(tableName = "reading_days")
+data class ReadingDayEntity(
+    @PrimaryKey val epochDay: Long,
+    val minutes: Int,
+    /** The goal in force that day, so history is not rewritten by changing it. */
+    val goalMinutes: Int,
+)
+
+/** One row, id 0. Small enough that a table beats a preferences file. */
+@Entity(tableName = "app_settings")
+data class AppSettingsEntity(
+    @PrimaryKey val id: Int = 0,
+    val dailyGoalMinutes: Int = 10,
+    val themeName: String = "LIGHT",
+    val readerFont: String = "SERIF",
+    val readerFontSizeSp: Float = 19f,
+    val readerJustify: Boolean = false,
+    val booksFinished: Int = 0,
+    val chaptersFinished: Int = 0,
+    val onboarded: Boolean = false,
+)
