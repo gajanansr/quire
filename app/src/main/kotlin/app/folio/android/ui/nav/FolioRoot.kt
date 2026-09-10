@@ -23,7 +23,9 @@ import app.folio.android.ui.details.BookDetailsState
 import app.folio.android.ui.importing.AddBookSheet
 import app.folio.android.ui.importing.ImportProgressScreen
 import app.folio.android.ui.library.LibraryScreen
+import app.folio.android.ui.bookmarks.BookmarksScreen
 import app.folio.android.ui.library.LibraryState
+import app.folio.android.ui.reader.PdfFallbackScreen
 import app.folio.android.ui.reader.ReaderHost
 import app.folio.android.ui.theme.FolioTheme
 import app.folio.android.ui.theme.FolioThemeName
@@ -52,6 +54,7 @@ fun FolioRoot(
     var showAddSheet by remember { mutableStateOf(false) }
     var openBookId by remember { mutableStateOf<String?>(null) }
     var readingBookId by remember { mutableStateOf<String?>(null) }
+    var originalPdf by remember { mutableStateOf<java.io.File?>(null) }
     var details by remember { mutableStateOf(BookDetailsState()) }
 
     LaunchedEffect(openBookId) {
@@ -62,6 +65,9 @@ fun FolioRoot(
     val state by remember(repository) {
         repository.observeLibrary().map { LibraryState(books = it, loading = false) }
     }.collectAsState(initial = LibraryState())
+
+    val bookmarks by remember(repository) { repository.observeAllBookmarks() }
+        .collectAsState(initial = emptyList())
 
     val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
 
@@ -87,6 +93,13 @@ fun FolioRoot(
                     modifier = Modifier.fillMaxSize(),
                 )
 
+                originalPdf != null -> PdfFallbackScreen(
+                    file = originalPdf!!,
+                    title = details.title,
+                    onBack = { originalPdf = null },
+                    modifier = Modifier.fillMaxSize(),
+                )
+
                 readingBookId != null -> ReaderHost(
                     repository = repository,
                     bookId = readingBookId!!,
@@ -100,7 +113,7 @@ fun FolioRoot(
                     state = details,
                     onBack = { openBookId = null },
                     onContinue = { readingBookId = details.id },
-                    onReadOriginal = { /* PDF fallback viewer arrives in Plan 4 */ },
+                    onReadOriginal = { originalPdf = repository.originalFileOf(details.id) },
                     onOpenContents = { /* Contents sheet arrives in Plan 4 */ },
                     onOpenBookmarks = { openBookId = null; destination = FolioDestination.BOOKMARKS },
                     modifier = Modifier.fillMaxSize(),
@@ -116,9 +129,9 @@ fun FolioRoot(
                     onOpenSettings = { destination = FolioDestination.SETTINGS },
                 )
 
-                destination == FolioDestination.BOOKMARKS -> EmptyState(
-                    title = FolioStrings.NO_BOOKMARKS,
-                    hint = FolioStrings.NO_BOOKMARKS_HINT,
+                destination == FolioDestination.BOOKMARKS -> BookmarksScreen(
+                    bookmarks = bookmarks,
+                    onOpen = { id, _ -> readingBookId = id },
                     modifier = Modifier.fillMaxSize(),
                 )
 

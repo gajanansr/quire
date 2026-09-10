@@ -85,6 +85,9 @@ class BookRepository(
     suspend fun loadChapter(bookId: String, index: Int): Chapter? =
         store.readChapter(bookId, index)
 
+    /** The imported original, for the fallback viewer. */
+    fun originalFileOf(bookId: String): java.io.File? = store.originalOf(bookId)
+
     /** Chapter titles for the table of contents, without loading any content. */
     suspend fun chapterIndex(bookId: String): List<ChapterRef> = store.readChapterIndex(bookId)
 

@@ -103,14 +103,14 @@ survive repagination.
 
 ---
 
-### Task 8: PDF fallback viewer
+### [done] Task 8: PDF fallback viewer
 
 For a book with `reflowFailed`, a `PdfRenderer`-backed page viewer, so a book Folio
 could not reflow is still readable rather than rejected.
 
 ---
 
-### Task 9: Device verification
+### [done] Task 9: Device verification
 
 The brief's §19 loop for every format: import → read → close → reopen → resume the
 exact position. Screenshots of the Reader in all four themes.
