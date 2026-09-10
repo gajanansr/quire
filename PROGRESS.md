@@ -656,3 +656,42 @@ contents, themes in the reader, persistent position, bookmarks and highlights. T
 is where the character-based `ReadingPosition` chosen in the spec finally earns its
 keep — resume has to survive a typography change, which is exactly what a page-number
 model cannot do.
+
+### 2026-09-11 07:20 — THE READER WORKS. Plan 4 Tasks 1–4, 326 tests green
+
+Gate: `./scripts/check.sh` → 326, 0 failures. Screenshot: `docs/screenshots/04-reader.png`.
+
+Real book text, in Source Serif on the reader ground, resumed at the saved chapter.
+Tap the outer thirds to turn pages, the middle to toggle chrome; swipe works too.
+
+**Three bugs, and the interesting one is a unit mismatch.**
+
+1. *The chapter title printed twice.* Most EPUBs open a chapter with an `<h1>` of its
+   own title, and the Reader was drawing its header above that. Suppressed when the
+   chapter's first block already says it.
+
+2. *The paginator measured a different box than the text rendered into.* It was given
+   the full screen while the text sat inside padding, so it packed more than fit.
+   Rather than duplicate the padding in two places — where the two would drift apart
+   — the padding now lives on the text column and that column reports its own size.
+   One box by construction.
+
+3. **`bodyLineHeightPx` was computed from `fontSizeSp` and compared against a pixel
+   viewport.** sp is scale-independent; the viewport is device pixels. On this
+   emulator's 2.75x screen the paginator believed lines were nearly three times
+   shorter than they render, and confidently overfilled every page. The symptom —
+   a clipped last line — looks exactly like text going missing, which is why it is
+   worth naming: nothing crashed, no test failed, and the arithmetic was internally
+   consistent. `TypographySettings` now carries `pixelsPerSp`, documented as
+   load-bearing, with a test asserting a denser screen needs more pages.
+
+All three were found by looking at the screen. The 326 tests remain useful for what
+they cover — conservation, ordering, boundaries — but none of them could have caught
+a paginator that is perfectly self-consistent in the wrong units.
+
+`Paginator` also gained a `firstPageInsetPx` so it can budget for chrome sharing the
+text's box, with tests that an inset reduces the first page, loses no characters, and
+terminates even when larger than the page.
+
+Next: Task 5 typography sheet, Task 6 contents, Task 7 bookmarks, then the §19
+resume loop on device.
