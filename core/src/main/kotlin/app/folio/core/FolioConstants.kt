@@ -43,4 +43,13 @@ object FolioConstants {
 
     /** Rasterization density for OCR. */
     const val OCR_RENDER_DPI = 300
+
+    /**
+     * Resolution for a PDF's first page when it stands in as a cover.
+     *
+     * Far below [OCR_RENDER_DPI] on purpose: this is a thumbnail in a three-column
+     * grid, not something to read. 72 DPI is a page's own point size, which lands
+     * around 600px wide — sharp on any phone and a few tens of kilobytes.
+     */
+    const val COVER_RENDER_DPI = 72
 }

@@ -141,15 +141,15 @@ EPUB declares its cover two ways and needs both, plus fallbacks:
 
 PDF renders page 1 through the rasterizer we already have.
 
-- [ ] **Step 1: Failing tests** for all four EPUB resolution paths, including a
+- [x] **Step 1: Failing tests** for all four EPUB resolution paths, including a
       book that declares no cover at all (must stay null, not invent one).
-- [ ] **Step 2: Run them, watch them fail**
-- [ ] **Step 3: Implement `EpubCover.resolve(container)`** returning the
+- [x] **Step 2: Run them, watch them fail**
+- [x] **Step 3: Implement `EpubCover.resolve(container)`** returning the
       manifest href or null.
-- [ ] **Step 4: Write the image to book storage** and set `coverPath`.
-- [ ] **Step 5: PDF covers** — render page 1 at thumbnail scale on import.
-- [ ] **Step 6: Gate, then look at the library on device**
-- [ ] **Step 7: Commit**
+- [x] **Step 4: Write the image to book storage** and set `coverPath`.
+- [x] **Step 5: PDF covers** — render page 1 at thumbnail scale on import.
+- [x] **Step 6: Gate, then look at the library on device**
+- [x] **Step 7: Commit**
 
 ### Task B2: Real titles and authors
 

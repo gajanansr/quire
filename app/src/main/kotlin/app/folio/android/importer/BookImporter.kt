@@ -4,6 +4,8 @@ import android.net.Uri
 import app.folio.android.data.BookRepository
 import app.folio.android.data.BookStore
 import app.folio.core.FormatDetector
+import app.folio.core.FolioConstants
+import app.folio.core.epub.EpubContainer
 import app.folio.core.epub.EpubParser
 import app.folio.core.model.Book
 import app.folio.core.model.FailureReason
@@ -47,6 +49,26 @@ class BookImporter(
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) {
 
+    /**
+     * The book's own cover, saved beside it, or null when it has none.
+     *
+     * Never fatal. A book whose cover cannot be read is still a book, and the
+     * Library already draws a gradient swatch for one without art — losing an
+     * import over a thumbnail would be the wrong trade.
+     */
+    private suspend fun coverFor(id: String, format: SourceFormat, file: File): String? =
+        runCatching {
+            val bytes = when (format) {
+                SourceFormat.EPUB -> EpubContainer(file).use { it.coverImage() }
+                SourceFormat.PDF_TEXT, SourceFormat.PDF_OCR ->
+                    rasterizer?.invoke(file)?.rasterize(0, FolioConstants.COVER_RENDER_DPI)
+                // A text file carries no art, and inventing one would be a lie about
+                // the source rather than a missing feature.
+                SourceFormat.TXT -> null
+            }
+            bytes?.takeIf { it.isNotEmpty() }?.let { store.writeCover(id, it) }
+        }.getOrNull()
+
     suspend fun import(
         uri: Uri,
         onProgress: (ProcessingStatus) -> Unit = {},
@@ -83,9 +105,13 @@ class BookImporter(
             if (status is ProcessingStatus.Failed) throw ImportFailure(status.reason)
 
             onProgress(ProcessingStatus.Normalizing)
-            repository.save(book)
+            // Bound, not inlined into save: the caller gets this Book back, and
+            // returning the pre-cover one would hand out a book whose cover exists
+            // on disk and in the database but not in the object in hand.
+            val saved = book.copy(coverPath = coverFor(id, format, copied))
+            repository.save(saved)
             onProgress(ProcessingStatus.Ready)
-            Result.success(book)
+            Result.success(saved)
         } catch (failure: ImportFailure) {
             store.delete(id)
             Result.failure(failure)

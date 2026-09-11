@@ -19,6 +19,8 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -211,5 +213,40 @@ class BookImporterTest {
             val result = runCatching { importer(f).import(uri) }
             assertTrue("import of ${f.name} threw: ${result.exceptionOrNull()}", result.isSuccess)
         }
+    }
+
+    @Test
+    fun `an epub that ships a cover keeps it`() = runBlocking {
+        val book = importer(Fixtures.cleanEpub()).import(uri).getOrThrow()
+
+        val cover = book.coverPath
+        assertNotNull("the fixture declares a cover image", cover)
+        val file = java.io.File(cover!!)
+        assertTrue("cover was not written to disk: $cover", file.exists())
+        assertTrue("cover is empty", file.length() > 0)
+        // Written verbatim, so what lands on disk is still a decodable image.
+        assertEquals(
+            listOf(0x89, 0x50, 0x4E, 0x47),
+            file.readBytes().take(4).map { it.toInt() and 0xFF },
+        )
+    }
+
+    @Test
+    fun `a pdf uses its first page as the cover`() = runBlocking {
+        val book = importer(Fixtures.singleColumnPdf()).import(uri).getOrThrow()
+        val cover = book.coverPath
+        assertNotNull("a PDF should render a cover from page one", cover)
+        assertTrue("cover was not written", java.io.File(cover!!).length() > 0)
+    }
+
+    @Test
+    fun `a book without a cover imports anyway`() = runBlocking {
+        // The Library draws a gradient for a book with no art. Losing an import over
+        // a missing thumbnail would be the wrong trade, so this asserts the book
+        // arrives whole and merely lacks a cover.
+        val book = importer(Fixtures.plainTxt()).import(uri).getOrThrow()
+
+        assertNull(book.coverPath)
+        assertTrue("the book itself should still be readable", book.chapters.isNotEmpty())
     }
 }

@@ -69,6 +69,19 @@ class EpubContainer(file: File) : Closeable {
         )
     }
 
+    /**
+     * The declared cover image, or null when the book has none.
+     *
+     * Resolution rules live in [EpubCover]; reading the bytes lives here because it
+     * needs the zip. A book with no cover returns null rather than a guess: the
+     * Library falls back to a gradient swatch, and a wrong cover is worse.
+     */
+    fun coverImage(): ByteArray? {
+        val doc = opfDoc ?: return null
+        val href = EpubCover.hrefIn(doc) ?: return null
+        return readEntry(resolve(href))
+    }
+
     /** Spine documents in reading order, as full zip paths. */
     fun spineHrefs(): List<String> {
         val doc = opfDoc ?: return emptyList()

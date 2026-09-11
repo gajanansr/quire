@@ -29,9 +29,20 @@ object Fixtures {
      * instrumented tests override it via `folio.fixtures.dir` because an app on
      * device cannot write into the project tree.
      */
+    /**
+     * Bump whenever a fixture's *content* changes.
+     *
+     * Fixtures are cached by filename, so editing a builder without changing its
+     * name leaves the old file on disk and every test keeps running against the
+     * previous book. That failure is silent and reads as a bug in the code under
+     * test — it has already cost time twice. The version is part of the path, so a
+     * bump simply misses the cache and rebuilds.
+     */
+    private const val FIXTURE_VERSION = 2
+
     private val root: File by lazy {
         val override = System.getProperty("folio.fixtures.dir")
-        File(override ?: "src/test/resources/generated").apply { mkdirs() }
+        File(override ?: "src/test/resources/generated/v$FIXTURE_VERSION").apply { mkdirs() }
     }
 
     private fun cached(name: String, build: (File) -> Unit): File {
@@ -97,7 +108,7 @@ object Fixtures {
         </container>
     """.trimIndent().toByteArray()
 
-    private fun opf(withNav: Boolean) = """
+    private fun opf(withNav: Boolean, withCover: Boolean = false) = """
         <?xml version="1.0" encoding="utf-8"?>
         <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
           <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -114,6 +125,7 @@ object Fixtures {
             <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>
             <item id="c2" href="c2.xhtml" media-type="application/xhtml+xml"/>
             ${if (withNav) """<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>""" else ""}
+            ${if (withCover) """<item id="ci" href="cover.png" media-type="image/png" properties="cover-image"/>""" else ""}
           </manifest>
           <spine>
             <itemref idref="c1"/>
@@ -121,6 +133,24 @@ object Fixtures {
           </spine>
         </package>
     """.trimIndent().toByteArray()
+
+    /**
+     * A small solid-colour PNG standing in for cover art.
+     *
+     * Real enough to decode: the importer writes whatever bytes it finds straight to
+     * disk, and a test that passed on a byte array no decoder would accept would
+     * prove nothing about the path that matters.
+     */
+    private fun coverPng(): ByteArray {
+        val image = java.awt.image.BufferedImage(120, 180, java.awt.image.BufferedImage.TYPE_INT_RGB)
+        val g = image.createGraphics()
+        g.color = java.awt.Color(0x2B, 0x33, 0x50)
+        g.fillRect(0, 0, 120, 180)
+        g.dispose()
+        return java.io.ByteArrayOutputStream().also {
+            javax.imageio.ImageIO.write(image, "png", it)
+        }.toByteArray()
+    }
 
     private val NAV_XHTML = """
         <?xml version="1.0" encoding="utf-8"?>
@@ -140,8 +170,9 @@ object Fixtures {
             listOf(
                 "mimetype" to "application/epub+zip".toByteArray(),
                 "META-INF/container.xml" to CONTAINER_XML,
-                "OEBPS/content.opf" to opf(withNav = true),
+                "OEBPS/content.opf" to opf(withNav = true, withCover = true),
                 "OEBPS/nav.xhtml" to NAV_XHTML,
+                "OEBPS/cover.png" to coverPng(),
                 "OEBPS/c1.xhtml" to chapterXhtml("The Weight of Silence", LOREM),
                 "OEBPS/c2.xhtml" to chapterXhtml("What the River Kept", LOREM),
             )
