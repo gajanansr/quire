@@ -40,4 +40,29 @@ class CoverGradientTest {
         val indices = (1..30).map { CoverGradient.indexOf("book-$it") }.toSet()
         assertTrue("expected a spread of swatches, got $indices", indices.size >= 3)
     }
+
+    @Test
+    fun `a printed plate has no colour left in it`() {
+        // E-ink is defined by zero chroma anywhere, and covers are the most colour
+        // on the most-looked-at screen. Both ends of every swatch must come out
+        // neutral, and neither may out-black the text or out-white the page.
+        (0 until CoverGradient.size).forEach { i ->
+            val (start, end) = CoverGradient.plate("book-$i")
+            listOf("start" to start, "end" to end).forEach { (which, c) ->
+                assertEquals("swatch $i $which is tinted", c.red, c.green)
+                assertEquals("swatch $i $which is tinted", c.green, c.blue)
+                assertTrue("swatch $i $which is darker than e-ink's ink", c.red > 0.06f)
+                assertTrue("swatch $i $which is lighter than e-ink's page", c.red < 0.91f)
+            }
+        }
+    }
+
+    @Test
+    fun `printing keeps the swatches telling each other apart`() {
+        // Dropping hue costs the six swatches the thing that distinguished them. If
+        // they collapsed onto one grey the library would become six identical
+        // plates, so lightness has to carry what colour used to.
+        val greys = (0 until CoverGradient.size).map { CoverGradient.plate("book-$it").first.red }
+        assertEquals("swatches collapsed onto the same grey", greys.size, greys.distinct().size)
+    }
 }

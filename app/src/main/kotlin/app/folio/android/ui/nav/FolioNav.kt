@@ -85,7 +85,13 @@ private fun PillItem(
     Row(
         modifier = Modifier
             .clip(FolioShapes.pill)
-            .background(if (active) colors.accent else Color.Transparent)
+            // buttonBg, not accent: the active destination is a filled emphasis
+            // surface, and so is every primary button. Using accent here put two
+            // different dark fills on the same screen — a near-black "Add Book" next
+            // to a blue pill — which reads as an accident rather than a system. It
+            // also pairs buttonText with the background it was designed against;
+            // accent and buttonText were never a designed pair.
+            .background(if (active) colors.buttonBg else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 11.dp)
             .animateContentSize(tween(180))

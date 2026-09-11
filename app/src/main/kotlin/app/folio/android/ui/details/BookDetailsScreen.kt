@@ -131,7 +131,7 @@ private fun CoverHeader(state: BookDetailsState, onBack: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .height(260.dp)
-            .background(CoverGradient.of(state.id)),
+            .background(CoverGradient.brush(state.id)),
     ) {
         Row(
             modifier = Modifier

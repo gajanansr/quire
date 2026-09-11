@@ -182,7 +182,7 @@ private fun Destination(@DrawableRes icon: Int, label: String, onClick: () -> Un
 @Composable
 private fun QuoteCard(card: ShareCard.Quote) {
     Box(
-        Modifier.fillMaxSize().background(CoverGradient.of(card.bookId)),
+        Modifier.fillMaxSize().background(CoverGradient.brush(card.bookId)),
     ) {
         Column(
             Modifier.fillMaxSize().padding(18.dp),

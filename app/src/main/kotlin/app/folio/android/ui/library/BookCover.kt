@@ -61,7 +61,7 @@ fun BookCover(
             )
         } else {
             BoxWithConstraints(
-                modifier = Modifier.fillMaxSize().background(coverBrush(bookId)),
+                modifier = Modifier.fillMaxSize().background(CoverGradient.brush(bookId)),
                 contentAlignment = Alignment.Center,
             ) {
                 // The same swatch serves a 54dp Continue Reading thumbnail and a
@@ -123,7 +123,22 @@ object CoverGradient {
         return (unsigned % palette.size).toInt()
     }
 
-    fun of(bookId: String): Brush {
+    /**
+     * The swatch for the active theme. The only way to draw one.
+     *
+     * Public where [of] and [greyscale] are not, because this was got wrong three
+     * times: the library cover, the details header the title sits on, and the share
+     * card each reached for the raw gradient, and two of them kept rendering in full
+     * colour after E-ink became a greyscale theme. A rule that has to be remembered
+     * at every call site is a rule that will be missed at one of them, so the raw
+     * swatch is now unreachable from outside.
+     */
+    @Composable
+    fun brush(bookId: String): Brush =
+        if (LocalFolioTheme.current == FolioThemeName.EINK) greyscale(bookId)
+        else of(bookId)
+
+    private fun of(bookId: String): Brush {
         val (start, end) = palette[indexOf(bookId)]
         return Brush.linearGradient(listOf(start, end))
     }
@@ -138,9 +153,16 @@ object CoverGradient {
      * stops short of both ends so a plate never out-blacks the text or out-whites
      * the page.
      */
-    fun greyscale(bookId: String): Brush {
+    /** Internal rather than private only so CoverGradientTest can reach it. */
+    internal fun greyscale(bookId: String): Brush {
         val (start, end) = palette[indexOf(bookId)]
         return Brush.linearGradient(listOf(start.asGrey(), end.asGrey()))
+    }
+
+    /** The two greys a swatch prints as. Internal so the properties can be tested. */
+    internal fun plate(bookId: String): Pair<Color, Color> {
+        val (start, end) = palette[indexOf(bookId)]
+        return start.asGrey() to end.asGrey()
     }
 
     /** Rec. 709 luminance, with the hue dropped. */
@@ -149,9 +171,3 @@ object CoverGradient {
         return Color(red = grey, green = grey, blue = grey)
     }
 }
-
-/** The cover swatch for the active theme. */
-@Composable
-fun coverBrush(bookId: String): Brush =
-    if (LocalFolioTheme.current == FolioThemeName.EINK) CoverGradient.greyscale(bookId)
-    else CoverGradient.of(bookId)
