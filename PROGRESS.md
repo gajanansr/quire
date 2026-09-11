@@ -10,6 +10,7 @@ The app installs, runs, imports real books, and reads them.
 | Verify (JVM) | `./scripts/check.sh` |
 | Verify (device) | `./scripts/check-device.sh` |
 | Run it | `./gradlew :app:assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk` |
+| Sideload | `~/Desktop/Folio-0.1.0.apk` (debug-signed, all four ABIs, 67 MB) |
 | Screenshots | `docs/screenshots/` |
 | Spec | `docs/superpowers/specs/2026-09-11-folio-android-design.md` |
 | Plans | `docs/superpowers/plans/` |
@@ -980,3 +981,35 @@ called `LocalDate.now()`. The two could disagree about what day it is — minute
 against one day, the streak checked against another. Both now share one clock.
 
 Screenshots added: `11-onboarding.png`, `12-goal.png`, `13-dark-persisted.png`.
+
+### 2026-09-11 — build for a real phone
+
+Packaged a debug APK to sideload. Two defects were in the artifact rather than
+the code, and only inspecting the built APK surfaced them.
+
+**The APK requested INTERNET.** Folio makes no network calls; the permission came
+from ML Kit, whose bundled recogniser is fully on-device but whose dependency
+graph includes Google's datatransport (Clearcut) logging backend. Settings
+promises the reader their books never leave the device, and the permission list
+contradicted it. Removed with `tools:node="remove"`. Verified on device that all
+15 instrumented tests still pass — including the four real ML Kit OCR cases and
+the scanned-PDF import — so on-device recognition does not depend on it. Android's
+own App info screen now reads "No permissions requested" and "No data used".
+
+Kept the four WorkManager permissions on purpose, reasoning recorded in the
+manifest: WAKE_LOCK sustains a long OCR import past screen-off, FOREGROUND_SERVICE
+backs expedited work, ACCESS_NETWORK_STATE is read-only and WorkManager evaluates
+it for every enqueued job whether or not the job has a network constraint.
+Removing it risks a SecurityException at enqueue time for no privacy gain.
+
+**No launcher icon** — it installed as the generic robot. The handoff ships no
+image assets and hands the icon system to the implementer, so instead of drawing
+a mark the icon is the Source Serif Semibold "F" glyph itself, extracted to a
+vector path: the same letter, from the same face, as the wordmark inside the app.
+
+`NoNetworkPermissionTest` reads the merged manifest back and fails on any
+unreviewed permission, not only INTERNET. `IcLauncherColorTest` pins the icon's
+literals to the OKLCH tokens through the same transform `FolioColors` uses,
+because a launcher icon is resolved before any app code runs.
+
+Gates: 399 JVM tests, 15 device tests, 0 failures.
