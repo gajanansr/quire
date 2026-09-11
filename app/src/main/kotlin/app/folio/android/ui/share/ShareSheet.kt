@@ -33,7 +33,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.folio.android.ui.library.CoverGradient
 import androidx.annotation.DrawableRes
-import app.folio.android.ui.theme.einkRendering
 import app.folio.android.ui.theme.Folio
 import app.folio.android.ui.theme.FolioIcon
 import app.folio.android.ui.theme.FolioIcons
@@ -88,7 +87,6 @@ fun ShareSheet(
     ) {
         Column(
             Modifier
-                .einkRendering()
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)

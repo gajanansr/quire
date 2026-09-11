@@ -35,10 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
-import app.folio.android.ui.theme.grayscale
 import app.folio.android.ui.theme.label
-import app.folio.android.ui.theme.einkRendering
-import app.folio.android.ui.theme.LocalFolioTheme
 import app.folio.android.ui.theme.Folio
 import app.folio.android.ui.theme.FolioPalettes
 import app.folio.android.ui.theme.FolioShapes
@@ -75,7 +72,6 @@ fun TypographySheet(
     ) {
         Column(
             Modifier
-                .einkRendering()
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)
@@ -175,7 +171,6 @@ fun ContentsSheet(
     ) {
         Column(
             Modifier
-                .einkRendering()
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)
@@ -246,11 +241,11 @@ private fun ChoiceTile(
         modifier = modifier
             .clip(FolioShapes.button)
             .background(if (selected) colors.accentSoft else colors.bg)
-            // Selection cannot rest on colour alone. E-ink renders the whole app
-            // through a grayscale filter, and desaturated accentSoft sits within a
-            // few percent of the page background — the tint vanishes and every tile
-            // looks chosen. A border survives the filter, and is a stronger
-            // affordance in the colour themes too.
+            // Selection cannot rest on a tint alone. E-ink's accent is near-ink
+            // with almost no chroma, so its accentSoft sits within a few percent of
+            // the page — the fill all but disappears and every tile looks chosen.
+            // A border reads at any chroma, and is the stronger affordance in the
+            // colour themes too.
             .then(
                 if (selected) Modifier.border(1.5.dp, colors.accent, FolioShapes.button)
                 else Modifier
@@ -297,11 +292,9 @@ private fun StepperButton(label: String, enabled: Boolean, onClick: () -> Unit) 
  * background, three lines of the real ink colour, and the accent. What you see is
  * what the reader will look like.
  *
- * E-ink is the reason this has to be a rendering rather than a colour chip. The
- * handoff defines it as the Light palette put through a grayscale filter, so it is
- * byte-identical to Light in every token — the only honest way to preview it is to
- * run the same filter over the preview, which is what [grayscale] does here while
- * the rest of the app is still in some other theme.
+ * Every preview draws from [FolioPalettes], so a theme cannot look like one thing
+ * here and another thing once chosen — the specimen and the page are the same
+ * values.
  */
 @Composable
 private fun ThemePreview(
@@ -333,15 +326,6 @@ private fun ThemePreview(
                 .padding(if (selected) 2.dp else 1.dp)
                 .clip(FolioShapes.chip)
                 .background(palette.bg)
-                // Only filter the preview when the app around it is not already
-                // filtered. In E-ink the sheet itself is desaturated, and applying
-                // the contrast and brightness lift twice would make this one card
-                // brighter than the theme it is advertising.
-                .then(
-                    if (name == FolioThemeName.EINK &&
-                        LocalFolioTheme.current != FolioThemeName.EINK
-                    ) Modifier.grayscale() else Modifier
-                )
                 .padding(horizontal = 8.dp, vertical = 9.dp),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {

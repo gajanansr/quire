@@ -21,7 +21,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.folio.android.ui.theme.Folio
 import app.folio.android.ui.theme.FolioShapes
+import app.folio.android.ui.theme.FolioThemeName
+import app.folio.android.ui.theme.LocalFolioTheme
 import java.io.File
 
 /**
@@ -58,7 +61,7 @@ fun BookCover(
             )
         } else {
             BoxWithConstraints(
-                modifier = Modifier.fillMaxSize().background(CoverGradient.of(bookId)),
+                modifier = Modifier.fillMaxSize().background(coverBrush(bookId)),
                 contentAlignment = Alignment.Center,
             ) {
                 // The same swatch serves a 54dp Continue Reading thumbnail and a
@@ -68,7 +71,7 @@ fun BookCover(
                 if (!compact) {
                     Text(
                         text = title,
-                        color = Color.White.copy(alpha = 0.92f),
+                        color = Folio.colors.buttonText.copy(alpha = 0.92f),
                         textAlign = TextAlign.Center,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
@@ -79,7 +82,7 @@ fun BookCover(
                     // Too small for a legible title; the title is already beside it.
                     Text(
                         text = title.take(1).uppercase(),
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = Folio.colors.buttonText.copy(alpha = 0.85f),
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         style = MaterialTheme.typography.headlineMedium,
@@ -124,4 +127,34 @@ object CoverGradient {
         val (start, end) = palette[indexOf(bookId)]
         return Brush.linearGradient(listOf(start, end))
     }
+
+    /**
+     * The same swatch, printed rather than displayed.
+     *
+     * E-ink is a paper theme, and covers are most of what the library shows. Six
+     * saturated gradients on a warm page would undo the theme on its most visible
+     * screen, so each colour is mapped onto the paper's own ink-to-page ramp:
+     * luminance is kept, hue is discarded, and neither end reaches pure black or
+     * pure white. The result reads like a plate printed on the page it sits on.
+     */
+    fun onPaper(bookId: String): Brush {
+        val (start, end) = palette[indexOf(bookId)]
+        return Brush.linearGradient(listOf(start.printed(), end.printed()))
+    }
+
+    /** Rec. 709 luminance, mapped onto the paper ramp. */
+    private fun Color.printed(): Color {
+        val luminance = 0.2126f * red + 0.7152f * green + 0.0722f * blue
+        return Color(
+            red = 0.180f + luminance * 0.781f,
+            green = 0.165f + luminance * 0.768f,
+            blue = 0.145f + luminance * 0.745f,
+        )
+    }
 }
+
+/** The cover swatch for the active theme. */
+@Composable
+fun coverBrush(bookId: String): Brush =
+    if (LocalFolioTheme.current == FolioThemeName.EINK) CoverGradient.onPaper(bookId)
+    else CoverGradient.of(bookId)

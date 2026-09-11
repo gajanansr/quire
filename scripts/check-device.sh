@@ -6,3 +6,9 @@ cd "$(dirname "$0")/.."
 source scripts/env.sh
 ./scripts/emulator.sh
 ./gradlew :app:connectedDebugAndroidTest "$@"
+
+# connectedAndroidTest uninstalls both APKs when it finishes, which leaves the
+# device with no Folio on it — surprising in the middle of a session where someone
+# is looking at the app. Put it back.
+echo "reinstalling Folio (the test run uninstalls it)"
+./scripts/dev.sh

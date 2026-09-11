@@ -82,11 +82,41 @@ object FolioPalettes {
     )
 
     /**
-     * E-ink is the Light palette. The handoff is explicit that it is a grayscale
-     * rendering of the live theme rather than a fifth set of colours, so the
-     * difference lives in a filter over the content root, not here.
+     * E-ink: paper, not a grayscale screenshot.
+     *
+     * A deliberate departure from the handoff, at the user's direction. The handoff
+     * defines E-ink as the Light palette pushed through `grayscale(1) contrast(1.15)
+     * brightness(1.03)`, which is accurate to a desaturated LCD and reads cold and
+     * slightly harsh — a photocopy rather than a page. What people mean by e-ink is
+     * the warm, matte, low-contrast surface of an e-reader under a warm light.
+     *
+     * So it is a real palette now, with three properties doing the work: a warm hue
+     * (~80°) across every token, chroma held at or below 0.03 so nothing reads as
+     * coloured, and neither end of the range reaching pure black or pure white. Paper
+     * is never white and print is never black; using them is most of what makes a
+     * screen look like a screen.
+     *
+     * Being a palette rather than a filter also means it works below API 31, where
+     * RenderEffect does not exist and the filter approach left E-ink users with
+     * nothing at all, and that its values can be asserted in a test.
      */
-    val Eink = Light
+    val Eink = FolioColors(
+        bg = oklch(0.935, 0.016, 82.0),
+        bgAlt = oklch(0.90, 0.018, 80.0),
+        ink = oklch(0.32, 0.012, 70.0),
+        muted = oklch(0.56, 0.012, 75.0),
+        border = oklch(0.83, 0.016, 78.0),
+        // E-ink has no colour, so the accent is near-ink and carries emphasis by
+        // weight and contrast instead of hue.
+        accent = oklch(0.40, 0.018, 70.0),
+        accentSoft = oklch(0.87, 0.018, 78.0),
+        buttonBg = oklch(0.30, 0.012, 70.0),
+        buttonText = oklch(0.95, 0.012, 82.0),
+        readerBg = oklch(0.93, 0.018, 82.0),
+        highlight = oklch(0.82, 0.03, 85.0),
+        errorBg = oklch(0.88, 0.02, 40.0),
+        errorText = oklch(0.42, 0.03, 35.0),
+    )
 
     fun of(theme: FolioThemeName): FolioColors = when (theme) {
         FolioThemeName.LIGHT -> Light

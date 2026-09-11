@@ -33,6 +33,13 @@ typography persist across launches.
 real share destinations (the handoff forbids brand marks without the actual SDKs),
 and cloud sync (explicitly out of scope).
 
+**One deliberate departure from the handoff:** E-ink. The handoff specifies the
+Light palette put through `grayscale(1) contrast(1.15) brightness(1.03)`. That is
+faithful to a desaturated LCD and reads cold — a photocopy rather than a page. At
+the user's direction it is now a real warm paper palette: warm hue throughout,
+chroma at or below 0.03, and neither end reaching pure black or pure white. Book
+covers are mapped onto the same ink-to-page ramp so the library does not undo it.
+
 **One open question for you** is recorded under "Open questions" below.
 
 ---

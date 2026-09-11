@@ -30,11 +30,38 @@ class FolioThemeTest {
     }
 
     @Test
-    fun `eink uses the light palette because it is a filter, not a palette`() {
-        // The handoff is explicit: e-ink is a grayscale rendering of the live theme.
-        // If this ever diverges, someone has hand-tuned a fifth palette by mistake.
-        assertEquals(FolioPalettes.Light, FolioPalettes.Eink)
-        assertEquals(FolioPalettes.Light, FolioPalettes.of(FolioThemeName.EINK))
+    fun `e-ink is paper - warm, near-monochrome, never pure black or white`() {
+        // A deliberate departure from the handoff, which specified a grayscale
+        // filter over Light. These three properties are what make a surface read as
+        // paper rather than as a screen, so they are asserted rather than trusted.
+        val paper = FolioPalettes.Eink
+        val tokens = mapOf(
+            "bg" to paper.bg, "bgAlt" to paper.bgAlt, "ink" to paper.ink,
+            "muted" to paper.muted, "border" to paper.border,
+            "accent" to paper.accent, "accentSoft" to paper.accentSoft,
+            "buttonBg" to paper.buttonBg, "buttonText" to paper.buttonText,
+            "readerBg" to paper.readerBg, "highlight" to paper.highlight,
+        )
+        tokens.forEach { (name, c) ->
+            assertTrue(
+                "$name is not warm (${c.hex()}): red should lead and blue trail",
+                c.red >= c.green && c.green >= c.blue,
+            )
+            assertTrue(
+                "$name reads as a colour, not ink (${c.hex()})",
+                c.red - c.blue < 0.14f,
+            )
+            assertTrue("$name is pure white (${c.hex()})", c.red < 0.99f)
+            assertTrue("$name is pure black (${c.hex()})", c.green > 0.05f)
+        }
+    }
+
+    @Test
+    fun `e-ink is its own palette, not Light`() {
+        assertNotEquals(FolioPalettes.Light, FolioPalettes.Eink)
+        // Paper is dimmer than a lit page, and print is never as dark as screen ink.
+        assertTrue(FolioPalettes.Eink.bg.red < FolioPalettes.Light.bg.red)
+        assertTrue(FolioPalettes.Eink.ink.red > FolioPalettes.Light.ink.red)
     }
 
     @Test
@@ -92,11 +119,4 @@ class FolioThemeTest {
         )
     }
 
-    @Test
-    fun `E-ink is the Light palette, which is why it needs a filter to be seen`() {
-        // Pinned because the theme picker depends on it: if these ever diverge into
-        // two real palettes, previewing E-ink by running a grayscale filter over
-        // Light would quietly stop being accurate.
-        assertEquals(FolioPalettes.Light, FolioPalettes.of(FolioThemeName.EINK))
-    }
 }
