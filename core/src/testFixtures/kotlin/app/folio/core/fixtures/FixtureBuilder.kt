@@ -251,6 +251,59 @@ object Fixtures {
         }
     }
 
+    /**
+     * A PDF that knows what it is called, and opens with a title page.
+     *
+     * Both metadata sources at once so the resolver's order of preference can be
+     * exercised, and the title page is set large so the page-one fallback has
+     * something real to find when the info dictionary is junk.
+     */
+    fun titledPdf() = cached("titled.pdf") { f ->
+        PDDocument().use { doc ->
+            doc.documentInformation.title = "A History of Quiet Things"
+            doc.documentInformation.author = "Ada Marlowe"
+
+            val title = PDPage(PDRectangle.LETTER)
+            doc.addPage(title)
+            PDPageContentStream(doc, title).use { cs ->
+                cs.line("A History of Quiet Things", 28f, 72f, 640f)
+                cs.line("Ada Marlowe", 14f, 72f, 600f)
+            }
+            repeat(3) { p ->
+                val page = PDPage(PDRectangle.LETTER)
+                doc.addPage(page)
+                PDPageContentStream(doc, page).use { cs ->
+                    var y = 720f
+                    val body = "Section ${p + 1} begins here with its own opening words. $LOREM"
+                    wrap(body, 70).forEach { l -> cs.line(l, 11f, 72f, y); y -= 16f }
+                }
+            }
+            doc.save(f)
+        }
+    }
+
+    /** The same book, but its metadata is a word processor's leftovers. */
+    fun junkTitledPdf() = cached("junk-titled.pdf") { f ->
+        PDDocument().use { doc ->
+            doc.documentInformation.title = "Microsoft Word - quiet_things_FINAL_v3.doc"
+
+            val title = PDPage(PDRectangle.LETTER)
+            doc.addPage(title)
+            PDPageContentStream(doc, title).use { cs ->
+                cs.line("A History of Quiet Things", 28f, 72f, 640f)
+            }
+            repeat(2) { p ->
+                val page = PDPage(PDRectangle.LETTER)
+                doc.addPage(page)
+                PDPageContentStream(doc, page).use { cs ->
+                    var y = 720f
+                    wrap("Section ${p + 1}. $LOREM", 70).forEach { l -> cs.line(l, 11f, 72f, y); y -= 16f }
+                }
+            }
+            doc.save(f)
+        }
+    }
+
     fun twoColumnPdf() = cached("two-column.pdf") { f ->
         PDDocument().use { doc ->
             repeat(4) {

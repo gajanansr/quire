@@ -249,4 +249,19 @@ class BookImporterTest {
         assertNull(book.coverPath)
         assertTrue("the book itself should still be readable", book.chapters.isNotEmpty())
     }
+
+    @Test
+    fun `a pdf is named by its own metadata, not its filename`() = runBlocking {
+        val book = importer(Fixtures.titledPdf()).import(uri).getOrThrow()
+        assertEquals("A History of Quiet Things", book.title)
+        assertEquals("Ada Marlowe", book.author)
+    }
+
+    @Test
+    fun `a pdf with a junk title falls back to its title page`() = runBlocking {
+        // "Microsoft Word - quiet_things_FINAL_v3.doc" is a real value, not a
+        // contrived one. The largest type on page one is the better answer.
+        val book = importer(Fixtures.junkTitledPdf()).import(uri).getOrThrow()
+        assertEquals("A History of Quiet Things", book.title)
+    }
 }

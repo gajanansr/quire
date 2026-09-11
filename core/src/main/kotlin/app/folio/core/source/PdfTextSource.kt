@@ -1,5 +1,7 @@
 package app.folio.core.source
 
+import app.folio.core.metadata.DocumentInfo
+
 /**
  * A single positioned run of text on a page, as extracted from the PDF's content
  * stream. Position and font metrics are what make conservative reflow possible:
@@ -55,4 +57,13 @@ interface PdfTextSource : AutoCloseable {
     fun outline(): List<OutlineEntry>
     /** True when the document is encrypted and text cannot be extracted. */
     fun isEncrypted(): Boolean
+
+    /**
+     * What the document says it is called, from its info dictionary.
+     *
+     * Defaulted so a source that has no metadata — or a test fake — need not care.
+     * The value is advisory: PDF Title fields are wrong often enough that
+     * [app.folio.core.metadata.TitleResolver] validates before believing one.
+     */
+    fun documentInfo(): DocumentInfo? = null
 }

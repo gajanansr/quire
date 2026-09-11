@@ -5,6 +5,7 @@ import app.folio.core.source.PageGeometry
 import app.folio.core.source.PdfPage
 import app.folio.core.source.PdfTextSource
 import app.folio.core.source.TextRun
+import app.folio.core.metadata.DocumentInfo
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
 import com.tom_roush.pdfbox.text.PDFTextStripper
@@ -28,6 +29,22 @@ class AndroidPdfTextSource(file: File) : PdfTextSource {
     override fun pageCount(): Int = doc.numberOfPages
 
     override fun isEncrypted(): Boolean = doc.isEncrypted
+
+    /**
+     * The document's info dictionary.
+     *
+     * Read straight and passed on unvalidated — deciding whether a Title is really a
+     * title belongs in one place, and that place is TitleResolver, where it can be
+     * tested without a PDF. Wrapped because a malformed dictionary should leave the
+     * book nameless rather than unreadable.
+     */
+    override fun documentInfo(): DocumentInfo? = runCatching {
+        val info = doc.documentInformation ?: return null
+        DocumentInfo(
+            title = info.title?.trim()?.takeIf { it.isNotEmpty() },
+            author = info.author?.trim()?.takeIf { it.isNotEmpty() },
+        )
+    }.getOrNull()
 
     override fun page(index: Int): PdfPage {
         val box = doc.getPage(index).mediaBox

@@ -171,13 +171,13 @@ Resolution order, each step validated before it is trusted:
 3. Filename patterns: `Author - Title`, `Title - Author`, `Title (Author)`
 4. The filename, as today
 
-- [ ] **Step 1: Failing tests** for each rule and each rejection, including
+- [x] **Step 1: Failing tests** for each rule and each rejection, including
       "a garbage DocInfo title falls through to the page-1 heading".
-- [ ] **Step 2: Run them, watch them fail**
-- [ ] **Step 3: Implement the resolver** as a pure function in `:core`.
-- [ ] **Step 4: Expose DocInfo through `PdfTextSource`** and wire it up.
-- [ ] **Step 5: Gate**
-- [ ] **Step 6: Commit**
+- [x] **Step 2: Run them, watch them fail**
+- [x] **Step 3: Implement the resolver** as a pure function in `:core`.
+- [x] **Step 4: Expose DocInfo through `PdfTextSource`** and wire it up.
+- [x] **Step 5: Gate**
+- [x] **Step 6: Commit**
 
 ### Task B3: Drop OCR junk without eating the book
 

@@ -2,6 +2,7 @@ package app.folio.core.pdf
 
 import app.folio.core.FolioConstants
 import app.folio.core.model.Book
+import app.folio.core.metadata.TitleResolver
 import app.folio.core.model.BookMetadata
 import app.folio.core.model.FailureReason
 import app.folio.core.model.ProcessingStatus
@@ -86,10 +87,19 @@ class PdfPipeline(
 
         val poor = ocrDegraded || result.confidence < FolioConstants.MIN_REFLOW_CONFIDENCE
 
+        // The filename is the floor, not the answer. Reading the document's own
+        // metadata and its title page can do better, and the resolver refuses both
+        // when they look like machinery.
+        val named = TitleResolver.resolve(
+            filename = title,
+            info = runCatching { source.documentInfo() }.getOrNull(),
+            pageOne = runCatching { effective.page(0).runs }.getOrDefault(emptyList()),
+        )
+
         return normalizer.assemble(
             id = id,
-            title = title,
-            author = null,
+            title = named.title,
+            author = named.author,
             metadata = BookMetadata(),
             sourceFormat = if (usedOcr) SourceFormat.PDF_OCR else SourceFormat.PDF_TEXT,
             chapters = detected,
