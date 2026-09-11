@@ -11,6 +11,10 @@ The app installs, runs, imports real books, and reads them.
 | Verify (device) | `./scripts/check-device.sh` |
 | Run it | `./gradlew :app:assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk` |
 | Sideload | `~/Desktop/Folio-0.1.0.apk` (debug-signed, all four ABIs, 67 MB) |
+| **See it** | `./scripts/dev.sh` — boots a windowed emulator (or uses a plugged-in phone), builds, installs, launches |
+| **Live reload** | `./scripts/watch.sh` — rebuilds and reinstalls on every source change |
+| **Screenshot** | `./scripts/shot.sh <name>` — writes `/tmp/folio-<name>.png` |
+| **Logs** | `./scripts/logs.sh` (follow) or `--dump` (what already happened) |
 | Screenshots | `docs/screenshots/` |
 | Spec | `docs/superpowers/specs/2026-09-11-folio-android-design.md` |
 | Plans | `docs/superpowers/plans/` |
