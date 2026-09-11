@@ -61,7 +61,7 @@ fun FolioRoot(
     repository: BookRepository,
     habitRepository: HabitRepository,
     importProgress: ImportProgress?,
-    theme: FolioThemeName = FolioThemeName.LIGHT,
+    theme: FolioThemeName = FolioThemeName.PAPER,
     onThemeChange: (FolioThemeName) -> Unit = {},
     onChooseFile: () -> Unit,
     onDismissImport: () -> Unit,

@@ -75,7 +75,7 @@ data class ReadingDayEntity(
 data class AppSettingsEntity(
     @PrimaryKey val id: Int = 0,
     val dailyGoalMinutes: Int = 10,
-    val themeName: String = "LIGHT",
+    val themeName: String = "PAPER",
     val readerFont: String = "SERIF",
     val readerFontSizeSp: Float = 19f,
     val readerJustify: Boolean = false,

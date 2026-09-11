@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import app.folio.android.ui.nav.FolioRoot
 import app.folio.android.ui.theme.FolioThemeName
+import app.folio.android.ui.theme.themeNamed
 import androidx.lifecycle.lifecycleScope
 import app.folio.android.work.ImportCoordinator
 import kotlinx.coroutines.flow.flowOf
@@ -51,9 +52,7 @@ class MainActivity : ComponentActivity() {
             // that resets on every launch is not a setting.
             val settings by graph.habits.observeSettings()
                 .collectAsState(initial = null)
-            val theme = settings?.themeName?.let { name ->
-                FolioThemeName.entries.firstOrNull { it.name == name }
-            } ?: FolioThemeName.LIGHT
+            val theme = themeNamed(settings?.themeName)
 
             FolioRoot(
                 repository = graph.repository,

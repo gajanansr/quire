@@ -13,8 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 
-val LocalFolioColors = staticCompositionLocalOf { FolioPalettes.Light }
-val LocalFolioTheme = staticCompositionLocalOf { FolioThemeName.LIGHT }
+val LocalFolioColors = staticCompositionLocalOf { FolioPalettes.Paper }
+val LocalFolioTheme = staticCompositionLocalOf { FolioThemeName.PAPER }
 
 /** Token access from anywhere in the tree: `Folio.colors.ink`. */
 object Folio {
@@ -27,7 +27,7 @@ object Folio {
 
 @Composable
 fun FolioTheme(
-    theme: FolioThemeName = FolioThemeName.LIGHT,
+    theme: FolioThemeName = FolioThemeName.PAPER,
     content: @Composable () -> Unit,
 ) {
     val colors = FolioPalettes.of(theme)

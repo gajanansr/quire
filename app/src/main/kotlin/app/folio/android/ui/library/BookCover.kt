@@ -129,32 +129,29 @@ object CoverGradient {
     }
 
     /**
-     * The same swatch, printed rather than displayed.
+     * The same swatch as a greyscale plate.
      *
-     * E-ink is a paper theme, and covers are most of what the library shows. Six
-     * saturated gradients on a warm page would undo the theme on its most visible
-     * screen, so each colour is mapped onto the paper's own ink-to-page ramp:
-     * luminance is kept, hue is discarded, and neither end reaches pure black or
-     * pure white. The result reads like a plate printed on the page it sits on.
+     * Covers are most of what the library shows, and six saturated gradients would
+     * undo E-ink on its most visible screen — a greyscale panel cannot show them,
+     * which is the whole point of the theme. Luminance is kept so the six swatches
+     * stay distinguishable from one another; hue is discarded entirely, and the ramp
+     * stops short of both ends so a plate never out-blacks the text or out-whites
+     * the page.
      */
-    fun onPaper(bookId: String): Brush {
+    fun greyscale(bookId: String): Brush {
         val (start, end) = palette[indexOf(bookId)]
-        return Brush.linearGradient(listOf(start.printed(), end.printed()))
+        return Brush.linearGradient(listOf(start.asGrey(), end.asGrey()))
     }
 
-    /** Rec. 709 luminance, mapped onto the paper ramp. */
-    private fun Color.printed(): Color {
-        val luminance = 0.2126f * red + 0.7152f * green + 0.0722f * blue
-        return Color(
-            red = 0.180f + luminance * 0.781f,
-            green = 0.165f + luminance * 0.768f,
-            blue = 0.145f + luminance * 0.745f,
-        )
+    /** Rec. 709 luminance, with the hue dropped. */
+    private fun Color.asGrey(): Color {
+        val grey = 0.090f + (0.2126f * red + 0.7152f * green + 0.0722f * blue) * 0.780f
+        return Color(red = grey, green = grey, blue = grey)
     }
 }
 
 /** The cover swatch for the active theme. */
 @Composable
 fun coverBrush(bookId: String): Brush =
-    if (LocalFolioTheme.current == FolioThemeName.EINK) CoverGradient.onPaper(bookId)
+    if (LocalFolioTheme.current == FolioThemeName.EINK) CoverGradient.greyscale(bookId)
     else CoverGradient.of(bookId)

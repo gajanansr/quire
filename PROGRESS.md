@@ -33,12 +33,29 @@ typography persist across launches.
 real share destinations (the handoff forbids brand marks without the actual SDKs),
 and cloud sync (explicitly out of scope).
 
-**One deliberate departure from the handoff:** E-ink. The handoff specifies the
-Light palette put through `grayscale(1) contrast(1.15) brightness(1.03)`. That is
-faithful to a desaturated LCD and reads cold — a photocopy rather than a page. At
-the user's direction it is now a real warm paper palette: warm hue throughout,
-chroma at or below 0.03, and neither end reaching pure black or pure white. Book
-covers are mapped onto the same ink-to-page ramp so the library does not undo it.
+**Deliberate departures from the handoff, at the user's direction:** the theme set.
+The handoff shipped Light / Pale / Dark / E-ink, with Light at L=0.985 and Pale at
+L=0.965 — two percent apart, so they read as one theme — and E-ink defined as a
+grayscale filter over Light. Folio now ships five, researched against what Kindle,
+Apple Books and real e-ink hardware actually do:
+
+| | Page | Ink | Job |
+|---|---|---|---|
+| Paper | #FDF5EF | #111B28 | the handoff's Light, unchanged. Daylight. |
+| Sepia | #F1E5D0 | #3B2A1C | the warm page every e-reader ships |
+| E-ink | #E8E8E8 | #141414 | strictly neutral, 15:1 like an E Ink Carta panel |
+| Night | #1D1E20 | #D0D1D3 | dark grey, not black — halation |
+| Black | #000000 | #C4C4C4 | OLED and pitch-dark rooms |
+
+Every token of E-ink has chroma exactly zero, asserted in a test: an electrophoretic
+panel is greyscale hardware, which is why a Kindle Paperwhite cannot show sepia or
+green at all. It is not pure black on pure white either — Carta 1200 measures 15:1
+to 17:1 and its white is reflective, not emitted. Night avoids pure black because
+white-on-black halation is a wall for the ~half of people with some astigmatism;
+true black is its own theme for those who want it.
+
+Body text clears WCAG AA on all five, and no two pages are within 0.06 of each other
+on any channel. Both are tests, not intentions.
 
 **One open question for you** is recorded under "Open questions" below.
 

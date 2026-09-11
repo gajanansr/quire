@@ -131,7 +131,7 @@ fun TypographySheet(
             Spacer(Modifier.height(10.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
                 FolioThemeName.entries.forEach { name ->
                     ThemePreview(
@@ -316,7 +316,7 @@ private fun ThemePreview(
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(54.dp)
+                .height(50.dp)
                 .clip(FolioShapes.chip)
                 .border(
                     width = if (selected) 2.dp else 1.dp,

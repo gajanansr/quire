@@ -138,10 +138,10 @@ class HabitRepositoryTest {
 
     @Test
     fun `settings round trip`() = runBlocking {
-        habits.setTheme("DARK")
+        habits.setTheme("NIGHT")
         habits.setReaderPreferences(font = "LORA", sizeSp = 22f, justify = true)
         val settings = habits.settings()
-        assertEquals("DARK", settings.themeName)
+        assertEquals("NIGHT", settings.themeName)
         assertEquals("LORA", settings.readerFont)
         assertEquals(22f, settings.readerFontSizeSp, 0.01f)
         assertTrue(settings.readerJustify)
