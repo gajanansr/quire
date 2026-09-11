@@ -46,6 +46,16 @@ class Paginator(private val measurer: TextMeasurer) {
          * one typographic sin worth code to avoid.
          */
         const val MIN_LINES_AFTER_HEADING = 2
+
+        /** Characters per line assumed before any measurement has been seen. */
+        const val ASSUMED_CHARS_PER_LINE = 80f
+
+        /**
+         * How much more than a page to ask for, so one measurement usually settles
+         * the page. Too small and the window doubles repeatedly; too large and the
+         * saving over measuring the whole remainder shrinks.
+         */
+        const val WINDOW_SLACK = 1.3f
     }
 
     /**
@@ -68,6 +78,9 @@ class Paginator(private val measurer: TextMeasurer) {
         val pages = mutableListOf<Page>()
         var current = mutableListOf<PageSlice>()
         var used = firstPageInsetPx.coerceAtLeast(0f)
+        // Learned from each measurement and carried forward, so the window starts
+        // close to right rather than doubling its way there on every page.
+        var charsPerLine = ASSUMED_CHARS_PER_LINE
 
         fun flush() {
             pages += Page(current)
@@ -94,7 +107,6 @@ class Paginator(private val measurer: TextMeasurer) {
 
             while (cursor < text.length) {
                 val remainingHeight = viewport.heightPx - used - spacing
-                val slice = text.substring(cursor)
 
                 if (remainingHeight < style.lineHeightPx) {
                     // Not even one line fits. Start a new page unless this page is
@@ -110,15 +122,17 @@ class Paginator(private val measurer: TextMeasurer) {
                     continue
                 }
 
-                val measured = measurer.measure(slice, style, viewport.widthPx)
+                val maxLines = (remainingHeight / style.lineHeightPx).toInt()
+                val window = measureWindow(text, cursor, maxLines, charsPerLine, style, viewport.widthPx)
+                val measured = window.measured
+                charsPerLine = window.charsPerLine
 
-                if (measured.heightPx <= remainingHeight) {
+                if (window.reachedEnd && measured.heightPx <= remainingHeight) {
                     current += PageSlice(blockIndex, cursor, text.length)
                     used += spacing + measured.heightPx
                     cursor = text.length
                 } else {
-                    val linesThatFit = (remainingHeight / style.lineHeightPx).toInt()
-                        .coerceAtMost(measured.lineCount)
+                    val linesThatFit = maxLines.coerceAtMost(measured.lineCount)
 
                     if (linesThatFit <= 0) {
                         flush()
@@ -148,6 +162,63 @@ class Paginator(private val measurer: TextMeasurer) {
         if (current.isNotEmpty() || pages.isEmpty()) flush()
 
         return applyHeadingOrphanControl(pages, blocks)
+    }
+
+    /** A measurement of part of a block, and what it taught us about line length. */
+    private data class Window(
+        val measured: Measured,
+        val reachedEnd: Boolean,
+        val charsPerLine: Float,
+    )
+
+    /**
+     * Measures just enough of a block to decide where this page ends.
+     *
+     * The paginator used to hand the measurer `text.substring(cursor)` — the entire
+     * rest of the block — to find one page of lines. For a block split across P
+     * pages that measures the text P/2 times over: a 400k-character block laid out
+     * 30.1M characters, and the ratio doubled every time the book doubled. Ordinary
+     * paragraphs hid it, because each one fits in a page or two; one enormous block
+     * is what made long books hang, and what made every type-size change hang again.
+     *
+     * Only two outcomes matter to the caller: either the rest of the block fits, or
+     * there are more lines than the page can hold. So it is enough to measure a
+     * window predicted to overflow [maxLines], and widen it only when the prediction
+     * was short. The estimate is learned from real measurements as it goes, so after
+     * the first page the window is usually right first time.
+     */
+    private fun measureWindow(
+        text: String,
+        cursor: Int,
+        maxLines: Int,
+        charsPerLine: Float,
+        style: BlockStyle,
+        widthPx: Float,
+    ): Window {
+        var estimate = charsPerLine
+        var windowChars = (((maxLines + 2) * estimate) * WINDOW_SLACK).toInt().coerceAtLeast(1)
+
+        while (true) {
+            val windowEnd = (cursor + windowChars).coerceAtMost(text.length)
+            val measured = measurer.measure(
+                text.substring(cursor, windowEnd), style, widthPx,
+            )
+            val reachedEnd = windowEnd >= text.length
+
+            // Learn from complete lines only. The last line of a window is cut by
+            // the window, not by the margin, so including it would drag the estimate
+            // down and cause the next window to be too small.
+            if (measured.lineCount >= 2) {
+                val complete = measured.lineEnds[measured.lineCount - 2]
+                estimate = (complete.toFloat() / (measured.lineCount - 1)).coerceAtLeast(1f)
+            }
+
+            // Enough when the page is provably full, or there is no more text.
+            if (reachedEnd || measured.lineCount > maxLines) {
+                return Window(measured, reachedEnd, estimate)
+            }
+            windowChars *= 2
+        }
     }
 
     /**
