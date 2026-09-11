@@ -1041,3 +1041,48 @@ literals to the OKLCH tokens through the same transform `FolioColors` uses,
 because a launcher icon is resolved before any app code runs.
 
 Gates: 399 JVM tests, 15 device tests, 0 failures.
+
+### 2026-09-12 — reader performance and extraction quality
+
+Plan: `docs/superpowers/plans/2026-09-12-folio-performance-and-extraction.md`.
+All seven tasks complete. 475 JVM tests, 19 device tests, 0 failures.
+
+**Why long books hung.** The paginator handed the measurer `text.substring(cursor)`
+— the entire rest of the block — to work out where one page ended, so a block spread
+over P pages was measured about P/2 times over. Counted rather than guessed:
+
+| chapter | shape | characters laid out | ratio |
+|---|---|---|---|
+| 50k | one block | 492k | 9.8x |
+| 100k | one block | 1,916k | 19.2x |
+| 200k | one block | 7,563k | 37.8x |
+| 400k | one block | 30,051k | **75.1x** |
+| 400k | paragraphs | 473k | 1.2x |
+
+The ratio doubling with size is the signature. Ordinary paragraphs hid it entirely,
+which is why some books were fine and others hung: the trigger is a *single enormous
+block* — a TXT with no blank lines, a PDF whose reflow merged everything. Measuring a
+window sized to the page instead brings it to **1.35x at every size**, one measure
+call per page. `PaginationCostTest` counts characters rather than timing, so it is
+deterministic and states the invariant directly.
+
+Two more: `ContentBlock.plainText` rebuilt a block's whole string on every read, and
+the Reader read it per visible block per recomposition — a 400k-character allocation
+per frame on a big block, which is what made page turns drag. `Chapter.blockTexts`
+derives it once. And paginated chapters are now kept (3-entry LRU keyed on chapter,
+viewport, typography and the first-page header inset).
+
+**Extraction.** Books now keep their own covers (EPUB 2 and 3 declarations plus
+fallbacks, PDF page one at 72 DPI, nothing invented for TXT). PDF titles come from
+the document's metadata, validated — `Microsoft Word - thesis_final_v3.doc` is a real
+value — then from the largest type on page one, then from an `Author - Title`
+filename, with the filename as the floor. Scanner noise is filtered out by shape and
+position rather than confidence, under a hard guarantee that anything reading as
+language is kept. Photographed pages are greyscaled and auto-levelled, but only for
+books where a three-page sample shows it genuinely helps.
+
+**Two process notes.** Fixtures were cached by filename, so editing one silently left
+the old file in place and the new test failed against the previous book — that cost
+time twice, and the cache path now carries a version to bump. And the device gate
+uninstalls both APKs when it finishes, which left the phone with no Folio on it
+mid-session; `check-device.sh` reinstalls afterwards.
