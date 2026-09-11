@@ -32,7 +32,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.folio.android.ui.library.CoverGradient
+import androidx.annotation.DrawableRes
 import app.folio.android.ui.theme.Folio
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import app.folio.android.ui.theme.SourceSerif
 import app.folio.core.habit.ReadingDay
@@ -138,29 +141,39 @@ fun ShareSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                Destination("Stories", onShare)
-                Destination("Message", onShare)
-                Destination("More", onShare)
-                Destination("Save", onSaveImage)
+                Destination(FolioIcons.Story, "Stories", onShare)
+                Destination(FolioIcons.Message, "Message", onShare)
+                Destination(FolioIcons.More, "More", onShare)
+                Destination(FolioIcons.Save, "Save", onSaveImage)
             }
         }
     }
 }
 
 @Composable
-private fun Destination(label: String, onClick: () -> Unit) {
+private fun Destination(@DrawableRes icon: Int, label: String, onClick: () -> Unit) {
     val colors = Folio.colors
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable(onClick = onClick),
     ) {
-        // A plain glyph, not a brand mark. See the class comment.
+        // Generic glyphs, never brand marks. See the class comment: a recognisable
+        // logo without the SDK and the brand guidelines is a trademark problem, so
+        // "Stories" gets a picture and "Message" an arrow rather than anyone's mark.
         Box(
             Modifier
                 .size(48.dp)
                 .clip(CircleShape)
                 .border(1.dp, colors.border, CircleShape),
-        )
+            contentAlignment = Alignment.Center,
+        ) {
+            FolioIcon(
+                icon,
+                contentDescription = null,
+                tint = colors.ink,
+                size = FolioIcons.Size.Large,
+            )
+        }
         Spacer(Modifier.height(6.dp))
         Text(label, color = colors.muted, style = MaterialTheme.typography.labelSmall)
     }

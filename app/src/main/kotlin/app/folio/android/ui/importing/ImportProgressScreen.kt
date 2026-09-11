@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.common.PrimaryButton
 import app.folio.android.ui.theme.Folio
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import app.folio.android.work.ImportProgressStore
 
@@ -158,10 +160,12 @@ private fun StepRow(label: String, done: Boolean) {
             contentAlignment = Alignment.Center,
         ) {
             if (done) {
-                Text(
-                    "✓",
-                    color = colors.buttonText,
-                    style = MaterialTheme.typography.labelSmall,
+                FolioIcon(
+                    FolioIcons.Done,
+                    // The step's name sits next to it and already reads as done.
+                    contentDescription = null,
+                    tint = colors.buttonText,
+                    size = 12.dp,
                 )
             }
         }

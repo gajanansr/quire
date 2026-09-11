@@ -34,7 +34,10 @@ import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.common.PrimaryButton
 import app.folio.android.ui.common.SecondaryButton
 import app.folio.android.ui.library.CoverGradient
+import androidx.annotation.DrawableRes
 import app.folio.android.ui.theme.Folio
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import app.folio.core.reading.ReadingEstimates
 
@@ -136,7 +139,11 @@ private fun CoverHeader(state: BookDetailsState, onBack: () -> Unit) {
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GlassIcon(onClick = onBack, glyph = "‹")
+            GlassIcon(
+                onClick = onBack,
+                icon = FolioIcons.Back,
+                description = FolioStrings.BACK,
+            )
             Spacer(Modifier.weight(1f))
         }
         Text(
@@ -152,7 +159,11 @@ private fun CoverHeader(state: BookDetailsState, onBack: () -> Unit) {
 }
 
 @Composable
-private fun GlassIcon(onClick: () -> Unit, glyph: String) {
+private fun GlassIcon(
+    onClick: () -> Unit,
+    @DrawableRes icon: Int,
+    description: String,
+) {
     Box(
         modifier = Modifier
             .size(34.dp)
@@ -161,7 +172,7 @@ private fun GlassIcon(onClick: () -> Unit, glyph: String) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(glyph, color = Color.White, style = MaterialTheme.typography.titleLarge)
+        FolioIcon(icon, contentDescription = description, tint = Color.White)
     }
 }
 

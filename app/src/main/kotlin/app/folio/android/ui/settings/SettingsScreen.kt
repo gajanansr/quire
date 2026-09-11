@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import app.folio.android.data.AppSettingsEntity
 import app.folio.android.data.HabitRepository
 import app.folio.android.ui.theme.Folio
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import app.folio.android.ui.theme.FolioThemeName
 
@@ -100,6 +102,10 @@ fun SettingsScreen(
             Divider()
             ValueRow(label = "Fonts", value = "SIL OFL 1.1", onClick = onOpenLicences)
             Divider()
+            // Lucide is ISC licensed, which requires the notice to travel with the
+            // icons. It ships in res/raw/lucide_license.txt.
+            ValueRow(label = "Icons", value = "Lucide · ISC", onClick = onOpenLicences)
+            Divider()
             ValueRow(
                 label = "Your books",
                 // Worth stating plainly rather than burying in a privacy policy.
@@ -166,7 +172,12 @@ private fun ValueRow(label: String, value: String, onClick: (() -> Unit)?) {
             // affordance matches its behaviour.
             if (onClick != null) {
                 Spacer(Modifier.padding(horizontal = 4.dp))
-                Text("›", color = colors.muted, style = MaterialTheme.typography.titleLarge)
+                FolioIcon(
+                    FolioIcons.Forward,
+                    contentDescription = null,
+                    tint = colors.muted,
+                    size = FolioIcons.Size.Small,
+                )
             }
         }
     }

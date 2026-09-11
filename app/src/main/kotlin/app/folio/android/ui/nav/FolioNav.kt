@@ -3,14 +3,13 @@ package app.folio.android.ui.nav
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,12 +21,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.theme.Folio
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 
-enum class FolioDestination(val label: String) {
-    LIBRARY(FolioStrings.NAV_LIBRARY),
-    BOOKMARKS(FolioStrings.NAV_BOOKMARKS),
-    SETTINGS(FolioStrings.NAV_SETTINGS),
+enum class FolioDestination(val label: String, @DrawableRes val icon: Int) {
+    LIBRARY(FolioStrings.NAV_LIBRARY, FolioIcons.Library),
+    BOOKMARKS(FolioStrings.NAV_BOOKMARKS, FolioIcons.Bookmarks),
+    SETTINGS(FolioStrings.NAV_SETTINGS, FolioIcons.Settings),
 }
 
 /**
@@ -92,7 +93,14 @@ private fun PillItem(
         horizontalArrangement = Arrangement.spacedBy(7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        NavGlyph(destination, tint = if (active) colors.buttonText else colors.ink)
+        FolioIcon(
+            icon = destination.icon,
+            // The row already carries the destination's name as its semantics, and
+            // the active one shows a visible label. Describing the icon again would
+            // make a screen reader say it twice.
+            contentDescription = null,
+            tint = if (active) colors.buttonText else colors.ink,
+        )
         // Only the active destination is labelled; that expansion is the pill's
         // whole idea.
         if (active) {
@@ -102,27 +110,5 @@ private fun PillItem(
                 style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
             )
         }
-    }
-}
-
-/**
- * Glyphs drawn from primitives rather than an icon font.
- *
- * The handoff draws every glyph from plain divs and ships no icon set, so these are
- * deliberately simple shapes matching those outlines. Swapping in a real icon system
- * later is a local change.
- */
-@Composable
-private fun NavGlyph(destination: FolioDestination, tint: Color) {
-    when (destination) {
-        FolioDestination.LIBRARY -> Box(
-            Modifier.size(15.dp).border(1.5.dp, tint, FolioShapes.chip)
-        )
-        FolioDestination.BOOKMARKS -> Box(
-            Modifier.size(width = 11.dp, height = 15.dp).border(1.5.dp, tint)
-        )
-        FolioDestination.SETTINGS -> Box(
-            Modifier.size(15.dp).border(1.5.dp, tint, CircleShape)
-        )
     }
 }

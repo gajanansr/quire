@@ -24,6 +24,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.theme.Folio
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 
 /**
@@ -92,7 +94,12 @@ fun AddBookSheet(
                         style = MaterialTheme.typography.labelSmall,
                     )
                 }
-                Text("›", color = colors.muted, style = MaterialTheme.typography.titleLarge)
+                FolioIcon(
+                    FolioIcons.Forward,
+                    contentDescription = null,
+                    tint = colors.muted,
+                    size = FolioIcons.Size.Small,
+                )
             }
         }
     }

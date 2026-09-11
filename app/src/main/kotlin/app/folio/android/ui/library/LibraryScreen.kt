@@ -32,7 +32,10 @@ import app.folio.android.data.HabitSummary
 import app.folio.android.data.LibraryBook
 import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.common.EmptyState
+import androidx.annotation.DrawableRes
 import app.folio.android.ui.theme.Folio
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import kotlin.math.roundToInt
 
@@ -72,6 +75,7 @@ fun LibraryScreen(
                 title = FolioStrings.LIBRARY_EMPTY,
                 hint = FolioStrings.LIBRARY_EMPTY_HINT,
                 actionLabel = FolioStrings.ADD_BOOK,
+                actionIcon = FolioIcons.Add,
                 onAction = onAddBook,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -139,9 +143,17 @@ private fun LibraryHeader(
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        IconButtonBox(onClick = onOpenBookmarks, description = FolioStrings.NAV_BOOKMARKS)
+        IconButtonBox(
+            onClick = onOpenBookmarks,
+            icon = FolioIcons.Bookmarks,
+            description = FolioStrings.NAV_BOOKMARKS,
+        )
         Spacer(Modifier.size(8.dp))
-        IconButtonBox(onClick = onOpenSettings, description = FolioStrings.NAV_SETTINGS)
+        IconButtonBox(
+            onClick = onOpenSettings,
+            icon = FolioIcons.Settings,
+            description = FolioStrings.NAV_SETTINGS,
+        )
     }
 }
 
@@ -172,7 +184,11 @@ private fun subtitleFor(state: LibraryState, habits: HabitSummary): String {
 }
 
 @Composable
-private fun IconButtonBox(onClick: () -> Unit, description: String) {
+private fun IconButtonBox(
+    onClick: () -> Unit,
+    @DrawableRes icon: Int,
+    description: String,
+) {
     val colors = Folio.colors
     Box(
         modifier = Modifier
@@ -182,7 +198,7 @@ private fun IconButtonBox(onClick: () -> Unit, description: String) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.size(14.dp).border(1.5.dp, colors.ink, FolioShapes.chip))
+        FolioIcon(icon, contentDescription = description, tint = colors.ink)
     }
 }
 
@@ -230,7 +246,12 @@ private fun HabitCard(habits: HabitSummary, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        Text("›", color = colors.muted, style = MaterialTheme.typography.titleLarge)
+        FolioIcon(
+            FolioIcons.Forward,
+            contentDescription = null,
+            tint = colors.muted,
+            size = FolioIcons.Size.Small,
+        )
     }
 }
 
@@ -360,6 +381,12 @@ private fun AddBookTile(onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text("+", color = colors.muted, style = MaterialTheme.typography.headlineMedium)
+        FolioIcon(
+            FolioIcons.Add,
+            // The tile is labelled by the button beside it and by the empty state.
+            contentDescription = FolioStrings.ADD_BOOK,
+            tint = colors.muted,
+            size = FolioIcons.Size.Large,
+        )
     }
 }

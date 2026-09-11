@@ -29,7 +29,10 @@ import androidx.compose.ui.unit.dp
 import app.folio.android.data.HabitRepository
 import app.folio.android.data.HabitSummary
 import app.folio.android.ui.common.PrimaryButton
+import androidx.annotation.DrawableRes
 import app.folio.android.ui.theme.Folio
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import app.folio.core.habit.Levels
 import app.folio.core.habit.Milestone
@@ -62,6 +65,15 @@ fun StreakScreen(
             .padding(top = 40.dp, bottom = 30.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        FolioIcon(
+            FolioIcons.Streak,
+            contentDescription = null,
+            // A lit flame only once there is a streak to show. Drawing it in the
+            // accent colour on day zero would congratulate someone for nothing.
+            tint = if (summary.currentStreak > 0) colors.accent else colors.border,
+            size = FolioIcons.Size.Hero,
+        )
+        Spacer(Modifier.height(14.dp))
         Text(
             text = if (summary.currentStreak == 1) "1 day" else "${summary.currentStreak} days",
             color = colors.ink,
@@ -95,7 +107,10 @@ fun StreakScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SecondaryLink("Milestones", onOpenMilestones, Modifier.weight(1f))
+            SecondaryLink(
+                "Milestones", onOpenMilestones, Modifier.weight(1f),
+                icon = FolioIcons.Milestone,
+            )
             SecondaryLink(
                 "Level ${summary.level.index}", onOpenLevel, Modifier.weight(1f),
             )
@@ -113,7 +128,19 @@ fun StreakScreen(
                 .padding(vertical = 16.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Share Streak", color = colors.ink, style = MaterialTheme.typography.labelLarge)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FolioIcon(
+                    FolioIcons.Share,
+                    contentDescription = null,
+                    tint = colors.ink,
+                    size = FolioIcons.Size.Small,
+                )
+                Text("Share Streak", color = colors.ink,
+                    style = MaterialTheme.typography.labelLarge)
+            }
         }
         Spacer(Modifier.navigationBarsPadding())
     }
@@ -220,8 +247,13 @@ private fun MilestoneGroup(milestones: List<Milestone>, achieved: Boolean) {
                     contentAlignment = Alignment.Center,
                 ) {
                     if (achieved) {
-                        Text("✓", color = colors.buttonText,
-                            style = MaterialTheme.typography.labelSmall)
+                        FolioIcon(
+                            FolioIcons.Done,
+                            // The milestone's title is the next thing read out.
+                            contentDescription = null,
+                            tint = colors.buttonText,
+                            size = 14.dp,
+                        )
                     }
                 }
                 Spacer(Modifier.size(14.dp))
@@ -453,7 +485,12 @@ fun BookCompleteScreen(
             Modifier.size(64.dp).clip(CircleShape).background(colors.accent),
             contentAlignment = Alignment.Center,
         ) {
-            Text("✓", color = colors.buttonText, style = MaterialTheme.typography.headlineMedium)
+            FolioIcon(
+                FolioIcons.Done,
+                contentDescription = null,
+                tint = colors.buttonText,
+                size = 30.dp,
+            )
         }
         Spacer(Modifier.height(22.dp))
         Text(
@@ -528,7 +565,12 @@ private fun BackRow(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun SecondaryLink(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun SecondaryLink(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    @DrawableRes icon: Int? = null,
+) {
     val colors = Folio.colors
     Box(
         modifier = modifier
@@ -538,6 +580,19 @@ private fun SecondaryLink(label: String, onClick: () -> Unit, modifier: Modifier
             .padding(vertical = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = colors.ink, style = MaterialTheme.typography.labelLarge)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (icon != null) {
+                FolioIcon(
+                    icon,
+                    contentDescription = null,
+                    tint = colors.ink,
+                    size = FolioIcons.Size.Small,
+                )
+            }
+            Text(label, color = colors.ink, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }

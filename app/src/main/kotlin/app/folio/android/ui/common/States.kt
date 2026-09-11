@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,7 +21,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.folio.android.ui.FolioStrings
+import androidx.annotation.DrawableRes
 import app.folio.android.ui.theme.Folio
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import app.folio.core.model.FailureReason
 
@@ -30,6 +34,7 @@ fun EmptyState(
     title: String,
     hint: String,
     actionLabel: String? = null,
+    @DrawableRes actionIcon: Int? = null,
     onAction: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -39,10 +44,12 @@ fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Box(
-            Modifier
-                .size(width = 44.dp, height = 58.dp)
-                .border(1.5.dp, colors.border, FolioShapes.chip)
+        FolioIcon(
+            FolioIcons.Book,
+            // Decorative: the headline underneath says what the state is.
+            contentDescription = null,
+            tint = colors.border,
+            size = FolioIcons.Size.Hero,
         )
         Spacer(Modifier.height(22.dp))
         Text(
@@ -60,7 +67,7 @@ fun EmptyState(
         )
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(26.dp))
-            PrimaryButton(actionLabel, onAction)
+            PrimaryButton(actionLabel, onAction, icon = actionIcon)
         }
     }
 }
@@ -118,7 +125,12 @@ fun ErrorState(
 }
 
 @Composable
-fun PrimaryButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun PrimaryButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    @DrawableRes icon: Int? = null,
+) {
     val colors = Folio.colors
     Box(
         modifier = modifier
@@ -129,7 +141,22 @@ fun PrimaryButton(label: String, onClick: () -> Unit, modifier: Modifier = Modif
             .padding(vertical = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = colors.buttonText, style = MaterialTheme.typography.labelLarge)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (icon != null) {
+                FolioIcon(
+                    icon,
+                    // The label beside it says what the button does.
+                    contentDescription = null,
+                    tint = colors.buttonText,
+                    size = FolioIcons.Size.Small,
+                )
+            }
+            Text(label, color = colors.buttonText,
+                style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
 

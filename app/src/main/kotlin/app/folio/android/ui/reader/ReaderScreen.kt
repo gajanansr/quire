@@ -31,7 +31,11 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.annotation.DrawableRes
+import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.theme.Folio
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import app.folio.core.model.ContentBlock
 import app.folio.core.model.plainText
@@ -237,11 +241,13 @@ private fun TopBar(title: String, onBack: () -> Unit) {
             .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            "‹",
-            color = colors.ink,
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.pointerInput(Unit) { detectTapGestures { onBack() } },
+        FolioIcon(
+            FolioIcons.Back,
+            contentDescription = FolioStrings.BACK,
+            tint = colors.ink,
+            size = FolioIcons.Size.Large,
+            modifier = Modifier
+                .pointerInput(Unit) { detectTapGestures { onBack() } },
         )
         Spacer(Modifier.padding(horizontal = 10.dp))
         Text(
@@ -297,24 +303,36 @@ private fun BottomBar(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            ChromeAction("Bookmark", onBookmark)
-            ChromeAction("Contents", onOpenContents)
-            ChromeAction("Type", onOpenTypography)
-            ChromeAction("Finish", onFinish)
+            ChromeAction(FolioIcons.Bookmark, FolioStrings.BOOKMARK, onBookmark)
+            ChromeAction(FolioIcons.Contents, FolioStrings.CONTENTS, onOpenContents)
+            ChromeAction(FolioIcons.Typography, FolioStrings.TYPOGRAPHY, onOpenTypography)
+            ChromeAction(FolioIcons.Done, FolioStrings.FINISH, onFinish)
         }
     }
 }
 
+/**
+ * One action in the reader's bottom bar.
+ *
+ * Icon only, which is what the handoff draws: the bar sits under the page the whole
+ * time the controls are visible, and four words compete with the prose for attention
+ * in a way four quiet glyphs do not. The name survives as the content description,
+ * so nothing is lost to a screen reader.
+ *
+ * The padding is generous on purpose — an 18dp icon is well under the 48dp minimum
+ * touch target, and the tappable area, not the drawing, is what has to be big.
+ */
 @Composable
-private fun ChromeAction(label: String, onClick: () -> Unit) {
+private fun ChromeAction(@DrawableRes icon: Int, label: String, onClick: () -> Unit) {
     val colors = Folio.colors
-    Text(
-        text = label,
-        color = colors.ink,
-        style = MaterialTheme.typography.labelLarge,
+    FolioIcon(
+        icon = icon,
+        contentDescription = label,
+        tint = colors.ink,
+        size = FolioIcons.Size.Large,
         modifier = Modifier
             .clip(FolioShapes.button)
             .pointerInput(Unit) { detectTapGestures { onClick() } }
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 14.dp, vertical = 13.dp),
     )
 }

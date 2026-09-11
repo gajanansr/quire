@@ -11,12 +11,22 @@ import app.folio.core.model.FailureReason
  */
 object FolioStrings {
 
+    // Controls that are an icon on screen. A screen reader has nothing else to
+    // announce for these, so the description is the only name they have.
+    const val BACK = "Back"
+    const val SHARE = "Share"
+    const val BOOKMARK = "Bookmark"
+    const val CONTENTS = "Contents"
+    const val TYPOGRAPHY = "Type"
+    const val FINISH = "Finish"
+
     // Library
     const val CONTINUE_READING = "Continue Reading"
     const val YOUR_BOOKS = "Your Books"
     const val LIBRARY_EMPTY = "Your library is empty."
     const val LIBRARY_EMPTY_HINT = "Add a book to get started."
-    const val ADD_BOOK = "+ Add Book"
+    // The leading "+" is drawn by FolioIcons.Add now, not spelled in the copy.
+    const val ADD_BOOK = "Add Book"
 
     // Habit card
     const val HABIT_STREAK = "7-day habit streak"
