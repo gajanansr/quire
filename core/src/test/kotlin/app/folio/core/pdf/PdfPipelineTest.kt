@@ -117,4 +117,65 @@ class PdfPipelineTest {
             assertTrue(book.totalChars > 100_000, "only ${book.totalChars} chars from 420 pages")
         }
     }
+
+    /**
+     * A recogniser that sees a photographed page: real prose, plus the things a
+     * camera picks up around it.
+     */
+    private class NoisyOcrEngine : app.folio.core.source.OcrEngine {
+        override suspend fun recognize(pageIndex: Int, image: ByteArray) =
+            app.folio.core.source.OcrPage(
+                pageIndex = pageIndex,
+                lines = listOf(
+                    // The page edge, seen down the far left margin.
+                    app.folio.core.source.OcrLine(
+                        "llllllll", x = 4f, y = 720f, width = 18f, height = 80f,
+                        confidence = 0.97f,
+                    ),
+                    app.folio.core.source.OcrLine(
+                        "Recognised line one on page $pageIndex which runs the full measure",
+                        x = 72f, y = 700f, width = 460f, height = 11f, confidence = 0.93f,
+                    ),
+                    app.folio.core.source.OcrLine(
+                        "and continues onto a second recognised line to form a paragraph.",
+                        x = 72f, y = 684f, width = 455f, height = 11f, confidence = 0.92f,
+                    ),
+                    app.folio.core.source.OcrLine(
+                        "A third line of genuine prose keeps the paragraph going.",
+                        x = 72f, y = 668f, width = 440f, height = 11f, confidence = 0.91f,
+                    ),
+                    app.folio.core.source.OcrLine(
+                        "The shadow in the gutter resolves into nothing in particular.",
+                        x = 72f, y = 652f, width = 450f, height = 11f, confidence = 0.9f,
+                    ),
+                    // A smear where the gutter met the platen.
+                    app.folio.core.source.OcrLine(
+                        "|| . -- |", x = 70f, y = 600f, width = 40f, height = 10f,
+                        confidence = 0.31f,
+                    ),
+                ),
+                meanConfidence = 0.8f,
+                imageWidth = 612f,
+                imageHeight = 792f,
+            )
+    }
+
+    @Test
+    fun `a photographed page keeps its prose and loses its noise`() = runBlocking {
+        PdfBoxTextSource(Fixtures.imageOnlyPdf()).use { s ->
+            val book = pipeline.process("id", "Scan", s, NoisyOcrEngine(), FakeRasterizer())
+            val text = book.chapters.flatMap { it.blocks }.joinToString(" ") { it.plainText }
+
+            // What the filter exists to remove.
+            assertTrue("llllllll" !in text, "the page edge reached the book")
+            assertTrue("|| . --" !in text, "the smear reached the book")
+
+            // The conservatism rule, stated as an assertion: all four real lines
+            // survive, not merely some of them.
+            assertTrue("Recognised line one" in text, "prose was eaten")
+            assertTrue("form a paragraph" in text, "prose was eaten")
+            assertTrue("genuine prose keeps the paragraph going" in text, "prose was eaten")
+            assertTrue("resolves into nothing in particular" in text, "prose was eaten")
+        }
+    }
 }

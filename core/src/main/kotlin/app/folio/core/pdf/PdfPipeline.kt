@@ -3,6 +3,7 @@ package app.folio.core.pdf
 import app.folio.core.FolioConstants
 import app.folio.core.model.Book
 import app.folio.core.metadata.TitleResolver
+import app.folio.core.ocr.JunkFilter
 import app.folio.core.model.BookMetadata
 import app.folio.core.model.FailureReason
 import app.folio.core.model.ProcessingStatus
@@ -134,8 +135,12 @@ class PdfPipeline(
 
             runCatching {
                 val image = rasterizer.rasterize(index, FolioConstants.OCR_RENDER_DPI)
-                ocr.recognize(index, image)
+                // Cleaned before anything downstream sees it, so reflow, structure
+                // detection and the reader all work on the same text and none of
+                // them has to know a page was ever photographed.
+                JunkFilter.clean(ocr.recognize(index, image))
             }.onSuccess { page ->
+                if (page.lines.isEmpty()) return@onSuccess
                 out[index] = PdfPage(geometry, page.toTextRuns(geometry))
                 confidences += page.meanConfidence
             }

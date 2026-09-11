@@ -204,15 +204,15 @@ low-confidence and badly shaped — never on one signal alone:
 **Conservatism:** every test asserting a junk line is removed must also assert
 the body text around it survives intact.
 
-- [ ] **Step 1: Add a junk fixture** — a scanned page carrying marginalia, a
+- [x] **Step 1: Add a junk fixture** — a scanned page carrying marginalia, a
       stray mark, and a low-confidence smear alongside real prose.
-- [ ] **Step 2: Failing tests** for each signal, plus a test that prose with
+- [x] **Step 2: Failing tests** for each signal, plus a test that prose with
       unusual words (proper nouns, foreign phrases) is *not* dropped.
-- [ ] **Step 3: Run them, watch them fail**
-- [ ] **Step 4: Implement `JunkFilter.clean(page, column)`**
-- [ ] **Step 5: Carry per-element confidence through `OcrLine`**
-- [ ] **Step 6: Gate**
-- [ ] **Step 7: Commit**
+- [x] **Step 3: Run them, watch them fail**
+- [x] **Step 4: Implement `JunkFilter.clean(page, column)`**
+- [x] **Step 5: Carry per-element confidence through `OcrLine`**
+- [x] **Step 6: Gate**
+- [x] **Step 7: Commit**
 
 ### Task B4: Preprocess before recognising
 
