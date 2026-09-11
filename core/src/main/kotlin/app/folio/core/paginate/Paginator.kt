@@ -3,7 +3,6 @@ package app.folio.core.paginate
 import app.folio.core.model.Chapter
 import app.folio.core.model.ContentBlock
 import app.folio.core.model.ReadingPosition
-import app.folio.core.model.plainText
 
 /** A run of one block's characters placed on a page. */
 data class PageSlice(
@@ -88,8 +87,9 @@ class Paginator(private val measurer: TextMeasurer) {
             used = 0f
         }
 
+        val blockTexts = chapter.blockTexts
         blocks.forEachIndexed { blockIndex, block ->
-            val text = block.plainText
+            val text = blockTexts[blockIndex]
             val style = styleFor(block, settings)
             val spacingAbove = spacingAbove(block, settings, isFirstOnPage = current.isEmpty())
 

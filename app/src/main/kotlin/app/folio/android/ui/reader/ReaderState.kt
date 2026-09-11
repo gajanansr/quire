@@ -4,7 +4,6 @@ import app.folio.android.ui.theme.ReaderFont
 import app.folio.core.model.Chapter
 import app.folio.core.model.ContentBlock
 import app.folio.core.model.ReadingPosition
-import app.folio.core.model.plainText
 import app.folio.core.paginate.Page
 import app.folio.core.paginate.TypographySettings
 import app.folio.core.paginate.pageContaining
@@ -90,9 +89,10 @@ data class ReaderState(
     val showsChapterHeader: Boolean
         get() {
             if (pageIndex != 0) return false
-            val first = chapter?.blocks?.firstOrNull() ?: return true
+            val ch = chapter ?: return true
+            val first = ch.blocks.firstOrNull() ?: return true
             if (first !is ContentBlock.Heading) return true
-            val heading = first.plainText.trim()
+            val heading = ch.blockTexts.firstOrNull()?.trim().orEmpty()
             val title = chapterTitle?.trim().orEmpty()
             return !heading.equals(title, ignoreCase = true)
         }
@@ -109,8 +109,9 @@ data class ReaderState(
             val page = currentPage ?: return ""
             return page.slices.asSequence()
                 .mapNotNull { slice ->
-                    val block = ch.blocks.getOrNull(slice.blockIndex) ?: return@mapNotNull null
-                    val text = block.plainText
+                    ch.blocks.getOrNull(slice.blockIndex) ?: return@mapNotNull null
+                    val text = ch.blockTexts.getOrNull(slice.blockIndex)
+                        ?: return@mapNotNull null
                     if (text.isEmpty() || slice.length == 0) null
                     else text.substring(
                         slice.startChar.coerceIn(0, text.length),

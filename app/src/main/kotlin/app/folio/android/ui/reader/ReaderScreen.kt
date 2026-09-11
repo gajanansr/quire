@@ -38,7 +38,6 @@ import app.folio.android.ui.theme.FolioIcon
 import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import app.folio.core.model.ContentBlock
-import app.folio.core.model.plainText
 import kotlin.math.roundToInt
 
 /**
@@ -179,7 +178,9 @@ private fun PageContent(
 
         page.slices.forEach { slice ->
             val block = chapter.blocks.getOrNull(slice.blockIndex) ?: return@forEach
-            val text = block.plainText
+            // The chapter's cached text, not block.plainText: this runs for every
+            // visible block on every recomposition.
+            val text = chapter.blockTexts.getOrNull(slice.blockIndex) ?: return@forEach
             if (slice.length == 0) {
                 if (block is ContentBlock.PageBreak) Spacer(Modifier.height(8.dp))
                 return@forEach
