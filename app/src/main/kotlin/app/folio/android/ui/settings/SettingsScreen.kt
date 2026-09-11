@@ -27,6 +27,7 @@ import app.folio.android.ui.theme.FolioIcon
 import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import app.folio.android.ui.theme.FolioThemeName
+import app.folio.android.ui.theme.label
 
 /**
  * Settings.
@@ -114,13 +115,6 @@ fun SettingsScreen(
             )
         }
     }
-}
-
-private fun FolioThemeName.label(): String = when (this) {
-    FolioThemeName.LIGHT -> "Light"
-    FolioThemeName.PALE -> "Pale"
-    FolioThemeName.DARK -> "Dark"
-    FolioThemeName.EINK -> "E-ink"
 }
 
 @Composable

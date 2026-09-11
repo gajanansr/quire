@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import app.folio.android.ui.FolioStrings
+import app.folio.android.ui.theme.einkRendering
 import app.folio.android.ui.theme.Folio
 import app.folio.android.ui.theme.FolioIcon
 import app.folio.android.ui.theme.FolioIcons
@@ -54,6 +55,7 @@ fun AddBookSheet(
     ) {
         Column(
             modifier = Modifier
+                .einkRendering()
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)

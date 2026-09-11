@@ -95,3 +95,17 @@ object FolioPalettes {
         FolioThemeName.EINK -> Eink
     }
 }
+
+/**
+ * What a theme is called on screen.
+ *
+ * Here rather than in either screen that shows it: Settings cycles through these
+ * names and the reader's picker labels its previews with them, and two copies would
+ * eventually disagree about whether the fourth one is "E-ink" or "Eink".
+ */
+fun FolioThemeName.label(): String = when (this) {
+    FolioThemeName.LIGHT -> "Light"
+    FolioThemeName.PALE -> "Pale"
+    FolioThemeName.DARK -> "Dark"
+    FolioThemeName.EINK -> "E-ink"
+}

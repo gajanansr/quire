@@ -41,13 +41,26 @@ fun FolioTheme(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(colors.bg)
-                    .then(if (theme == FolioThemeName.EINK) Modifier.grayscale() else Modifier),
+                    .einkRendering(),
             ) {
                 content()
             }
         }
     }
 }
+
+/**
+ * Applies the E-ink rendering when E-ink is the active theme, and nothing otherwise.
+ *
+ * Every root that draws in its own window needs this, not just the app's. Material3
+ * hosts [androidx.compose.material3.ModalBottomSheet] in a separate window, so it
+ * sits outside the filtered Box above: composition locals reach it, a `graphicsLayer`
+ * does not. Without this call a sheet opened in E-ink renders in full colour over a
+ * grayscale app.
+ */
+@Composable
+fun Modifier.einkRendering(): Modifier =
+    if (LocalFolioTheme.current == FolioThemeName.EINK) this.grayscale() else this
 
 /**
  * E-ink: render the live theme normally, then desaturate the result.
@@ -58,8 +71,12 @@ fun FolioTheme(
  *
  * `RenderEffect` needs API 31. Below that the app renders in the Light palette
  * without desaturation, which is a degradation of e-ink rather than a broken screen.
+ *
+ * Internal rather than private because the theme picker previews E-ink while the app
+ * is still in another theme, and a preview that did not run the same filter would be
+ * showing the reader something other than what they are about to choose.
  */
-private fun Modifier.grayscale(): Modifier =
+internal fun Modifier.grayscale(): Modifier =
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) this
     else graphicsLayer {
         renderEffect = android.graphics.RenderEffect

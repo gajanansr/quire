@@ -32,6 +32,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import app.folio.android.ui.theme.grayscale
+import app.folio.android.ui.theme.label
+import app.folio.android.ui.theme.einkRendering
+import app.folio.android.ui.theme.LocalFolioTheme
 import app.folio.android.ui.theme.Folio
 import app.folio.android.ui.theme.FolioPalettes
 import app.folio.android.ui.theme.FolioShapes
@@ -68,6 +75,7 @@ fun TypographySheet(
     ) {
         Column(
             Modifier
+                .einkRendering()
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)
@@ -125,9 +133,17 @@ fun TypographySheet(
             Spacer(Modifier.height(22.dp))
             SectionLabel("Theme")
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 FolioThemeName.entries.forEach { name ->
-                    ThemeSwatch(name = name, selected = name == theme) { onThemeChange(name) }
+                    ThemePreview(
+                        name = name,
+                        selected = name == theme,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onThemeChange(name) },
+                    )
                 }
             }
         }
@@ -159,6 +175,7 @@ fun ContentsSheet(
     ) {
         Column(
             Modifier
+                .einkRendering()
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)
@@ -229,6 +246,15 @@ private fun ChoiceTile(
         modifier = modifier
             .clip(FolioShapes.button)
             .background(if (selected) colors.accentSoft else colors.bg)
+            // Selection cannot rest on colour alone. E-ink renders the whole app
+            // through a grayscale filter, and desaturated accentSoft sits within a
+            // few percent of the page background — the tint vanishes and every tile
+            // looks chosen. A border survives the filter, and is a stronger
+            // affordance in the colour themes too.
+            .then(
+                if (selected) Modifier.border(1.5.dp, colors.accent, FolioShapes.button)
+                else Modifier
+            )
             .clickable(onClick = onClick)
             .padding(vertical = 14.dp),
         contentAlignment = Alignment.Center,
@@ -262,32 +288,93 @@ private fun StepperButton(label: String, enabled: Boolean, onClick: () -> Unit) 
     }
 }
 
+/**
+ * One theme, drawn as the page it produces.
+ *
+ * The previous swatch was a circle of the theme's background with its initial in it,
+ * which forced a reader to decode "L / P / D / E" and showed only one of the four
+ * colours that actually change. This draws a miniature page instead: the real
+ * background, three lines of the real ink colour, and the accent. What you see is
+ * what the reader will look like.
+ *
+ * E-ink is the reason this has to be a rendering rather than a colour chip. The
+ * handoff defines it as the Light palette put through a grayscale filter, so it is
+ * byte-identical to Light in every token — the only honest way to preview it is to
+ * run the same filter over the preview, which is what [grayscale] does here while
+ * the rest of the app is still in some other theme.
+ */
 @Composable
-private fun ThemeSwatch(name: FolioThemeName, selected: Boolean, onClick: () -> Unit) {
+private fun ThemePreview(
+    name: FolioThemeName,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     val colors = Folio.colors
     val palette = FolioPalettes.of(name)
-    Box(
-        modifier = Modifier
-            .size(46.dp)
-            .clip(CircleShape)
-            .background(palette.bg)
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) colors.accent else colors.border,
-                shape = CircleShape,
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
+
+    Column(
+        modifier = modifier
+            .clip(FolioShapes.chip)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = name.label() },
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // A letter rather than a colour alone: Light and E-ink share a palette, so
-        // swatch colour cannot distinguish them.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .clip(FolioShapes.chip)
+                .border(
+                    width = if (selected) 2.dp else 1.dp,
+                    color = if (selected) colors.accent else colors.border,
+                    shape = FolioShapes.chip,
+                )
+                .padding(if (selected) 2.dp else 1.dp)
+                .clip(FolioShapes.chip)
+                .background(palette.bg)
+                // Only filter the preview when the app around it is not already
+                // filtered. In E-ink the sheet itself is desaturated, and applying
+                // the contrast and brightness lift twice would make this one card
+                // brighter than the theme it is advertising.
+                .then(
+                    if (name == FolioThemeName.EINK &&
+                        LocalFolioTheme.current != FolioThemeName.EINK
+                    ) Modifier.grayscale() else Modifier
+                )
+                .padding(horizontal = 8.dp, vertical = 9.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                // A heading, two lines of body, and the accent — the four things
+                // that differ between the palettes, in the proportions a page has.
+                TextLine(palette.ink, 1f, 4.dp)
+                TextLine(palette.muted, 0.85f, 3.dp)
+                TextLine(palette.muted, 0.6f, 3.dp)
+                TextLine(palette.accent, 0.3f, 3.dp)
+            }
+        }
+        Spacer(Modifier.height(7.dp))
         Text(
-            text = name.name.take(1),
-            color = palette.ink,
+            text = name.label(),
+            color = if (selected) colors.accent else colors.muted,
+            maxLines = 1,
             style = MaterialTheme.typography.labelSmall,
         )
     }
 }
+
+/** One line of pretend text inside a [ThemePreview]. */
+@Composable
+private fun TextLine(color: Color, widthFraction: Float, height: Dp) {
+    Box(
+        Modifier
+            .fillMaxWidth(widthFraction)
+            .height(height)
+            .clip(FolioShapes.chip)
+            .background(color),
+    )
+}
+
 
 /**
  * "Bookmark added", with a Done action.

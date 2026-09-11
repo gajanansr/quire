@@ -74,4 +74,29 @@ class FolioThemeTest {
         assertEquals(4, families.toSet().size)
         assertEquals(listOf("Serif", "Lora", "Sans", "System"), ReaderFont.entries.map { it.label })
     }
+
+    @Test
+    fun `every theme has a human name, and no two share one`() {
+        // The picker labels its previews with these and Settings cycles through
+        // them, so a missing or duplicated name is a control the reader cannot
+        // read. "EINK" reaching the screen is the specific failure worth naming.
+        val labels = FolioThemeName.entries.map { it.label() }
+        labels.forEach { label ->
+            assertTrue("a raw enum name reached the UI: $label", label != label.uppercase())
+            assertTrue("empty theme name", label.isNotBlank())
+        }
+        assertEquals(
+            "two themes share a name: $labels",
+            FolioThemeName.entries.size,
+            labels.distinct().size,
+        )
+    }
+
+    @Test
+    fun `E-ink is the Light palette, which is why it needs a filter to be seen`() {
+        // Pinned because the theme picker depends on it: if these ever diverge into
+        // two real palettes, previewing E-ink by running a grayscale filter over
+        // Light would quietly stop being accurate.
+        assertEquals(FolioPalettes.Light, FolioPalettes.of(FolioThemeName.EINK))
+    }
 }
