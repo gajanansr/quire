@@ -28,6 +28,7 @@ import app.folio.android.ui.theme.ReaderFont
 import app.folio.core.model.Chapter
 import app.folio.core.model.ChapterRef
 import app.folio.core.model.ReadingPosition
+import app.folio.core.paginate.Page
 import app.folio.core.paginate.Paginator
 import app.folio.core.paginate.Viewport
 import kotlinx.coroutines.Dispatchers
@@ -74,10 +75,28 @@ fun ReaderHost(
         ComposeTextMeasurer(composeMeasurer, density, state.preferences.font.family())
     }
     val paginator = remember(measurer) { Paginator(measurer) }
+    val pageCache = remember(bookId) { PageCache() }
 
     // sp -> px for this screen. The paginator reasons in device pixels because the
     // viewport does.
     val pixelsPerSp = with(density) { 1.sp.toPx() }
+
+    /**
+     * Paginates, or returns what was paginated before.
+     *
+     * Every caller has to key on the same things or the cache is worse than none,
+     * so the key is built here rather than at each site.
+     */
+    suspend fun pagesFor(
+        chapter: Chapter,
+        prefs: ReaderPreferences,
+        inset: Float,
+        paginate: suspend () -> List<Page>,
+    ): List<Page> {
+        val key = PageCache.Key(chapter.index, viewport, prefs.toSettings(pixelsPerSp), inset)
+        pageCache.get(key)?.let { return it }
+        return paginate().also { pageCache.put(key, it) }
+    }
 
     /**
      * Height the chapter header will take on the first page.
@@ -95,8 +114,13 @@ fun ReaderHost(
     suspend fun loadChapter(index: Int, at: ReadingPosition?) {
         val entity = repository.find(bookId) ?: return
         val chapter: Chapter = repository.loadChapter(bookId, index) ?: return
-        val pages = withContext(Dispatchers.Default) {
-            paginator.paginate(chapter, viewport, state.preferences.toSettings(pixelsPerSp), headerInsetPx())
+        val inset = headerInsetPx()
+        val pages = pagesFor(chapter, state.preferences, inset) {
+            withContext(Dispatchers.Default) {
+                paginator.paginate(
+                    chapter, viewport, state.preferences.toSettings(pixelsPerSp), inset,
+                )
+            }
         }
         state = ReaderTransitions.openedChapter(
             state.copy(
@@ -120,10 +144,13 @@ fun ReaderHost(
         } else {
             // The viewport changed — a rotation, or the first real measurement.
             val chapter = state.chapter ?: return@LaunchedEffect
-            val pages = withContext(Dispatchers.Default) {
-                paginator.paginate(
-                    chapter, viewport, state.preferences.toSettings(pixelsPerSp), headerInsetPx(),
-                )
+            val inset = headerInsetPx()
+            val pages = pagesFor(chapter, state.preferences, inset) {
+                withContext(Dispatchers.Default) {
+                    paginator.paginate(
+                        chapter, viewport, state.preferences.toSettings(pixelsPerSp), inset,
+                    )
+                }
             }
             state = ReaderTransitions.repaginated(state, pages, state.preferences)
         }
@@ -146,13 +173,13 @@ fun ReaderHost(
             return
         }
         scope.launch {
-            val pages = withContext(Dispatchers.Default) {
-                Paginator(
-                    ComposeTextMeasurer(composeMeasurer, density, next.font.family()),
-                ).paginate(
-                    chapter, viewport, next.toSettings(pixelsPerSp),
-                    if (state.showsChapterHeader) headerInsetPx() else 0f,
-                )
+            val inset = if (state.showsChapterHeader) headerInsetPx() else 0f
+            val pages = pagesFor(chapter, next, inset) {
+                withContext(Dispatchers.Default) {
+                    Paginator(
+                        ComposeTextMeasurer(composeMeasurer, density, next.font.family()),
+                    ).paginate(chapter, viewport, next.toSettings(pixelsPerSp), inset)
+                }
             }
             state = ReaderTransitions.repaginated(state, pages, next)
             habitRepository.setReaderPreferences(

@@ -44,7 +44,7 @@ block is the trigger (a TXT with no blank lines, a merged PDF reflow).
 - Modify: `core/src/main/kotlin/app/folio/core/paginate/Paginator.kt`
 - Test: `core/src/test/kotlin/app/folio/core/paginate/PaginationCostTest.kt` (create)
 
-- [ ] **Step 1: Write the failing cost test**
+- [x] **Step 1: Write the failing cost test**
 
 A counting measurer records characters laid out; the test asserts the ratio
 stays near-linear for a single huge block.
@@ -60,23 +60,23 @@ fun `a huge block costs about what it should to paginate`() {
 }
 ```
 
-- [ ] **Step 2: Run it and watch it fail at ~75x**
+- [x] **Step 2: Run it and watch it fail at ~75x**
 
 `./gradlew :core:test --tests "*PaginationCostTest*"`
 
-- [ ] **Step 3: Measure a window instead of the remainder**
+- [x] **Step 3: Measure a window instead of the remainder**
 
 Estimate the characters that could fill the remaining height from the previous
 measurement's character-per-line rate, take a window of twice that, and widen
 only when the window filled the page without running out of text. Use
 `subSequence` rather than `substring` where the measurer allows it.
 
-- [ ] **Step 4: Run the cost test and the whole paginator suite**
+- [x] **Step 4: Run the cost test and the whole paginator suite**
 
 Conservation (every character appears exactly once, in order) is the invariant
 that must not move. `./scripts/check.sh`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ### Task A2: Compute block text once, not per frame
 
@@ -92,14 +92,14 @@ screen — 400k characters per frame on a big block.
 - Modify: `app/src/main/kotlin/app/folio/android/ui/reader/ReaderState.kt`
 - Test: `core/src/test/kotlin/app/folio/core/model/ChapterTextTest.kt` (create)
 
-- [ ] **Step 1: Write the failing test** — `Chapter.blockTexts` is computed once
+- [x] **Step 1: Write the failing test** — `Chapter.blockTexts` is computed once
       and is identical to mapping `plainText` over the blocks.
-- [ ] **Step 2: Run it, watch it fail to compile**
-- [ ] **Step 3: Add a lazily-computed `blockTexts` to `Chapter`**, marked
+- [x] **Step 2: Run it, watch it fail to compile**
+- [x] **Step 3: Add a lazily-computed `blockTexts` to `Chapter`**, marked
       `@Transient` so serialization is unchanged, and read it everywhere the hot
       path currently calls `plainText`.
-- [ ] **Step 4: Gate** — `./scripts/check.sh`
-- [ ] **Step 5: Commit**
+- [x] **Step 4: Gate** — `./scripts/check.sh`
+- [x] **Step 5: Commit**
 
 ### Task A3: Keep paginated chapters
 
@@ -110,13 +110,13 @@ screen — 400k characters per frame on a big block.
 - Modify: `app/src/main/kotlin/app/folio/android/ui/reader/ReaderHost.kt`
 - Test: `app/src/test/kotlin/app/folio/android/ui/reader/PageCacheTest.kt`
 
-- [ ] **Step 1: Failing test** — a cache keyed on chapter, viewport and
+- [x] **Step 1: Failing test** — a cache keyed on chapter, viewport and
       typography returns the same pages for a repeat request and misses when
       any key component changes.
-- [ ] **Step 2: Run it, watch it fail**
-- [ ] **Step 3: Implement a 3-entry LRU** and consult it in `loadChapter`.
-- [ ] **Step 4: Gate**
-- [ ] **Step 5: Commit**
+- [x] **Step 2: Run it, watch it fail**
+- [x] **Step 3: Implement a 3-entry LRU** and consult it in `loadChapter`.
+- [x] **Step 4: Gate**
+- [x] **Step 5: Commit**
 
 ---
 
