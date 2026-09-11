@@ -178,4 +178,74 @@ class PdfPipelineTest {
             assertTrue("resolves into nothing in particular" in text, "prose was eaten")
         }
     }
+
+    /** Recognises enhanced images better than raw ones, by a set margin. */
+    private class ContrastSensitiveOcr(private val gain: Float) : app.folio.core.source.OcrEngine {
+        val sawEnhanced = mutableListOf<Int>()
+        override suspend fun recognize(pageIndex: Int, image: ByteArray): app.folio.core.source.OcrPage {
+            val enhanced = image.isNotEmpty() && image.last() == ENHANCED_MARK
+            if (enhanced) sawEnhanced += pageIndex
+            val confidence = if (enhanced) (0.6f * gain).coerceAtMost(1f) else 0.6f
+            return app.folio.core.source.OcrPage(
+                pageIndex = pageIndex,
+                lines = listOf(
+                    app.folio.core.source.OcrLine(
+                        "Recognised line one on page $pageIndex running the full measure",
+                        x = 72f, y = 700f, width = 460f, height = 11f, confidence = confidence,
+                    ),
+                    app.folio.core.source.OcrLine(
+                        "and a second line of genuine prose completing the paragraph.",
+                        x = 72f, y = 684f, width = 455f, height = 11f, confidence = confidence,
+                    ),
+                ),
+                meanConfidence = confidence,
+                imageWidth = 612f, imageHeight = 792f,
+            )
+        }
+    }
+
+    /** Marks the bytes so the fake recogniser can tell it was handed an enhanced page. */
+    private val enhancer = app.folio.core.source.ImageEnhancer { it + ENHANCED_MARK }
+
+    @Test
+    fun `preprocessing is adopted when it clearly helps`() = runBlocking {
+        val ocr = ContrastSensitiveOcr(gain = 1.4f)
+        PdfBoxTextSource(Fixtures.imageOnlyPdf()).use { s ->
+            val book = pipeline.process("id", "Scan", s, ocr, FakeRasterizer(), enhancer)
+            assertEquals(ProcessingStatus.Ready, book.status)
+            assertTrue(ocr.sawEnhanced.isNotEmpty(), "enhancement was never tried")
+            val text = book.chapters.flatMap { it.blocks }.joinToString(" ") { it.plainText }
+            assertTrue(text.contains("Recognised line one"), "text lost while enhancing")
+        }
+    }
+
+    @Test
+    fun `preprocessing is declined when it makes no real difference`() = runBlocking {
+        // A clean digital scan. Contrast work gains nothing and can lose detail, so
+        // a marginal improvement must not be enough to adopt it for the whole book.
+        val ocr = ContrastSensitiveOcr(gain = 1.01f)
+        PdfBoxTextSource(Fixtures.imageOnlyPdf()).use { s ->
+            val book = pipeline.process("id", "Scan", s, ocr, FakeRasterizer(), enhancer)
+            assertEquals(ProcessingStatus.Ready, book.status)
+            // Tried on the sample, then abandoned: no page beyond the sample used it.
+            assertTrue(
+                ocr.sawEnhanced.size <= app.folio.core.FolioConstants.ENHANCEMENT_SAMPLE_PAGES,
+                "enhancement was used for the whole book: ${ocr.sawEnhanced}",
+            )
+        }
+    }
+
+    @Test
+    fun `a book with no enhancer processes exactly as before`() = runBlocking {
+        val ocr = ContrastSensitiveOcr(gain = 2f)
+        PdfBoxTextSource(Fixtures.imageOnlyPdf()).use { s ->
+            val book = pipeline.process("id", "Scan", s, ocr, FakeRasterizer(), enhancer = null)
+            assertEquals(ProcessingStatus.Ready, book.status)
+            assertTrue(ocr.sawEnhanced.isEmpty(), "enhanced without an enhancer")
+        }
+    }
+
+    private companion object {
+        const val ENHANCED_MARK: Byte = 0x7F
+    }
 }

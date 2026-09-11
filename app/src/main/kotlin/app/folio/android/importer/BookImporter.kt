@@ -13,6 +13,7 @@ import app.folio.core.model.ProcessingStatus
 import app.folio.core.model.SourceFormat
 import app.folio.core.pdf.PdfPipeline
 import app.folio.core.source.OcrEngine
+import app.folio.core.source.ImageEnhancer
 import app.folio.core.source.PageRasterizer
 import app.folio.core.source.PdfTextSource
 import app.folio.core.txt.TxtParser
@@ -43,6 +44,7 @@ class BookImporter(
     private val pdfSource: (File) -> PdfTextSource,
     private val ocr: OcrEngine? = null,
     private val rasterizer: ((File) -> PageRasterizer)? = null,
+    private val enhancer: ImageEnhancer? = null,
     private val epubParser: EpubParser = EpubParser(),
     private val txtParser: TxtParser = TxtParser(),
     private val pdfPipeline: PdfPipeline = PdfPipeline(),
@@ -135,6 +137,7 @@ class BookImporter(
             source = source,
             ocr = ocr,
             rasterizer = rasterizer?.invoke(file),
+            enhancer = enhancer,
             onProgress = onProgress,
         )
     }

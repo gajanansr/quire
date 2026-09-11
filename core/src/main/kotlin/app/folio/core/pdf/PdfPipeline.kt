@@ -4,6 +4,7 @@ import app.folio.core.FolioConstants
 import app.folio.core.model.Book
 import app.folio.core.metadata.TitleResolver
 import app.folio.core.ocr.JunkFilter
+import app.folio.core.source.ImageEnhancer
 import app.folio.core.model.BookMetadata
 import app.folio.core.model.FailureReason
 import app.folio.core.model.ProcessingStatus
@@ -48,6 +49,7 @@ class PdfPipeline(
         source: PdfTextSource,
         ocr: OcrEngine? = null,
         rasterizer: PageRasterizer? = null,
+        enhancer: ImageEnhancer? = null,
         onProgress: (ProcessingStatus) -> Unit = {},
     ): Book {
         if (source.isEncrypted()) return failed(id, title, FailureReason.ENCRYPTED)
@@ -70,7 +72,7 @@ class PdfPipeline(
                     reflowFailed = true,
                 )
             }
-            val recognised = recognise(source, verdict, ocr, rasterizer, onProgress)
+            val recognised = recognise(source, verdict, ocr, rasterizer, enhancer, onProgress)
             usedOcr = recognised.pages.isNotEmpty()
             ocrDegraded = recognised.meanConfidence < FolioConstants.MIN_OCR_CONFIDENCE
             effective = OcrBackedSource(source, recognised.pages)
@@ -122,11 +124,13 @@ class PdfPipeline(
         verdict: ScanVerdict,
         ocr: OcrEngine,
         rasterizer: PageRasterizer,
+        enhancer: ImageEnhancer?,
         onProgress: (ProcessingStatus) -> Unit,
     ): Recognised {
         val out = mutableMapOf<Int, PdfPage>()
         val confidences = mutableListOf<Float>()
         val total = verdict.pagesNeedingOcr.size
+        val enhance = enhancer?.takeIf { helps(it, verdict, ocr, rasterizer) }
 
         verdict.pagesNeedingOcr.forEachIndexed { done, index ->
             onProgress(ProcessingStatus.Ocr(done, total))
@@ -135,6 +139,7 @@ class PdfPipeline(
 
             runCatching {
                 val image = rasterizer.rasterize(index, FolioConstants.OCR_RENDER_DPI)
+                    .let { enhance?.enhance(it) ?: it }
                 // Cleaned before anything downstream sees it, so reflow, structure
                 // detection and the reader all work on the same text and none of
                 // them has to know a page was ever photographed.
@@ -149,6 +154,41 @@ class PdfPipeline(
 
         val mean = if (confidences.isEmpty()) 0f else confidences.average().toFloat()
         return Recognised(out, mean)
+    }
+
+    /**
+     * Whether preprocessing is worth using on this book, decided on a sample.
+     *
+     * A clean digital scan gains nothing from contrast work and can lose by it, while
+     * a photographed page gains a great deal — so the answer differs per book and
+     * guessing it would be wrong half the time. Both paths are tried on a few pages
+     * and the recogniser's own confidence decides, which is the same trick OCRmyPDF
+     * uses for its preprocessing flags.
+     *
+     * The margin matters: confidence wobbles slightly between runs, so enhancement
+     * has to win clearly rather than merely win, or every book would pay for it.
+     * The sample is small and bounded because this costs a second pass over it.
+     */
+    private suspend fun helps(
+        enhancer: ImageEnhancer,
+        verdict: ScanVerdict,
+        ocr: OcrEngine,
+        rasterizer: PageRasterizer,
+    ): Boolean {
+        var raw = 0f
+        var enhanced = 0f
+        var compared = 0
+
+        verdict.pagesNeedingOcr.take(FolioConstants.ENHANCEMENT_SAMPLE_PAGES).forEach { index ->
+            runCatching {
+                val image = rasterizer.rasterize(index, FolioConstants.OCR_RENDER_DPI)
+                raw += ocr.recognize(index, image).meanConfidence
+                enhanced += ocr.recognize(index, enhancer.enhance(image)).meanConfidence
+                compared++
+            }
+        }
+        return compared > 0 &&
+            enhanced > raw * FolioConstants.MIN_ENHANCEMENT_GAIN
     }
 
     /** Serves recognised pages where they exist and the original page otherwise. */

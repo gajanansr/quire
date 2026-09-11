@@ -52,4 +52,22 @@ object FolioConstants {
      * around 600px wide — sharp on any phone and a few tens of kilobytes.
      */
     const val COVER_RENDER_DPI = 72
+
+    /**
+     * Pages tried both ways before deciding whether to preprocess a scan.
+     *
+     * Each sampled page is recognised twice, so this is paid for directly. Three is
+     * enough to tell a photographed page from a clean digital scan, which is the
+     * only distinction the decision has to make.
+     */
+    const val ENHANCEMENT_SAMPLE_PAGES = 3
+
+    /**
+     * How much better preprocessing must do before the whole book uses it.
+     *
+     * Recognition confidence wobbles a little between runs. Requiring a clear win
+     * rather than any win keeps a clean scan — which gains nothing and can lose
+     * detail to contrast work — on the untouched path.
+     */
+    const val MIN_ENHANCEMENT_GAIN = 1.05f
 }

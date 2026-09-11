@@ -11,6 +11,7 @@ import app.folio.android.data.FolioDatabase
 import app.folio.android.importer.BookImporter
 import app.folio.android.importer.ContentResolverUriOpener
 import app.folio.android.ocr.MlKitOcrEngine
+import app.folio.android.ocr.PagePreprocessor
 import app.folio.android.pdf.AndroidPageRasterizer
 import app.folio.android.pdf.AndroidPdfTextSource
 import app.folio.android.work.FolioWorkerFactory
@@ -75,6 +76,7 @@ class FolioGraph(context: Context) {
             pdfSource = { AndroidPdfTextSource(it) },
             ocr = MlKitOcrEngine(),
             rasterizer = { AndroidPageRasterizer(it) },
+            enhancer = PagePreprocessor(),
         )
     }
 }

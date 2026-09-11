@@ -228,13 +228,13 @@ Grayscale plus adaptive contrast, and OCRmyPDF's conditional trick: recognise a
 sample of pages both raw and preprocessed, keep whichever scores higher mean
 confidence, then use that decision for the rest of the book.
 
-- [ ] **Step 1: Failing instrumented test** — a low-contrast page recognises
+- [x] **Step 1: Failing instrumented test** — a low-contrast page recognises
       better preprocessed than raw.
-- [ ] **Step 2: Run it, watch it fail**
-- [ ] **Step 3: Implement grayscale + contrast stretch**
-- [ ] **Step 4: Implement the sample-and-choose decision**
-- [ ] **Step 5: Device gate** — `./scripts/check-device.sh`
-- [ ] **Step 6: Commit**
+- [x] **Step 2: Run it, watch it fail**
+- [x] **Step 3: Implement grayscale + contrast stretch**
+- [x] **Step 4: Implement the sample-and-choose decision**
+- [x] **Step 5: Device gate** — `./scripts/check-device.sh`
+- [x] **Step 6: Commit**
 
 ---
 

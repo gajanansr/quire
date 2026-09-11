@@ -38,6 +38,21 @@ interface OcrEngine {
 }
 
 /** Renders a PDF page to an image for OCR. Implemented on Android with PdfRenderer. */
+/**
+ * Improves a rendered page before it is recognised.
+ *
+ * Separate from [PageRasterizer] because it is a choice rather than a step: a clean
+ * digital scan gains nothing from being processed, and can lose by it. The pipeline
+ * decides per book whether to use one, by trying both on a sample.
+ *
+ * Declared here and implemented in `:app` for the same reason as every other seam
+ * in this file — bitmaps are Android, and the decision about them should not be.
+ */
+fun interface ImageEnhancer {
+    /** @return encoded image bytes, enhanced for recognition. */
+    suspend fun enhance(image: ByteArray): ByteArray
+}
+
 interface PageRasterizer {
     /** @return encoded image bytes for [pageIndex] at [dpi]. */
     suspend fun rasterize(pageIndex: Int, dpi: Int): ByteArray
