@@ -209,3 +209,31 @@ fun trailingSpacingPx(block: ContentBlock, settings: TypographySettings): Float 
         is ContentBlock.Heading -> settings.bodyLineHeightPx * BlockStyles.headingSpacingBelow
         else -> 0f
     }
+
+/**
+ * How wide a column of text should be set.
+ *
+ * Past about 66 characters the eye loses its way back to the start of the next
+ * line; the measure is the oldest setting in typography and the one readers feel
+ * without naming.
+ *
+ * On a phone this never binds, and it is worth being clear about that rather than
+ * claiming a fix that does nothing: a 19sp face in a 360dp column already sets
+ * around 40 characters, comfortably inside the limit. It binds on a tablet, in
+ * landscape, and on a foldable opened flat — where the full width would otherwise
+ * give a hundred characters to a line and make the page genuinely hard to read.
+ */
+object Measure {
+
+    /** Characters per line beyond which a measure is too wide to track. */
+    private const val MAX_CHARACTERS = 66
+
+    /** Average character width as a fraction of type size, for a serif text face. */
+    private const val AVERAGE_CHAR_EM = 0.5f
+
+    fun widthPx(availablePx: Float, settings: TypographySettings): Float {
+        if (availablePx <= 0f) return availablePx
+        val maxPx = MAX_CHARACTERS * AVERAGE_CHAR_EM * settings.fontSizeSp * settings.pixelsPerSp
+        return minOf(availablePx, maxPx)
+    }
+}

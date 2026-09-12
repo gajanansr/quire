@@ -56,9 +56,9 @@ convention and is what this builds.
 Lines currently run the full width of the screen. Around 66 characters is the
 readability optimum; beyond it the eye loses the start of the next line.
 
-- [ ] Cap the text column and centre it, applied to the pagination viewport and
+- [x] Cap the text column and centre it, applied to the pagination viewport and
       the drawn column from one value.
-- [ ] Test: the capped width is what pagination measures against.
+- [x] Test: the capped width is what pagination measures against.
 
 ### Task 4: No stranded lines
 
@@ -66,8 +66,8 @@ A single line of a paragraph left at the foot of a page, or carried alone to the
 top of the next, is the thing typesetters remove last and readers notice first.
 Heading orphans are already handled; paragraphs are not.
 
-- [ ] Push a trailing fragment of fewer than two lines to the next page.
-- [ ] Test: conservation still holds — every character exactly once, in order.
+- [x] Push a trailing fragment of fewer than two lines to the next page.
+- [x] Test: conservation still holds — every character exactly once, in order.
 
 ### Task 5: A chapter opening that looks like one
 

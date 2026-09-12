@@ -40,6 +40,15 @@ class Paginator(private val measurer: TextMeasurer) {
          */
         const val MIN_LINES_AFTER_HEADING = 2
 
+        /**
+         * Fewest lines of a paragraph worth leaving on a page by themselves.
+         *
+         * Two. One line alone at the foot of a page is an orphan and one alone at
+         * the head of the next is a widow; both read as mistakes, and both are
+         * fixed by moving a line rather than by breaking there.
+         */
+        const val MIN_FRAGMENT_LINES = 2
+
         /** Characters per line assumed before any measurement has been seen. */
         const val ASSUMED_CHARS_PER_LINE = 80f
 
@@ -137,7 +146,28 @@ class Paginator(private val measurer: TextMeasurer) {
                     used += spacing + measured.heightPx
                     cursor = text.length
                 } else {
-                    val linesThatFit = maxLines.coerceAtMost(measured.lineCount)
+                    var linesThatFit = maxLines.coerceAtMost(measured.lineCount)
+
+                    // No stranded lines. One line of a paragraph left at the foot of
+                    // a page, or carried alone to the top of the next, is the thing
+                    // typesetters remove last and readers notice first.
+                    if (linesThatFit in 1 until MIN_FRAGMENT_LINES && current.isNotEmpty()) {
+                        // An orphan: too little of the paragraph fits here, so the
+                        // whole fragment goes over rather than a line of it.
+                        flush()
+                        spacing = 0f
+                        continue
+                    }
+                    if (window.reachedEnd) {
+                        // The remainder is known exactly, so a widow can be seen
+                        // coming: pull a line back so two travel together.
+                        val remaining = measured.lineCount - linesThatFit
+                        if (remaining in 1 until MIN_FRAGMENT_LINES &&
+                            linesThatFit > MIN_FRAGMENT_LINES
+                        ) {
+                            linesThatFit -= MIN_FRAGMENT_LINES - remaining
+                        }
+                    }
 
                     if (linesThatFit <= 0) {
                         flush()

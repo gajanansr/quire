@@ -38,6 +38,9 @@ import app.folio.android.ui.theme.FolioIcon
 import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.width
+import app.folio.core.paginate.Measure
 import app.folio.core.paginate.BlockStyles
 import app.folio.core.paginate.Indentation
 import app.folio.core.paginate.trailingSpacingPx
@@ -148,12 +151,28 @@ private fun PageContent(
     // pagination measures is by construction the box the text renders into. Keeping
     // them as two separate declarations invites them to drift apart, and the symptom
     // — a clipped last line — looks like lost text rather than a layout mismatch.
-    Column(
+    // The column is capped and centred rather than filling the screen. Past about
+    // 66 characters the eye loses its way back to the start of the next line; on a
+    // phone this never binds, on a tablet or in landscape it is the difference
+    // between a page and a spreadsheet. Capped here, where the size is reported, so
+    // pagination measures the column the text is actually set in.
+    BoxWithConstraints(
         modifier = modifier
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 26.dp)
-            .padding(top = 26.dp, bottom = 40.dp)
+            .padding(top = 26.dp, bottom = 40.dp),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+    val availablePx = with(density) { maxWidth.toPx() }
+    val columnPx = Measure.widthPx(
+        availablePx,
+        state.preferences.toSettings(with(density) { 1.sp.toPx() }),
+    )
+
+    Column(
+        modifier = Modifier
+            .width(with(density) { columnPx.toDp() })
             .onSizeChanged(onContentSize),
     ) {
         // The chapter label only heads its first page; repeating it on every page
@@ -217,6 +236,7 @@ private fun PageContent(
             val below = trailingSpacingPx(block, settings)
             if (below > 0f) Spacer(Modifier.height(with(density) { below.toDp() }))
         }
+    }
     }
 }
 
