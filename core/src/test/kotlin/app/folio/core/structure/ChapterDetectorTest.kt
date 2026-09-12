@@ -30,35 +30,54 @@ class ChapterDetectorTest {
         assertEquals(2, chapters[1].blocks.size)
     }
 
+    // -------------------------------------------------- what is no longer guessed
+
     @Test
-    fun `heading blocks start chapters when there is no outline`() {
+    fun `large type is not a chapter boundary`() {
+        // It used to be. Two headings past a 0.6 score carved up a book, which is
+        // how a dedication, a running head and a pull quote became chapters. Nothing
+        // in a PDF says a large line is a heading — inferring it is inventing it.
         val blocks = listOf(
             head("The Weight of Silence"), para("body one"), para("body two"),
             head("What the River Kept"), para("body three"),
         )
         val chapters = detector.detect(blocks)
-        assertEquals(2, chapters.size)
-        assertEquals("The Weight of Silence", chapters[0].title)
-        assertEquals("What the River Kept", chapters[1].title)
+        assertEquals(1, chapters.size, "large type invented a boundary")
+        assertEquals(5, chapters.single().blocks.size, "and lost blocks doing it")
     }
 
     @Test
-    fun `numbered chapter patterns are recognised without heading markup`() {
+    fun `the words Chapter One are not a chapter boundary`() {
+        // The most tempting pattern of all, and still only a guess: books quote the
+        // word, indexes list it, and front matter repeats it.
         val blocks = listOf(
             para("Chapter 1"), para("body one"),
             para("Chapter 2"), para("body two"),
         )
-        assertEquals(2, detector.detect(blocks).size)
+        assertEquals(1, detector.detect(blocks).size)
     }
 
     @Test
-    fun `roman numeral and part patterns are recognised`() {
+    fun `roman numerals are not a chapter boundary`() {
         val blocks = listOf(
             para("Part I"), para("body one"),
             para("Part II"), para("body two"),
             para("Part III"), para("body three"),
         )
-        assertEquals(3, detector.detect(blocks).size)
+        assertEquals(1, detector.detect(blocks).size)
+    }
+
+    @Test
+    fun `nothing declared means nothing is lost`() {
+        // The trade this policy makes. One plain chapter, every block present, in
+        // order — rather than several chapters and a boundary nobody wrote.
+        val blocks = listOf(
+            head("The Weight of Silence"), para("body one"),
+            head("What the River Kept"), para("body two"),
+        )
+        val chapter = detector.detect(blocks).single()
+        assertEquals(blocks.size, chapter.blocks.size)
+        assertEquals(blocks, chapter.blocks)
     }
 
     @Test
@@ -114,13 +133,25 @@ class ChapterDetectorTest {
     }
 
     @Test
-    fun `finds the three chapters in the chaptered fixture`() {
-        PdfBoxTextSource(Fixtures.chapteredPdf()).use { s ->
+    fun `a book that declares its chapters gets exactly those chapters`() {
+        PdfBoxTextSource(Fixtures.outlinedPdf()).use { s ->
             val reflow = ReflowPipeline().reflow(s)
             val chapters = detector.detect(reflow.blocks, s.outline(), reflow.pageBreaks)
             assertEquals(3, chapters.size, "titles were: ${chapters.map { it.title }}")
             assertTrue(chapters[0].title?.contains("Weight of Silence") == true,
                 "unexpected first title: ${chapters[0].title}")
+        }
+    }
+
+    @Test
+    fun `a book that only looks chaptered gets one chapter`() {
+        // The same three chapters, laid out identically, declaring nothing. A human
+        // reads it as chaptered; the file does not say so, and Folio no longer
+        // pretends to know.
+        PdfBoxTextSource(Fixtures.chapteredPdf()).use { s ->
+            val reflow = ReflowPipeline().reflow(s)
+            val chapters = detector.detect(reflow.blocks, s.outline(), reflow.pageBreaks)
+            assertEquals(1, chapters.size, "invented: ${chapters.map { it.title }}")
         }
     }
 }

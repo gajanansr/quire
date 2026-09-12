@@ -8,28 +8,33 @@ import app.folio.core.source.OutlineEntry
 /**
  * Divides a book's blocks into chapters.
  *
- * Sources of truth, in order:
+ * Only declared structure is believed. There is exactly one source — boundaries the
+ * document itself states — and where a document states none, the book is one chapter.
  *
- *  1. **The PDF outline.** If the producer wrote bookmarks, they are the author's own
- *     structure and no heuristic should second-guess them.
- *  2. **Typographic headings**, already identified by
- *     [app.folio.core.reflow.ParagraphAssembler] from real font metrics.
- *  3. **Naming patterns** — "Chapter 4", "Part II", "Prologue" — for books whose
- *     openings are set in body type.
+ * It used to guess. Typographic headings and "Chapter 4" naming patterns were scored,
+ * and two candidates past a 0.6 threshold were enough to carve up a book. That is how
+ * front matter, a dedication and a running head became chapters, and how a book with
+ * one large line in the middle acquired a boundary nobody wrote.
  *
- * When nothing scores confidently the whole book becomes one chapter. That is the
- * deliberate outcome, not a failure: a wrong boundary corrupts navigation and
- * progress permanently, while one long chapter is merely plain (spec section 7).
+ * The reason to stop is not that the heuristics were weak but that the fact is often
+ * absent. A PDF records where ink goes; nothing in an untagged file says "this line
+ * is a heading". Inferring it is inventing it, and a wrong boundary is permanent and
+ * silent: it corrupts navigation, it corrupts progress, and the reader has no way to
+ * know it happened. One long chapter is merely plain, and the spec asks for exactly
+ * this — preserve the content rather than invent the structure.
  *
- * A single candidate in a long book is also rejected. One heading is a section
- * marker or a note on sources; a chapter scheme repeats.
+ * Declared sources exist in more places than bookmarks: a tagged PDF's structure
+ * tree and a hyperlinked contents page both state boundaries outright. Choosing
+ * between them is [app.folio.core.pdf.PdfPipeline]'s job; believing what it passes
+ * is this class's.
+ *
+ * A single entry is still rejected. One bookmark is a cover link or a note on
+ * sources; a chapter scheme repeats.
  */
 class ChapterDetector {
 
     private companion object {
-        /** A candidate must score at least this to be believed. */
-        const val MIN_STRENGTH = 0.6
-        /** Fewer candidates than this is not a chapter scheme. */
+        /** One entry is not a chapter scheme; a scheme repeats. */
         const val MIN_CANDIDATES = 2
     }
 
@@ -41,7 +46,6 @@ class ChapterDetector {
         if (blocks.isEmpty()) return emptyList()
 
         fromOutline(blocks, outline, pageBreaks)?.let { return it }
-        fromHeadings(blocks)?.let { return it }
         return listOf(single(blocks))
     }
 
@@ -71,44 +75,6 @@ class ChapterDetector {
         return build(blocks, starts)
     }
 
-    private fun fromHeadings(blocks: List<ContentBlock>): List<Chapter>? {
-        val scored = blocks.mapIndexedNotNull { i, block ->
-            HeadingSignals.match(block)
-                ?.takeIf { it.strength >= MIN_STRENGTH }
-                ?.let { Candidate(i, it.title, it.strength) }
-        }
-        val candidates = collapseAdjacent(scored)
-        if (candidates.size < MIN_CANDIDATES) return null
-        return build(blocks, candidates)
-    }
-
-    private data class Candidate(val index: Int, val title: String, val strength: Double)
-
-    /**
-     * Merges consecutive candidates into one boundary.
-     *
-     * Books very often set an opening as two lines — a label ("Chapter 1") above a
-     * title ("The Weight of Silence"). Both match, but they mark one chapter, not
-     * two. The run starts at the label and takes its name from the strongest member,
-     * which is the typographic title rather than the label.
-     */
-    private fun collapseAdjacent(scored: List<Candidate>): List<Pair<Int, String>> {
-        if (scored.isEmpty()) return emptyList()
-
-        val runs = mutableListOf<MutableList<Candidate>>()
-        scored.forEach { c ->
-            val open = runs.lastOrNull()
-            if (open != null && c.index == open.last().index + 1) open += c
-            else runs += mutableListOf(c)
-        }
-
-        return runs.map { run ->
-            val best = run.maxByOrNull { it.strength } ?: run.first()
-            run.first().index to best.title
-        }
-    }
-
-    /** Cuts [blocks] at the given start indices, keeping any front matter intact. */
     private fun build(blocks: List<ContentBlock>, starts: List<Pair<Int, String>>): List<Chapter> {
         val cuts = starts.sortedBy { it.first }
         val chapters = mutableListOf<Chapter>()

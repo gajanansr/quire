@@ -59,6 +59,29 @@ interface PdfTextSource : AutoCloseable {
     fun isEncrypted(): Boolean
 
     /**
+     * Headings the document declares in its structure tree.
+     *
+     * A tagged PDF carries a logical structure tree — `/H1` to `/H6` elements in
+     * reading order, not scoped to pages, so a chapter spanning forty pages is one
+     * contiguous subtree. Where it exists this is ground truth rather than
+     * inference, and it outranks every other source.
+     *
+     * Empty for the untagged majority, which is the honest answer: an untagged PDF
+     * records where ink goes and nothing in it says a line is a heading.
+     */
+    fun declaredHeadings(): List<OutlineEntry> = emptyList()
+
+    /**
+     * Destinations named by the book's own contents page.
+     *
+     * A hyperlinked table of contents is a declaration: each entry points at a real
+     * destination the producer chose. Weaker than tags or bookmarks — the titles are
+     * whatever the page says — but still something the document states rather than
+     * something inferred from type size.
+     */
+    fun contentsLinks(): List<OutlineEntry> = emptyList()
+
+    /**
      * What the document says it is called, from its info dictionary.
      *
      * Defaulted so a source that has no metadata — or a test fake — need not care.

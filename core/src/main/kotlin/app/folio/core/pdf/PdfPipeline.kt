@@ -81,8 +81,7 @@ class PdfPipeline(
         if (result.blocks.isEmpty()) return failed(id, title, FailureReason.EMPTY_DOCUMENT)
 
         onProgress(ProcessingStatus.DetectingStructure)
-        val outline = runCatching { source.outline() }.getOrDefault(emptyList())
-        val detected = chapters.detect(result.blocks, outline, result.pageBreaks)
+        val detected = chapters.detect(result.blocks, declaredBy(source), result.pageBreaks)
 
         val poor = result.confidence < FolioConstants.MIN_REFLOW_CONFIDENCE
 
@@ -104,6 +103,29 @@ class PdfPipeline(
             chapters = detected,
             reflowFailed = poor,
         )
+    }
+
+    /**
+     * The best structure the document states about itself, or nothing.
+     *
+     * Three declarations, strongest first. A tagged structure tree says outright
+     * which runs are headings and in what order. Bookmarks are the producer's own
+     * navigation. A hyperlinked contents page points at destinations someone chose.
+     * None of them is inferred, which is the only property that matters here — the
+     * alternative is not a weaker source but a guess, and a wrong chapter boundary
+     * is permanent, silent, and corrupts both navigation and progress.
+     *
+     * When a document declares nothing, this returns nothing and the book is one
+     * chapter. That is the correct answer, not a degraded one.
+     */
+    private fun declaredBy(source: PdfTextSource): List<OutlineEntry> {
+        fun read(of: () -> List<OutlineEntry>) =
+            runCatching(of).getOrDefault(emptyList()).takeIf { it.isNotEmpty() }
+
+        return read { source.declaredHeadings() }
+            ?: read { source.outline() }
+            ?: read { source.contentsLinks() }
+            ?: emptyList()
     }
 
     private fun failed(id: String, title: String, reason: FailureReason) = Book(

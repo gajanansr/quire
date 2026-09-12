@@ -60,17 +60,25 @@ class PdfPipelineTest {
     }
 
     @Test
-    fun `chapters are detected on the chaptered fixture`() = runBlocking {
-        PdfBoxTextSource(Fixtures.chapteredPdf()).use { s ->
-            val book = pipeline.process("id", "Chaptered", s)
+    fun `a book that declares its chapters keeps them`() = runBlocking {
+        PdfBoxTextSource(Fixtures.outlinedPdf()).use { s ->
+            val book = pipeline.process("id", "Outlined", s)
             assertEquals(3, book.chapters.size, "titles: ${book.chapters.map { it.title }}")
         }
     }
 
     @Test
-    fun `char offsets are cumulative in the finished book`() = runBlocking {
+    fun `a book that only looks chaptered is one chapter`() = runBlocking {
         PdfBoxTextSource(Fixtures.chapteredPdf()).use { s ->
             val book = pipeline.process("id", "Chaptered", s)
+            assertEquals(1, book.chapters.size, "invented: ${book.chapters.map { it.title }}")
+        }
+    }
+
+    @Test
+    fun `char offsets are cumulative in the finished book`() = runBlocking {
+        PdfBoxTextSource(Fixtures.outlinedPdf()).use { s ->
+            val book = pipeline.process("id", "Outlined", s)
             var running = 0
             book.chapters.forEach { c ->
                 assertEquals(running, c.startCharOffset, "chapter ${c.index}")

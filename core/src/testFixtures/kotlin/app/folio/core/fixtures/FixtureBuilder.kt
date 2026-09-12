@@ -5,6 +5,8 @@ import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
 import org.apache.pdfbox.pdmodel.common.PDRectangle
 import org.apache.pdfbox.pdmodel.font.PDType1Font
+import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline
+import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory
 import org.apache.pdfbox.rendering.PDFRenderer
 import java.awt.Color
@@ -38,7 +40,7 @@ object Fixtures {
      * test — it has already cost time twice. The version is part of the path, so a
      * bump simply misses the cache and rebuilds.
      */
-    private const val FIXTURE_VERSION = 2
+    private const val FIXTURE_VERSION = 3
 
     private val root: File by lazy {
         val override = System.getProperty("folio.fixtures.dir")
@@ -349,6 +351,41 @@ object Fixtures {
     }
 
     /** Large centered bold chapter headings, for structure detection. */
+    /**
+     * The same three chapters, declared in the document's own outline.
+     *
+     * The pair matters: [chapteredPdf] *looks* chaptered and says nothing, while
+     * this one says so. Only the declaration is trusted now, so the two fixtures
+     * encode the policy between them.
+     */
+    fun outlinedPdf() = cached("outlined.pdf") { f ->
+        PDDocument().use { doc ->
+            val outline = PDDocumentOutline()
+            doc.documentCatalog.documentOutline = outline
+
+            listOf(
+                "Chapter 1" to "The Weight of Silence",
+                "Chapter 2" to "What the River Kept",
+                "Chapter 3" to "A Longer Winter",
+            ).forEach { (label, title) ->
+                val page = PDPage(PDRectangle.LETTER)
+                doc.addPage(page)
+                PDPageContentStream(doc, page).use { cs ->
+                    cs.line(label, 10f, 250f, 700f)
+                    cs.line(title, 22f, 180f, 660f, bold = true)
+                    var y = 600f
+                    wrap(LOREM, 70).forEach { l -> cs.line(l, 11f, 72f, y); y -= 16f }
+                }
+                val item = PDOutlineItem()
+                item.title = title
+                item.setDestination(page)
+                outline.addLast(item)
+            }
+            doc.save(f)
+        }
+    }
+
+    /** Looks chaptered to a human, declares nothing a machine can read. */
     fun chapteredPdf() = cached("chaptered.pdf") { f ->
         PDDocument().use { doc ->
             listOf(
