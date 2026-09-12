@@ -1,5 +1,6 @@
 package app.folio.core.ocr
 
+import app.folio.core.lang.Trigrams
 import app.folio.core.source.OcrLine
 import app.folio.core.source.OcrPage
 
@@ -27,7 +28,8 @@ object JunkFilter {
 
     fun clean(page: OcrPage): OcrPage {
         val band = TextBand.of(page.lines)
-        val kept = page.lines.filterNot { isJunk(it, band) }
+        val trustModel = modelIsOnHomeGround(page.lines)
+        val kept = page.lines.filterNot { isJunk(it, band, trustModel) }
         return page.copy(
             lines = kept,
             // Recomputed, not carried over: the page mean drives the degraded-OCR
@@ -38,19 +40,48 @@ object JunkFilter {
         )
     }
 
-    private fun isJunk(line: OcrLine, band: TextBand?): Boolean {
+    private fun isJunk(line: OcrLine, band: TextBand?, trustModel: Boolean): Boolean {
         val text = line.text.trim()
         if (text.isEmpty()) return true
 
+        val verdict = Trigrams.judge(text)
+
+        // The model's protective verdict is always honoured. Saying "this is
+        // language" can only prevent a deletion, so it costs nothing to believe.
+        if (verdict == Trigrams.Verdict.LANGUAGE) return false
+
+        // Its destructive verdict is honoured only where it has standing. The model
+        // speaks English; Welsh prose scores below its noise line, and deleting a
+        // Welsh book would be a far worse failure than leaving some noise in.
+        if (trustModel && verdict == Trigrams.Verdict.NOISE) return true
+
         val signals = garbageSignals(text)
 
-        // The conservatism guard. Language survives everything else in this method.
+        // The conservatism guard for strings the model is too short to judge.
         if (readsAsLanguage(text) && signals < OVERWHELMING) return false
 
         if (signals >= OVERWHELMING) return true
         if (signals >= SUSPECT && line.confidence < LOW_CONFIDENCE) return true
         if (signals >= SUSPECT && band != null && band.excludes(line)) return true
         return false
+    }
+
+    /**
+     * Whether the language model has any standing on this page.
+     *
+     * It was trained on English, and a page of something else is not noise merely
+     * for being unfamiliar. Measured rather than assumed: German, French, Spanish
+     * and Latin all score comfortably as language, but Welsh sits below the model's
+     * own noise line and Turkish sits in its uncertain band — so a Welsh book would
+     * be deleted line by line if the model were trusted everywhere.
+     *
+     * The page's median decides, because a page of noise and a page of Welsh differ
+     * exactly in whether the *typical* line is unreadable or only some of them are.
+     */
+    private fun modelIsOnHomeGround(lines: List<OcrLine>): Boolean {
+        val scores = lines.mapNotNull { Trigrams.score(it.text.trim()) }
+        if (scores.size < MIN_LINES_FOR_LANGUAGE) return false
+        return scores.sorted()[scores.size / 2] >= Trigrams.CLEARLY_LANGUAGE
     }
 
     /**
@@ -150,4 +181,7 @@ object JunkFilter {
     private const val MIN_DISTINCT = 3
     private const val TOLERANCE = 0.25f
     private const val MIN_LINES_FOR_BAND = 4
+
+    /** Too few scoreable lines to tell a language from a mess. */
+    private const val MIN_LINES_FOR_LANGUAGE = 3
 }

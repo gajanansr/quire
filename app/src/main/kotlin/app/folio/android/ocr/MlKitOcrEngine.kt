@@ -5,6 +5,7 @@ import app.folio.core.source.OcrEngine
 import app.folio.core.source.OcrLine
 import app.folio.core.source.OcrPage
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -58,9 +59,7 @@ class MlKitOcrEngine : OcrEngine {
                     y = (height - box.bottom).toFloat(),
                     width = box.width().toFloat(),
                     height = box.height().toFloat(),
-                    // ML Kit exposes confidence per line on recent versions; where it
-                    // is absent, treat recognition as nominal rather than as failed.
-                    confidence = line.confidence ?: NOMINAL_CONFIDENCE,
+                    confidence = confidenceOf(line),
                 )
             }
 
@@ -79,5 +78,24 @@ class MlKitOcrEngine : OcrEngine {
 
     private companion object {
         const val NOMINAL_CONFIDENCE = 0.8f
+    }
+
+    /**
+     * How confident recognition was about a line.
+     *
+     * ML Kit populates line confidence only sometimes, and the fallback was a
+     * nominal constant — which meant that for every line without one, "confidence"
+     * was a number we had invented, and every decision resting on it was resting on
+     * nothing. Words carry their own confidence far more reliably, so the average
+     * across a line's words is a real measurement where there was a placeholder.
+     *
+     * The average rather than the minimum: one badly-read word in a good line is a
+     * misreading, not a reason to distrust the sentence around it, and the page mean
+     * built from these decides whether the reader is offered the original PDF.
+     */
+    private fun confidenceOf(line: Text.Line): Float {
+        line.confidence?.let { return it }
+        val words = line.elements.mapNotNull { it.confidence }
+        return if (words.isEmpty()) NOMINAL_CONFIDENCE else words.average().toFloat()
     }
 }

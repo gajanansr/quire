@@ -157,4 +157,42 @@ class JunkFilterTest {
         val sparse = listOf(line("A single surviving line of real text.", x = 5f))
         assertEquals(sparse.map { it.text }, clean(sparse))
     }
+
+    // --------------------------------------------- languages the model never saw
+
+    @Test
+    fun `a welsh page is not deleted for being welsh`() {
+        // The model is trained on English. Welsh scores below its noise line — far
+        // below ordinary junk — so trusting it everywhere would delete a Welsh book
+        // line by line. Measured, not hypothetical: this is why the page decides
+        // whether the model gets a vote at all.
+        val welsh = listOf(
+            line("Yr oedd yn ddiwrnod hyfryd o haf ac yr oedd yr haul", y = 700f),
+            line("yn tywynnu drwy'r ffenestri ar y bwrdd pren o'i flaen.", y = 680f),
+            line("Cerddodd allan i'r ardd heb ddweud gair wrth neb o gwbl.", y = 660f),
+            line("Nid oedd neb yno i'w ateb, ac felly eisteddodd i lawr.", y = 640f),
+            line("Roedd y bore yn dawel ac yn llonydd o amgylch y ty.", y = 620f),
+        )
+        assertEquals(welsh.map { it.text }, clean(welsh), "Welsh prose was deleted")
+    }
+
+    @Test
+    fun `german and french pages survive intact`() {
+        val german = listOf(
+            line("Als Gregor Samsa eines Morgens aus unruhigen Traeumen", y = 700f),
+            line("erwachte, fand er sich in seinem Bett zu einem Ungeziefer", y = 680f),
+            line("verwandelt, und er wusste nicht, was er davon halten sollte.", y = 660f),
+            line("Die Verwandlung begann an einem gewoehnlichen Morgen.", y = 640f),
+        )
+        assertEquals(german.map { it.text }, clean(german))
+    }
+
+    @Test
+    fun `junk still goes from a page the model does understand`() {
+        // The other half of the guard: on an English page the model keeps its vote.
+        val mixed = prose + line("khtgrmnwq zxcvbnmqw", confidence = 0.9f)
+        val kept = clean(mixed)
+        assertTrue("khtgrmnwq zxcvbnmqw" !in kept, "the model was ignored: $kept")
+        assertEquals(prose.size, kept.size, "prose was damaged: $kept")
+    }
 }
