@@ -40,6 +40,15 @@ class ParagraphAssembler {
         const val TYPICAL_LEADING_RATIO = 1.25f
         /** Beyond this multiple of type size, a gap is separation rather than leading. */
         const val MAX_LEADING_RATIO = 1.6f
+
+        val SENTENCE_ENDINGS = setOf('.', '?', '!')
+
+        /** Words a title does not end on, because a clause is still open after them. */
+        val TRAILING_FUNCTION_WORDS = setOf(
+            "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "into",
+            "is", "of", "on", "or", "the", "to", "was", "were", "with", "that",
+            "said", "than", "then", "when", "while", "who", "which",
+        )
     }
 
     fun assemble(lines: List<Line>): List<ContentBlock> {
@@ -115,6 +124,11 @@ class ParagraphAssembler {
         val larger = line.medianFontSize >= bodySize * HEADING_SIZE_RATIO
         if (!larger) return false
 
+        // A heading is a complete thing. Books often set a chapter's opening
+        // sentence large as a flourish, and it is still a sentence — treating it as
+        // a title splits it in half and prints the first part as a chapter heading.
+        if (readsAsUnfinished(line, next)) return false
+
         // Standing alone: separated from at least one neighbour by more than a
         // normal line advance, or sitting at the very start of the page.
         val gapBefore = prev?.let { it.y - line.y } ?: Float.MAX_VALUE
@@ -124,6 +138,29 @@ class ParagraphAssembler {
             gapAfter > leading * FolioConstants.PARAGRAPH_GAP_FACTOR
 
         return isolated
+    }
+
+    /**
+     * Whether a line is plainly the middle of a sentence.
+     *
+     * Three signs, any one of which is enough, and all of which only ever *prevent*
+     * a heading — the safe direction, since inventing one costs more than missing
+     * one. A line carrying a finished sentence and then more text is prose. A line
+     * ending on a word that cannot end a sentence is prose. A line whose successor
+     * opens in lower case is prose continuing.
+     */
+    private fun readsAsUnfinished(line: Line, next: Line?): Boolean {
+        val text = line.text.trim()
+        if (text.isEmpty()) return false
+
+        val body = text.dropLast(1)
+        if (body.any { it in SENTENCE_ENDINGS }) return true
+
+        val lastWord = text.split(Regex("[^\\p{L}']+")).lastOrNull { it.isNotBlank() }
+        if (lastWord != null && lastWord.lowercase() in TRAILING_FUNCTION_WORDS) return true
+
+        val continues = next?.text?.trimStart()?.firstOrNull()
+        return continues != null && continues.isLowerCase()
     }
 
     /** Bigger type means a higher-level heading, clamped to the h1..h4 the reader styles. */

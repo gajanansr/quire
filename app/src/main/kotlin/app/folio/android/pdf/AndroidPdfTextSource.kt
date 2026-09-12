@@ -242,13 +242,24 @@ class AndroidPdfTextSource(file: File) : PdfTextSource {
         doc.pages.indexOf(page).takeIf { it >= 0 }
     }.getOrNull()
 
-    /** The largest type on a page, which on a chapter opening is its title. */
+    /**
+     * The largest type on a page, which on a chapter opening is its title.
+     *
+     * Only the topmost line of it. Two sections can begin on one page — an
+     * acknowledgements note followed by a prologue — and joining every large run
+     * there produced the single entry "Acknowledgements Prologue", which names
+     * neither of them.
+     */
     private fun titleOnPage(pageIndex: Int): String? = runCatching {
         val runs = page(pageIndex).runs
         if (runs.isEmpty()) return null
+
         val largest = runs.maxOf { it.fontSize }
-        runs.filter { it.fontSize >= largest - 0.5f }
-            .sortedByDescending { it.y }
+        val biggest = runs.filter { it.fontSize >= largest - SIZE_TOLERANCE }
+        val topmost = biggest.maxOf { it.y }
+
+        biggest.filter { it.y >= topmost - largest * SAME_LINE_RATIO }
+            .sortedBy { it.x }
             .joinToString(" ") { it.text.trim() }
             .replace(Regex("\\s+"), " ")
             .trim()
@@ -268,5 +279,11 @@ class AndroidPdfTextSource(file: File) : PdfTextSource {
         const val MIN_CONTENTS_ENTRIES = 3
 
         const val MAX_TITLE_CHARS = 90
+
+        /** Font sizes within this many points count as the same size. */
+        const val SIZE_TOLERANCE = 0.5f
+
+        /** Baselines within this fraction of the type size are the same line. */
+        const val SAME_LINE_RATIO = 0.6f
     }
 }

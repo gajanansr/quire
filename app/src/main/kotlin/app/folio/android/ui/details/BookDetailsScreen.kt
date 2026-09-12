@@ -59,7 +59,15 @@ fun BookDetailsScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = Folio.colors
-    var tab by remember { mutableStateOf(DetailsTab.SYNOPSIS) }
+    // A book with no publisher's description has no synopsis to show, so the tab is
+    // not offered and Details opens instead. A tab whose only content is "there is
+    // nothing here" is worse than one fewer tab — and Folio will not write a
+    // synopsis of its own, because an invented one would read exactly like a real
+    // one and there would be no way to tell.
+    val tabs = remember(state.synopsis) {
+        DetailsTab.entries.filterNot { it == DetailsTab.SYNOPSIS && state.synopsis == null }
+    }
+    var tab by remember(tabs) { mutableStateOf(tabs.first()) }
 
     Column(
         modifier = modifier
@@ -97,7 +105,7 @@ fun BookDetailsScreen(
             }
 
             Spacer(Modifier.height(24.dp))
-            TabRow(selected = tab, onSelect = { tab = it })
+            TabRow(tabs = tabs, selected = tab, onSelect = { tab = it })
             Spacer(Modifier.height(16.dp))
             TabBody(state = state, tab = tab)
 
@@ -220,10 +228,14 @@ private fun Stat(value: String, label: String) {
 }
 
 @Composable
-private fun TabRow(selected: DetailsTab, onSelect: (DetailsTab) -> Unit) {
+private fun TabRow(
+    tabs: List<DetailsTab>,
+    selected: DetailsTab,
+    onSelect: (DetailsTab) -> Unit,
+) {
     val colors = Folio.colors
     Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-        DetailsTab.entries.forEach { entry ->
+        tabs.forEach { entry ->
             val active = entry == selected
             Column(
                 modifier = Modifier.clickable { onSelect(entry) },
@@ -249,8 +261,8 @@ private fun TabRow(selected: DetailsTab, onSelect: (DetailsTab) -> Unit) {
 private fun TabBody(state: BookDetailsState, tab: DetailsTab) {
     val colors = Folio.colors
     val body = when (tab) {
-        DetailsTab.SYNOPSIS -> state.synopsis
-            ?: "This book didn't come with a description."
+        // Only reachable when there is one; the tab is hidden otherwise.
+        DetailsTab.SYNOPSIS -> state.synopsis.orEmpty()
 
         DetailsTab.DETAILS -> buildString {
             appendLine("Format · ${state.format}")

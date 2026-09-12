@@ -34,7 +34,8 @@ object TitleResolver {
         info: DocumentInfo?,
         pageOne: List<TextRun> = emptyList(),
     ): ResolvedTitle {
-        val fromDocument = info?.title?.trim()?.takeIf { it.isPlausibleTitle(filename) }
+        val fromDocument = info?.title?.let { stripSourceMarks(it) }
+            ?.takeIf { it.isPlausibleTitle(filename) }
         val fromPage = fromDocument?.let { null } ?: titleFromPageOne(pageOne)
         val fromFilename = splitFilename(filename)
 
@@ -48,6 +49,37 @@ object TitleResolver {
 
         return ResolvedTitle(title, author)
     }
+
+    /**
+     * Removes the mark of whatever site a file passed through.
+     *
+     * Aggregators stamp themselves into the title: "One Indian Girl - PDFDrive.com",
+     * "Dracula (z-lib.org)", "[www.example.net] The Odyssey". The book's own name is
+     * correct and sits right next to it, so this trims rather than rejects — refusing
+     * the whole title would throw away the good half and fall back to a filename
+     * that usually carries the same stamp.
+     *
+     * Only a delimited fragment containing a domain is removed, so a title that
+     * genuinely contains a dot or a hyphen survives intact.
+     */
+    private fun stripSourceMarks(raw: String): String {
+        var title = raw.trim()
+        listOf(
+            // " - site.com", " — site.com"
+            Regex("""\s*[-–—]\s*""" + DOMAIN + """\s*$""", RegexOption.IGNORE_CASE),
+            // "(site.com)", "[site.com]", "{site.com}"
+            Regex("""\s*[\[({]\s*""" + DOMAIN + """\s*[\])}]""", RegexOption.IGNORE_CASE),
+            // Leading "site.com - "
+            Regex("""^\s*""" + DOMAIN + """\s*[-–—]\s*""", RegexOption.IGNORE_CASE),
+            // Trailing "_site.com"
+            Regex("""_""" + DOMAIN + """\s*$""", RegexOption.IGNORE_CASE),
+        ).forEach { title = title.replace(it, "") }
+        return title.trim().trim('-', '–', '—', '_').trim()
+    }
+
+    /** A host name, optionally with www, as an aggregator stamps it. */
+    private const val DOMAIN =
+        """(?:www\.)?[\w-]+\.(?:com|net|org|info|io|co|in|me|cc|ru|to|se|xyz|club|pw)"""
 
     // ----------------------------------------------------------------- rules
 

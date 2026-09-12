@@ -40,7 +40,7 @@ object Fixtures {
      * test — it has already cost time twice. The version is part of the path, so a
      * bump simply misses the cache and rebuilds.
      */
-    private const val FIXTURE_VERSION = 3
+    private const val FIXTURE_VERSION = 5
 
     private val root: File by lazy {
         val override = System.getProperty("folio.fixtures.dir")
@@ -380,6 +380,41 @@ object Fixtures {
                 item.title = title
                 item.setDestination(page)
                 outline.addLast(item)
+            }
+            doc.save(f)
+        }
+    }
+
+    /**
+     * A chapter opening set the way books actually set them.
+     *
+     * A drop cap — one large letter whose baseline sits two lines below the line it
+     * belongs to — and an opening sentence in display type that runs on into body
+     * copy. Both are ordinary typography and both used to corrupt the text: the cap
+     * clustered with whichever line shared its baseline and surfaced in the middle
+     * of a sentence, and the large opening line was read as a heading, splitting the
+     * sentence in half.
+     *
+     * The word the reader must see first is "Palm".
+     */
+    fun dropCapPdf() = cached("drop-cap.pdf") { f ->
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.LETTER)
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { cs ->
+                // The opening sentence, set large, running on into the paragraph.
+                cs.line("'What do you mean, not enough rooms?' I said to", 19f, 72f, 720f)
+                cs.line("Arijit Banerjee, the lobby manager of the Goa Marriott.", 11f, 72f, 690f)
+
+                // The drop cap: one glyph standing beside three body lines, so its
+                // baseline is the third line's and its top reaches the first's.
+                cs.line("P", 60f, 72f, 616f)
+                cs.line("alm trees along the Marriott pool swayed green in", 11f, 104f, 648f)
+                cs.line("the breeze. The 5 p.m. December sun lit up the", 11f, 104f, 632f)
+                cs.line("hotel's cottages, casting gentle shadows.", 11f, 72f, 616f)
+
+                var y = 580f
+                wrap(LOREM, 70).forEach { l -> cs.line(l, 11f, 72f, y); y -= 16f }
             }
             doc.save(f)
         }

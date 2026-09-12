@@ -150,4 +150,35 @@ class TitleResolverTest {
         val r = TitleResolver.resolve("scan_0001", info = null, pageOne = sparse)
         assertEquals("scan_0001", r.title)
     }
+
+    // ------------------------------------------------- marks of where a file came from
+
+    @Test
+    fun `an aggregator's stamp is trimmed, not the title with it`() {
+        // A real book, from a real file. The name is right there next to the stamp,
+        // and rejecting the whole title would fall back to a filename carrying the
+        // same stamp.
+        mapOf(
+            "One Indian Girl - PDFDrive.com" to "One Indian Girl",
+            "Dracula (z-lib.org)" to "Dracula",
+            "[www.example.net] The Odyssey" to "The Odyssey",
+            "The Odyssey_bookfi.org" to "The Odyssey",
+            "www.pdfdrive.com - Sapiens" to "Sapiens",
+        ).forEach { (stamped, clean) ->
+            assertEquals(clean, TitleResolver.resolve("file", DocumentInfo(stamped, null)).title)
+        }
+    }
+
+    @Test
+    fun `a title that merely contains a dot or a dash keeps it`() {
+        // The trim must not eat punctuation a book actually uses.
+        listOf(
+            "Dr. Jekyll and Mr. Hyde",
+            "The Sound and the Fury - A Novel",
+            "2001: A Space Odyssey",
+            "Star.Crossed",
+        ).forEach {
+            assertEquals(it, TitleResolver.resolve("file", DocumentInfo(it, null)).title)
+        }
+    }
 }

@@ -27,6 +27,15 @@ class LineAssembler {
         /** Fraction of glyph height within which two baselines count as the same line. */
         const val BASELINE_TOLERANCE = 0.45f
         const val FALLBACK_TOLERANCE = 2.0f
+
+        /** A dropped capital is at most this many characters. */
+        const val DROP_CAP_MAX_CHARS = 2
+        /** And at least this much larger than the body type around it. */
+        const val DROP_CAP_SIZE_RATIO = 1.8f
+        /** And tall enough to stand beside this many lines. That is the real test. */
+        const val DROP_CAP_MIN_LINES_SPANNED = 2
+        /** How far a capital stands above its baseline, as a fraction of type size. */
+        const val CAP_HEIGHT_RATIO = 0.7f
     }
 
     /**
@@ -53,10 +62,18 @@ class LineAssembler {
     }
 
     fun assemble(page: PdfPage): List<Line> {
-        val runs = page.runs.filter { it.text.isNotBlank() }
-        if (runs.isEmpty()) return emptyList()
+        val allRuns = page.runs.filter { it.text.isNotBlank() }
+        if (allRuns.isEmpty()) return emptyList()
 
-        val tolerance = toleranceFor(runs)
+        val tolerance = toleranceFor(allRuns)
+        val bodySize = bodyFontSize(allRuns)
+
+        // A dropped capital is set two or three lines tall, so its baseline sits
+        // with a line it does not belong to. Banding it by baseline puts the letter
+        // in the middle of a later sentence and leaves the word it opened without
+        // its first letter: "The 5 p.m. P" and "alm trees along the Marriott pool".
+        // Held back here and reattached once the lines around it are known.
+        val (capCandidates, runs) = allRuns.partition { it.mayBeDropCap(bodySize) }
 
         // Group by descending baseline, folding each run into an open band when it
         // is close enough to that band's running mean.
@@ -74,8 +91,81 @@ class LineAssembler {
             }
         }
 
-        return bands.mapIndexedNotNull { i, band -> toLine(band, bandY[i]) }
+        val lines = bands.mapIndexedNotNull { i, band -> toLine(band, bandY[i]) }
             .sortedByDescending { it.y }
+
+        return attachDropCaps(lines, capCandidates, tolerance)
+    }
+
+    /** Size of the type the page is mostly set in, counted by character. */
+    private fun bodyFontSize(runs: List<TextRun>): Float {
+        val sizes = runs.flatMap { run ->
+            List(run.text.trim().length.coerceAtLeast(1)) { run.fontSize }
+        }.sorted()
+        return if (sizes.isEmpty()) 0f else sizes[sizes.size / 2]
+    }
+
+    /** Short enough and large enough to be a dropped capital, before geometry says. */
+    private fun TextRun.mayBeDropCap(bodySize: Float): Boolean =
+        bodySize > 0f &&
+            text.trim().length <= DROP_CAP_MAX_CHARS &&
+            fontSize >= bodySize * DROP_CAP_SIZE_RATIO
+
+    /**
+     * Puts a dropped capital back on the word it opens.
+     *
+     * The deciding evidence is height, not size or position: a letter that stands
+     * beside two or more lines is a drop cap, and one that does not is an ordinary
+     * large glyph — an initial, a list marker, a stray — which keeps its own line.
+     *
+     * The letter joins the *topmost* line it spans, because that is the line it
+     * begins, and merges into that line's first run rather than arriving as one of
+     * its own: in a reflowed reader the drop cap's size is a property of the printed
+     * page, not of the sentence, and carrying it through would set one letter of the
+     * paragraph three times too large.
+     */
+    private fun attachDropCaps(
+        lines: List<Line>,
+        candidates: List<TextRun>,
+        tolerance: Float,
+    ): List<Line> {
+        if (candidates.isEmpty()) return lines
+
+        val result = lines.toMutableList()
+        candidates.sortedByDescending { it.y }.forEach { cap ->
+            // Measured from the type size rather than the reported ink box: a
+            // producer reports the glyph's own height, which for a capital is well
+            // short of how far it stands above the baseline.
+            val top = cap.y + maxOf(cap.height, cap.fontSize * CAP_HEIGHT_RATIO)
+            val spanned = result.filter { it.y <= top + tolerance && it.y >= cap.y - tolerance }
+
+            if (spanned.size < DROP_CAP_MIN_LINES_SPANNED) {
+                // Not a drop cap: a large glyph that does not stand past its own
+                // line. It goes back to the line it shares a baseline with, exactly
+                // as if it had never been held out — a big initial in the middle of
+                // a sentence is still part of that sentence.
+                val home = result.indexOfFirst { abs(it.y - cap.y) <= tolerance }
+                if (home >= 0) {
+                    toLine(result[home].runs + cap, result[home].y)?.let { result[home] = it }
+                } else {
+                    toLine(listOf(cap), cap.y)?.let { result += it }
+                }
+                return@forEach
+            }
+
+            val opens = spanned.maxByOrNull { it.y } ?: return@forEach
+            val index = result.indexOf(opens)
+            val letter = cap.text.trim()
+            val first = opens.runs.firstOrNull()
+            result[index] = opens.copy(
+                text = letter + opens.text.trimStart(),
+                x = minOf(cap.x, opens.x),
+                runs = if (first == null) opens.runs
+                else listOf(first.copy(text = letter + first.text.trimStart())) +
+                    opens.runs.drop(1),
+            )
+        }
+        return result.sortedByDescending { it.y }
     }
 
     /**
