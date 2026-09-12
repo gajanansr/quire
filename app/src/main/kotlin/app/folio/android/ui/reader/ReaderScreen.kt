@@ -37,6 +37,10 @@ import app.folio.android.ui.theme.Folio
 import app.folio.android.ui.theme.FolioIcon
 import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
+import androidx.compose.ui.platform.LocalDensity
+import app.folio.core.paginate.BlockStyles
+import app.folio.core.paginate.trailingSpacingPx
+import app.folio.core.paginate.spacingAbovePx
 import app.folio.core.model.ContentBlock
 import kotlin.math.roundToInt
 
@@ -135,6 +139,7 @@ private fun PageContent(
     modifier: Modifier = Modifier,
 ) {
     val colors = Folio.colors
+    val density = LocalDensity.current
     val chapter = state.chapter
     val page = state.currentPage
 
@@ -176,21 +181,33 @@ private fun PageContent(
 
         if (chapter == null || page == null) return@Column
 
-        page.slices.forEach { slice ->
-            val block = chapter.blocks.getOrNull(slice.blockIndex) ?: return@forEach
+        // Spacing above each block and none after the last, mirroring exactly what
+        // the paginator budgeted. A fixed gap drawn after every block — including
+        // the last — is space the page was never laid out for, and it pushes the
+        // final line off the bottom.
+        val settings = state.preferences.toSettings(with(density) { 1.sp.toPx() })
+        page.slices.forEachIndexed { position, slice ->
+            val block = chapter.blocks.getOrNull(slice.blockIndex) ?: return@forEachIndexed
             // The chapter's cached text, not block.plainText: this runs for every
             // visible block on every recomposition.
-            val text = chapter.blockTexts.getOrNull(slice.blockIndex) ?: return@forEach
+            val text = chapter.blockTexts.getOrNull(slice.blockIndex)
+                ?: return@forEachIndexed
+
+            val above = spacingAbovePx(block, settings, isFirstOnPage = position == 0)
+            if (above > 0f) Spacer(Modifier.height(with(density) { above.toDp() }))
+
             if (slice.length == 0) {
                 if (block is ContentBlock.PageBreak) Spacer(Modifier.height(8.dp))
-                return@forEach
+                return@forEachIndexed
             }
             val portion = text.substring(
                 slice.startChar.coerceIn(0, text.length),
                 slice.endChar.coerceIn(0, text.length),
             )
             BlockText(block = block, text = portion, state = state)
-            Spacer(Modifier.height(if (block is ContentBlock.Heading) 12.dp else 14.dp))
+
+            val below = trailingSpacingPx(block, settings)
+            if (below > 0f) Spacer(Modifier.height(with(density) { below.toDp() }))
         }
     }
 }
@@ -198,37 +215,25 @@ private fun PageContent(
 @Composable
 private fun BlockText(block: ContentBlock, text: String, state: ReaderState) {
     val colors = Folio.colors
+    val density = LocalDensity.current
     val prefs = state.preferences
-    val align = if (prefs.justify) TextAlign.Justify else TextAlign.Start
 
-    when (block) {
-        is ContentBlock.Heading -> Text(
-            text = text,
-            color = colors.ink,
-            fontFamily = prefs.font.family(),
-            fontSize = (prefs.fontSizeSp * 1.4f).sp,
-            lineHeight = (prefs.fontSizeSp * 1.4f * ReaderPreferences.LINE_HEIGHT).sp,
-            style = MaterialTheme.typography.headlineMedium,
-        )
+    // Asked for, not restated. Every place this was described separately from the
+    // paginator, the two drifted and the page lost its last line.
+    val blockStyle = BlockStyles.of(
+        block,
+        prefs.toSettings(with(density) { 1.sp.toPx() }),
+    )
+    val style = readerTextStyle(blockStyle, prefs.font.family(), density)
 
-        is ContentBlock.BlockQuote -> Text(
-            text = text,
-            color = colors.muted,
-            fontFamily = prefs.font.family(),
-            fontSize = prefs.fontSizeSp.sp,
-            lineHeight = (prefs.fontSizeSp * ReaderPreferences.LINE_HEIGHT).sp,
-            modifier = Modifier.padding(start = 14.dp),
-        )
-
-        else -> Text(
-            text = text,
-            color = colors.ink,
-            fontFamily = prefs.font.family(),
-            fontSize = prefs.fontSizeSp.sp,
-            lineHeight = (prefs.fontSizeSp * ReaderPreferences.LINE_HEIGHT).sp,
-            textAlign = align,
-        )
-    }
+    Text(
+        text = text,
+        color = if (block is ContentBlock.BlockQuote) colors.muted else colors.ink,
+        style = style,
+        modifier = Modifier.padding(
+            start = with(density) { blockStyle.indentPx.toDp() },
+        ),
+    )
 }
 
 @Composable

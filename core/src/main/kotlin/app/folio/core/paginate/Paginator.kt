@@ -33,12 +33,6 @@ data class Page(val slices: List<PageSlice>) {
 class Paginator(private val measurer: TextMeasurer) {
 
     private companion object {
-        /** Space after a paragraph, as a multiple of its line height. */
-        const val PARAGRAPH_SPACING = 0.55f
-        /** Extra space above a heading. */
-        const val HEADING_SPACING_ABOVE = 1.4f
-        /** Headings are set larger than body text. */
-        val HEADING_SCALE = mapOf(1 to 1.6f, 2 to 1.4f, 3 to 1.2f)
         /**
          * A heading with fewer than this many body lines after it is pushed to the
          * next page. A chapter title stranded alone at the foot of a page is the
@@ -90,8 +84,8 @@ class Paginator(private val measurer: TextMeasurer) {
         val blockTexts = chapter.blockTexts
         blocks.forEachIndexed { blockIndex, block ->
             val text = blockTexts[blockIndex]
-            val style = styleFor(block, settings)
-            val spacingAbove = spacingAbove(block, settings, isFirstOnPage = current.isEmpty())
+            val style = BlockStyles.of(block, settings)
+            val spacingAbove = spacingAbovePx(block, settings, isFirstOnPage = current.isEmpty())
 
             if (text.isEmpty()) {
                 // A page break or an image with no caption still occupies its slot,
@@ -123,7 +117,10 @@ class Paginator(private val measurer: TextMeasurer) {
                 }
 
                 val maxLines = (remainingHeight / style.lineHeightPx).toInt()
-                val window = measureWindow(text, cursor, maxLines, charsPerLine, style, viewport.widthPx)
+                val window = measureWindow(
+                    text, cursor, maxLines, charsPerLine, style,
+                    viewport.widthPx - style.indentPx,
+                )
                 val measured = window.measured
                 charsPerLine = window.charsPerLine
 
@@ -155,7 +152,7 @@ class Paginator(private val measurer: TextMeasurer) {
             }
 
             if (cursor >= text.length && current.isNotEmpty()) {
-                used += trailingSpacing(block, settings)
+                used += trailingSpacingPx(block, settings)
             }
         }
 
@@ -250,46 +247,6 @@ class Paginator(private val measurer: TextMeasurer) {
         return out.map { Page(it) }
     }
 
-    private fun styleFor(block: ContentBlock, settings: TypographySettings): BlockStyle =
-        when (block) {
-            is ContentBlock.Heading -> {
-                val scale = HEADING_SCALE[block.level] ?: 1.1f
-                BlockStyle(
-                    fontSizeSp = settings.fontSizeSp * scale,
-                    lineHeightPx = settings.bodyLineHeightPx * scale,
-                    bold = true,
-                )
-            }
-
-            is ContentBlock.BlockQuote -> BlockStyle(
-                fontSizeSp = settings.fontSizeSp,
-                lineHeightPx = settings.bodyLineHeightPx,
-                italic = true,
-            )
-
-            else -> BlockStyle(
-                fontSizeSp = settings.fontSizeSp,
-                lineHeightPx = settings.bodyLineHeightPx,
-            )
-        }
-
-    private fun spacingAbove(
-        block: ContentBlock,
-        settings: TypographySettings,
-        isFirstOnPage: Boolean,
-    ): Float {
-        if (isFirstOnPage) return 0f
-        return when (block) {
-            is ContentBlock.Heading -> settings.bodyLineHeightPx * HEADING_SPACING_ABOVE
-            else -> settings.bodyLineHeightPx * PARAGRAPH_SPACING
-        }
-    }
-
-    private fun trailingSpacing(block: ContentBlock, settings: TypographySettings): Float =
-        when (block) {
-            is ContentBlock.Heading -> settings.bodyLineHeightPx * 0.3f
-            else -> 0f
-        }
 }
 
 /**

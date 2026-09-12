@@ -1,13 +1,8 @@
 package app.folio.android.ui.reader
 
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.sp
 import app.folio.core.paginate.BlockStyle
 import app.folio.core.paginate.Measured
 import androidx.compose.ui.text.TextMeasurer as ComposeMeasurer
@@ -34,13 +29,8 @@ class ComposeTextMeasurer(
 
         val layout = measurer.measure(
             text = text,
-            style = TextStyle(
-                fontFamily = fontFamily,
-                fontSize = style.fontSizeSp.sp,
-                lineHeight = lineHeightSp(style),
-                fontWeight = if (style.bold) FontWeight.SemiBold else FontWeight.Normal,
-                fontStyle = if (style.italic) FontStyle.Italic else FontStyle.Normal,
-            ),
+            // The same style the Reader draws with, not a description of it.
+            style = readerTextStyle(style, fontFamily, density),
             constraints = Constraints(maxWidth = widthPx.toInt()),
         )
 
@@ -56,7 +46,4 @@ class ComposeTextMeasurer(
             lineEnds = lineEnds.ifEmpty { listOf(text.length) },
         )
     }
-
-    private fun lineHeightSp(style: BlockStyle): TextUnit =
-        with(density) { style.lineHeightPx.toSp() }
 }
