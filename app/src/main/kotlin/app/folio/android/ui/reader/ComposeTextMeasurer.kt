@@ -28,7 +28,7 @@ class ComposeTextMeasurer(
         if (text.isEmpty() || widthPx <= 0f) return Measured(0f, listOf(0))
 
         val layout = measurer.measure(
-            text = text,
+            text = readerText(text, style),
             // The same style the Reader draws with, not a description of it.
             style = readerTextStyle(style, fontFamily, density),
             constraints = Constraints(maxWidth = widthPx.toInt()),

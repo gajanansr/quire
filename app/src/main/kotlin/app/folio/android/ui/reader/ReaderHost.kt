@@ -29,6 +29,7 @@ import app.folio.core.model.Chapter
 import app.folio.core.model.ChapterRef
 import app.folio.core.model.ReadingPosition
 import app.folio.core.paginate.Page
+import app.folio.core.paginate.ChapterOpening
 import app.folio.core.paginate.Paginator
 import app.folio.core.paginate.Viewport
 import kotlinx.coroutines.Dispatchers
@@ -108,7 +109,11 @@ fun ReaderHost(
     fun headerInsetPx(): Float {
         if (!state.showsChapterHeader) return 0f
         val body = state.preferences.fontSizeSp * ReaderPreferences.LINE_HEIGHT
-        return with(density) { (body * 1.2f + body * 2.4f + 40.dp.toPx() / 1f) }
+        // The sink is the space a chapter opens below — a proportion of the page,
+        // because the gap that looks generous on a phone is a rounding error on a
+        // tablet. The rest is label, title and the air beneath them.
+        return ChapterOpening.sinkPx(viewport.heightPx) +
+            with(density) { body.sp.toPx() * 1.2f + body.sp.toPx() * 2.4f + 30.dp.toPx() }
     }
 
     suspend fun loadChapter(index: Int, at: ReadingPosition?) {

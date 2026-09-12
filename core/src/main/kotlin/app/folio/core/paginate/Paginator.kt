@@ -93,7 +93,9 @@ class Paginator(private val measurer: TextMeasurer) {
         val blockTexts = chapter.blockTexts
         blocks.forEachIndexed { blockIndex, block ->
             val text = blockTexts[blockIndex]
+            val opensChapter = ChapterOpening.isChapterOpening(blocks, blockIndex, startChar = 0)
             val baseStyle = BlockStyles.of(block, settings)
+                .copy(openingInitial = opensChapter)
             val indented = Indentation.shouldIndent(blocks, blockIndex, startChar = 0)
             val spacingAbove = spacingAbovePx(block, settings, isFirstOnPage = current.isEmpty())
 
@@ -129,10 +131,12 @@ class Paginator(private val measurer: TextMeasurer) {
                 val maxLines = (remainingHeight / baseStyle.lineHeightPx).toInt()
                 // The indent belongs to a block's opening line only; once the text
                 // has been cut across a page the remainder starts at the margin.
-                val style = if (indented && cursor == 0) {
-                    baseStyle.copy(firstLineIndentPx = BlockStyles.firstLineIndentPx(settings))
-                } else {
-                    baseStyle
+                val style = when {
+                    cursor > 0 -> baseStyle.copy(openingInitial = false)
+                    indented -> baseStyle.copy(
+                        firstLineIndentPx = BlockStyles.firstLineIndentPx(settings),
+                    )
+                    else -> baseStyle
                 }
                 val window = measureWindow(
                     text, cursor, maxLines, charsPerLine, style,

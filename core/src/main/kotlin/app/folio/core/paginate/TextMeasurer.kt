@@ -34,6 +34,14 @@ data class BlockStyle(
      * laid out for a paragraph that is one line shorter than the one drawn.
      */
     val firstLineIndentPx: Float = 0f,
+    /**
+     * Whether this block opens a chapter and takes a raised initial.
+     *
+     * A larger opening letter makes the first line taller and changes where it
+     * breaks, so it belongs to the style both sides read rather than to the drawing
+     * alone.
+     */
+    val openingInitial: Boolean = false,
 )
 
 /**
@@ -209,6 +217,48 @@ fun trailingSpacingPx(block: ContentBlock, settings: TypographySettings): Float 
         is ContentBlock.Heading -> settings.bodyLineHeightPx * BlockStyles.headingSpacingBelow
         else -> 0f
     }
+
+/**
+ * Where a chapter begins, and how it announces itself.
+ *
+ * Two conventions, both older than the screen. A chapter opens low on the page
+ * rather than at the top margin — the "sink" — which is what tells a reader at a
+ * glance that something has ended and something else has started. And its first
+ * letter is set large.
+ *
+ * The sink is a proportion of the page, not a fixed measurement: the same gap that
+ * looks generous on a phone is a rounding error on a tablet.
+ */
+object ChapterOpening {
+
+    /** How far down the page a chapter starts, as a fraction of its height. */
+    private const val SINK_RATIO = 0.12f
+
+    /** How much larger the opening letter is set than the text it opens. */
+    const val INITIAL_SCALE = 2.4f
+
+    fun sinkPx(viewportHeightPx: Float): Float = viewportHeightPx * SINK_RATIO
+
+    /**
+     * Whether this block is the one a chapter opens with.
+     *
+     * The first paragraph, not the first block: a chapter usually begins with its
+     * own heading, and the letter to set large is the one that starts the prose.
+     * Never a continuation — a paragraph carried over from the previous page has
+     * already begun, and a raised initial mid-sentence is nonsense.
+     */
+    fun isChapterOpening(
+        blocks: List<ContentBlock>,
+        index: Int,
+        startChar: Int,
+    ): Boolean {
+        if (startChar > 0) return false
+        val block = blocks.getOrNull(index) ?: return false
+        if (block !is ContentBlock.Paragraph) return false
+        if (block.spans.joinToString("") { it.text }.isBlank()) return false
+        return blocks.take(index).none { it is ContentBlock.Paragraph }
+    }
+}
 
 /**
  * How wide a column of text should be set.

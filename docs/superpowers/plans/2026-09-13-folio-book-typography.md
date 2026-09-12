@@ -46,10 +46,10 @@ needs custom layout Compose does not provide, and would break the line model
 pagination depends on. A raised initial is the achievable half of the same
 convention and is what this builds.
 
-- [ ] `ReaderText.annotated(...)` builds the `AnnotatedString` used by both
+- [x] `ReaderText.annotated(...)` builds the `AnnotatedString` used by both
       measuring and drawing, so the initial cannot change one and not the other.
-- [ ] `ComposeTextMeasurer` measures the annotated string.
-- [ ] Test: the initial changes line breaking identically on both sides.
+- [x] `ComposeTextMeasurer` measures the annotated string.
+- [x] Test: the initial changes line breaking identically on both sides.
 
 ### Task 3: A measure worth reading
 
@@ -71,7 +71,7 @@ Heading orphans are already handled; paragraphs are not.
 
 ### Task 5: A chapter opening that looks like one
 
-- [ ] Space above the chapter title proportional to the page, not a fixed dp.
-- [ ] The opening words set in spaced capitals.
-- [ ] Test: the opening treatment is measured, and the header inset the
+- [x] Space above the chapter title proportional to the page, not a fixed dp.
+- [x] The opening words set in spaced capitals.
+- [x] Test: the opening treatment is measured, and the header inset the
       paginator budgets matches what is drawn.

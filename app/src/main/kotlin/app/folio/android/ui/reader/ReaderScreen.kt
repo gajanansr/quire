@@ -39,9 +39,11 @@ import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import app.folio.core.paginate.Measure
 import app.folio.core.paginate.BlockStyles
+import app.folio.core.paginate.ChapterOpening
 import app.folio.core.paginate.Indentation
 import app.folio.core.paginate.trailingSpacingPx
 import app.folio.core.paginate.spacingAbovePx
@@ -165,6 +167,7 @@ private fun PageContent(
         contentAlignment = Alignment.TopCenter,
     ) {
     val availablePx = with(density) { maxWidth.toPx() }
+    val constraintsHeightPx = with(density) { maxHeight.toPx() }
     val columnPx = Measure.widthPx(
         availablePx,
         state.preferences.toSettings(with(density) { 1.sp.toPx() }),
@@ -173,12 +176,25 @@ private fun PageContent(
     Column(
         modifier = Modifier
             .width(with(density) { columnPx.toDp() })
+            // Must fill the height, or onSizeChanged reports the height of whatever
+            // is currently drawn rather than the page's. That reading feeds straight
+            // back into pagination as the viewport, and the two collapse together:
+            // less content gives a smaller page, which fits less content.
+            .fillMaxHeight()
             .onSizeChanged(onContentSize),
     ) {
         // The chapter label only heads its first page; repeating it on every page
         // would be the running header the reflow pipeline works to remove. It is
         // also skipped when the chapter's own first heading already says it.
         if (state.showsChapterHeader) {
+            // A chapter opens low on the page. That drop is what tells a reader at
+            // a glance that one thing has ended and another has begun, and it is
+            // the oldest signal in book design.
+            Spacer(
+                Modifier.height(
+                    with(density) { ChapterOpening.sinkPx(constraintsHeightPx).toDp() },
+                ),
+            )
             Text(
                 text = "Chapter ${state.chapterIndex + 1}",
                 color = colors.muted,
@@ -231,6 +247,9 @@ private fun PageContent(
                 indented = Indentation.shouldIndent(
                     chapter.blocks, slice.blockIndex, slice.startChar,
                 ),
+                opensChapter = ChapterOpening.isChapterOpening(
+                    chapter.blocks, slice.blockIndex, slice.startChar,
+                ),
             )
 
             val below = trailingSpacingPx(block, settings)
@@ -246,6 +265,7 @@ private fun BlockText(
     text: String,
     state: ReaderState,
     indented: Boolean,
+    opensChapter: Boolean,
 ) {
     val colors = Folio.colors
     val density = LocalDensity.current
@@ -254,13 +274,20 @@ private fun BlockText(
     // Asked for, not restated. Every place this was described separately from the
     // paginator, the two drifted and the page lost its last line.
     val settings = prefs.toSettings(with(density) { 1.sp.toPx() })
-    val blockStyle = BlockStyles.of(block, settings).let {
-        if (indented) it.copy(firstLineIndentPx = BlockStyles.firstLineIndentPx(settings)) else it
-    }
+    val blockStyle = BlockStyles.of(block, settings)
+        .copy(openingInitial = opensChapter)
+        .let {
+            if (indented) {
+                it.copy(firstLineIndentPx = BlockStyles.firstLineIndentPx(settings))
+            } else {
+                it
+            }
+        }
     val style = readerTextStyle(blockStyle, prefs.font.family(), density)
 
     Text(
-        text = text,
+        // The same annotated text the paginator measured, initial and all.
+        text = readerText(text, blockStyle),
         color = if (block is ContentBlock.BlockQuote) colors.muted else colors.ink,
         style = style,
         modifier = Modifier.padding(
