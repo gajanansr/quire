@@ -7,7 +7,6 @@ import app.folio.android.DeviceFixtures
 import app.folio.android.data.BookRepository
 import app.folio.android.data.BookStore
 import app.folio.android.data.FolioDatabase
-import app.folio.android.ocr.MlKitOcrEngine
 import app.folio.android.pdf.AndroidPageRasterizer
 import app.folio.android.pdf.AndroidPdfTextSource
 import app.folio.core.model.SourceFormat
@@ -18,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -71,7 +71,6 @@ class ImportInstrumentedTest {
         repository = repo,
         opener = FileOpener(file),
         pdfSource = { AndroidPdfTextSource(it) },
-        ocr = MlKitOcrEngine(),
         rasterizer = { AndroidPageRasterizer(it) },
         newId = { id },
     )
@@ -98,20 +97,20 @@ class ImportInstrumentedTest {
     }
 
     @Test
-    fun importsAScannedPdfThroughRealOcr() = runBlocking {
-        // The full scanned path: PdfRenderer rasterizes, ML Kit recognises,
-        // :core reflows, and the result lands in the Library as readable text.
+    fun importsAScannedPdfAsItsOwnPages() = runBlocking {
+        // The scanned path on real hardware: PdfRenderer identifies it as a scan and
+        // the book arrives whole, routed to its own pages with no invented text.
+        // Recognising and reflowing it was tried and abandoned — the mistakes were
+        // invisible, and a page missing from a book is worse than a book that says
+        // plainly it cannot be reflowed.
         val result = importer(DeviceFixtures.scannedPdf(), "scan-1").import(uri)
         assertTrue("import failed: ${result.exceptionOrNull()}", result.isSuccess)
 
         val book = result.getOrThrow()
-        assertEquals(SourceFormat.PDF_OCR, book.sourceFormat)
-
-        val text = book.chapters.flatMap { it.blocks }.joinToString(" ") { it.plainText }
-        assertTrue(
-            "OCR produced no recognisable book text: ${text.take(200)}",
-            text.contains("Distributed", ignoreCase = true),
-        )
+        assertEquals(SourceFormat.PDF_SCANNED, book.sourceFormat)
+        assertTrue("a scan must route to its original pages", book.reflowFailed)
+        assertTrue("a scan invented text: ${book.chapters}", book.chapters.isEmpty())
+        assertNotNull("a scan should still get a cover", book.coverPath)
     }
 
     @Test

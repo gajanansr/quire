@@ -48,6 +48,16 @@ object FolioStrings {
     const val TRY_ANOTHER_FILE = "Try another file"
     const val READ_ORIGINAL_PDF = "Read original PDF"
 
+    // A scanned book is pictures of pages, not text. Said plainly, and said as a
+    // fact about the file rather than as an apology or an error: nothing has gone
+    // wrong, and the reader has not lost anything they ever had.
+    const val ORIGINAL_PAGES = "Original pages"
+    const val SCANNED_TITLE = "This book is a scan."
+    const val SCANNED_EXPLAINER =
+        "Its pages are images, not text, so Folio shows them as they were printed. " +
+            "Font size, themes and chapters aren't available for this one."
+    const val READ_SCANNED_PAGES = "Read the pages"
+
     // Bookmarks
     const val BOOKMARKS = "Bookmarks"
     const val NO_BOOKMARKS = "No bookmarks yet."

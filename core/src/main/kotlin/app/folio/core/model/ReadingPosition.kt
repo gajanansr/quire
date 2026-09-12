@@ -24,3 +24,20 @@ fun Book.progressAt(position: ReadingPosition): Double {
     val within = position.charOffset.coerceIn(0, chapter.charCount)
     return ((chapter.startCharOffset + within).toDouble() / total).coerceIn(0.0, 1.0)
 }
+
+/**
+ * Where someone is in a book that has no text to offset into.
+ *
+ * A scan is read as rendered pages, so there are no chapters and no characters to
+ * point at — but "resume exactly where you left off" is not optional just because
+ * the book is a picture. The page goes where the chapter index normally does: it is
+ * the same idea, the largest unit the book divides into, and it keeps one shape of
+ * position in the database instead of two.
+ */
+object PagePosition {
+    fun of(page: Int) = ReadingPosition(
+        chapterIndex = page.coerceAtLeast(0), blockIndex = 0, charOffset = 0,
+    )
+
+    fun pageOf(position: ReadingPosition): Int = position.chapterIndex.coerceAtLeast(0)
+}

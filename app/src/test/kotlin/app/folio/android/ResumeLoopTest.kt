@@ -12,7 +12,6 @@ import app.folio.android.pdf.AndroidPdfTextSource
 import app.folio.android.ui.reader.ReaderPreferences
 import app.folio.android.ui.reader.ReaderState
 import app.folio.android.ui.reader.ReaderTransitions
-import app.folio.core.fixtures.FakeOcrEngine
 import app.folio.core.fixtures.Fixtures
 import app.folio.core.model.ReadingPosition
 import app.folio.core.paginate.BlockStyle
@@ -97,12 +96,6 @@ class ResumeLoopTest {
             repository = repo,
             opener = FileOpener(file),
             pdfSource = { AndroidPdfTextSource(it) },
-            ocr = FakeOcrEngine({ p ->
-                listOf(
-                    "Recognised body text on page $p running the full measure of a line",
-                    "and continuing to a second line so it forms a paragraph.",
-                )
-            }),
             rasterizer = { FakeRasterizer() },
             newId = { id },
         )
@@ -163,10 +156,6 @@ class ResumeLoopTest {
     @Test
     fun `a text pdf resumes exactly where it was left`() =
         runLoop(Fixtures.singleColumnPdf(), "pdf")
-
-    @Test
-    fun `a scanned pdf resumes exactly where it was left`() =
-        runLoop(Fixtures.imageOnlyPdf(), "scan")
 
     @Test
     fun `a large book resumes exactly where it was left`() =

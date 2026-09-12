@@ -8,7 +8,6 @@ import app.folio.android.data.BookStore
 import app.folio.android.data.FolioDatabase
 import app.folio.android.pdf.AndroidPdfTextSource
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
-import app.folio.core.fixtures.FakeOcrEngine
 import app.folio.core.fixtures.Fixtures
 import app.folio.core.model.FailureReason
 import app.folio.core.model.ProcessingStatus
@@ -77,12 +76,6 @@ class BookImporterTest {
         // The production reader, not a JVM stand-in: the importer test should
         // exercise the same PDF path the app ships.
         pdfSource = { AndroidPdfTextSource(it) },
-        ocr = if (withOcr) FakeOcrEngine({ p ->
-            listOf(
-                "Recognised body text on page $p running the full measure of a line",
-                "and continuing onto a second line to form a paragraph.",
-            )
-        }) else null,
         rasterizer = if (withOcr) ({ FakeRasterizer() }) else null,
         newId = { "fixed-id" },
     )
@@ -111,10 +104,16 @@ class BookImporterTest {
     }
 
     @Test
-    fun `imports a scanned pdf through ocr`() = runBlocking {
+    fun `imports a scanned pdf as a book read from its own pages`() = runBlocking {
         val result = importer(Fixtures.imageOnlyPdf()).import(uri)
         assertTrue("import failed: ${result.exceptionOrNull()}", result.isSuccess)
-        assertEquals(SourceFormat.PDF_OCR, result.getOrThrow().sourceFormat)
+
+        val book = result.getOrThrow()
+        assertEquals(SourceFormat.PDF_SCANNED, book.sourceFormat)
+        assertTrue("a scan must route to its original pages", book.reflowFailed)
+        assertTrue("a scan invented text: ${book.chapters}", book.chapters.isEmpty())
+        // It is still a real book in the Library, with art of its own.
+        assertNotNull("a scan should still get a cover", book.coverPath)
     }
 
     @Test

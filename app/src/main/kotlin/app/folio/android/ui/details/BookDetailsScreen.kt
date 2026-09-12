@@ -103,9 +103,12 @@ fun BookDetailsScreen(
 
             Spacer(Modifier.height(28.dp))
             if (state.reflowFailed) {
-                // Reflow was not confident enough to present this as a book, so the
-                // original file is offered instead of a bad reading experience.
-                SecondaryButton(FolioStrings.READ_ORIGINAL_PDF, onReadOriginal)
+                // Said before the reader opens it, not discovered afterwards. A scan
+                // has no text to reflow, and pretending otherwise is what produced
+                // books with invented chapters and missing sentences.
+                ScannedNotice()
+                Spacer(Modifier.height(14.dp))
+                SecondaryButton(FolioStrings.READ_SCANNED_PAGES, onReadOriginal)
             } else {
                 PrimaryButton(
                     if (state.started) FolioStrings.CONTINUE_READING else "Start Reading",
@@ -260,4 +263,35 @@ private fun TabBody(state: BookDetailsState, tab: DetailsTab) {
     }
 
     Text(body, color = colors.muted, style = MaterialTheme.typography.bodyLarge)
+}
+
+/**
+ * Tells the reader what kind of book this is, before they open it.
+ *
+ * Framed as a fact about the file rather than an error: nothing has gone wrong, and
+ * they have not lost anything they ever had. What they would lose is the typography
+ * and chapters Folio cannot honestly provide for a picture of a page.
+ */
+@Composable
+private fun ScannedNotice() {
+    val colors = Folio.colors
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(FolioShapes.card)
+            .background(colors.bgAlt)
+            .padding(16.dp),
+    ) {
+        Text(
+            FolioStrings.SCANNED_TITLE,
+            color = colors.ink,
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            FolioStrings.SCANNED_EXPLAINER,
+            color = colors.muted,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
 }

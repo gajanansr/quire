@@ -3,7 +3,14 @@ package app.folio.core.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class SourceFormat { EPUB, PDF_TEXT, PDF_OCR, TXT }
+/**
+ * Where a book came from, and therefore how it is read.
+ *
+ * [PDF_SCANNED] is the one that changes behaviour: a scan has no reliable text to
+ * reflow, so it is read as rendered pages. PDF_OCR remains for books imported
+ * before that decision, so their rows still resolve.
+ */
+enum class SourceFormat { EPUB, PDF_TEXT, PDF_OCR, PDF_SCANNED, TXT }
 
 @Serializable
 data class BookMetadata(

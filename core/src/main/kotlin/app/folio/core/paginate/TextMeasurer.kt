@@ -25,7 +25,7 @@ data class Measured(
  * Lays out text.
  *
  * `:core` declares this so the pagination algorithm can be tested with a
- * deterministic fake, exactly as `PdfTextSource` and `OcrEngine` are. `:app`
+ * deterministic fake, exactly as `PdfTextSource` is. `:app`
  * implements it with Compose's own `TextMeasurer`.
  *
  * Pagination is the one part of the Reader where an off-by-one silently loses a

@@ -5,7 +5,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.folio.android.importer.BookImporter
 import app.folio.android.importer.UriOpener
-import app.folio.android.ocr.MlKitOcrEngine
 import app.folio.android.pdf.AndroidPageRasterizer
 import app.folio.android.pdf.AndroidPdfTextSource
 import app.folio.core.model.ReadingPosition
@@ -55,7 +54,6 @@ class RealGraphImportTest {
                 repository = graph.repository,
                 opener = FileOpener(file, name),
                 pdfSource = { AndroidPdfTextSource(it) },
-                ocr = MlKitOcrEngine(),
                 rasterizer = { AndroidPageRasterizer(it) },
                 newId = { "seed-$index" },
             )

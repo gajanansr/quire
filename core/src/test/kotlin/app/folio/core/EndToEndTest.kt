@@ -1,8 +1,6 @@
 package app.folio.core
 
 import app.folio.core.epub.EpubParser
-import app.folio.core.fixtures.FakeOcrEngine
-import app.folio.core.fixtures.FakeRasterizer
 import app.folio.core.fixtures.Fixtures
 import app.folio.core.fixtures.PdfBoxTextSource
 import app.folio.core.model.*
@@ -22,18 +20,9 @@ import kotlin.test.assertTrue
  */
 class EndToEndTest {
 
-    private fun ocrText(page: Int) = listOf(
-        "Recognised body text on page $page running the full measure of the line",
-        "and continuing to a second line so it forms a real paragraph here.",
-    )
-
-    private fun processPdf(file: File, withOcr: Boolean = true): Book = runBlocking {
+    private fun processPdf(file: File): Book = runBlocking {
         PdfBoxTextSource(file).use { s ->
-            PdfPipeline().process(
-                id = "id", title = file.nameWithoutExtension, source = s,
-                ocr = if (withOcr) FakeOcrEngine(::ocrText) else null,
-                rasterizer = if (withOcr) FakeRasterizer() else null,
-            )
+            PdfPipeline().process(id = "id", title = file.nameWithoutExtension, source = s)
         }
     }
 
@@ -74,8 +63,27 @@ class EndToEndTest {
         ).forEach { f ->
             val book = processPdf(f)
             assertEquals(ProcessingStatus.Ready, book.status, "${f.name} did not import")
-            assertTrue(book.totalChars > 0, "${f.name} produced no text")
         }
+    }
+
+    @Test
+    fun `a pdf with text is reflowed and a scan is not`() {
+        // The line the whole pipeline turns on. A PDF carrying a text layer becomes
+        // a reflowable book; a scan becomes a book read as its own pages, with no
+        // text at all rather than text that might be wrong.
+        listOf(
+            Fixtures.singleColumnPdf(), Fixtures.twoColumnPdf(),
+            Fixtures.headerFooterPdf(), Fixtures.chapteredPdf(), Fixtures.largeBook(),
+        ).forEach { f ->
+            val book = processPdf(f)
+            assertTrue(book.totalChars > 0, "${f.name} produced no text")
+            assertEquals(SourceFormat.PDF_TEXT, book.sourceFormat, f.name)
+        }
+
+        val scan = processPdf(Fixtures.imageOnlyPdf())
+        assertEquals(SourceFormat.PDF_SCANNED, scan.sourceFormat)
+        assertEquals(0, scan.totalChars, "a scan invented text")
+        assertTrue(scan.reflowFailed, "a scan must route to its original pages")
     }
 
     // ------------------------------------------------------------ failure paths

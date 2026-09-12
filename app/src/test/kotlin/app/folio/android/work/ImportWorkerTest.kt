@@ -13,7 +13,6 @@ import app.folio.android.data.FolioDatabase
 import app.folio.android.importer.BookImporter
 import app.folio.android.importer.UriOpener
 import app.folio.android.pdf.AndroidPdfTextSource
-import app.folio.core.fixtures.FakeOcrEngine
 import app.folio.core.fixtures.Fixtures
 import app.folio.core.source.PageRasterizer
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
@@ -71,7 +70,6 @@ class ImportWorkerTest {
             repository = repo,
             opener = FileOpener(file),
             pdfSource = { AndroidPdfTextSource(it) },
-            ocr = FakeOcrEngine({ listOf("Recognised text line one", "and line two here.") }),
             rasterizer = { FakeRasterizer() },
             newId = { bookId },
         )

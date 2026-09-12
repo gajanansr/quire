@@ -3,21 +3,16 @@ package app.folio.core.pdf
 import app.folio.core.FolioConstants
 import app.folio.core.model.Book
 import app.folio.core.metadata.TitleResolver
-import app.folio.core.ocr.JunkFilter
-import app.folio.core.source.ImageEnhancer
 import app.folio.core.model.BookMetadata
 import app.folio.core.model.FailureReason
 import app.folio.core.model.ProcessingStatus
 import app.folio.core.model.SourceFormat
 import app.folio.core.normalize.Normalizer
 import app.folio.core.reflow.ReflowPipeline
-import app.folio.core.source.OcrEngine
 import app.folio.core.source.OutlineEntry
 import app.folio.core.source.PageGeometry
-import app.folio.core.source.PageRasterizer
 import app.folio.core.source.PdfPage
 import app.folio.core.source.PdfTextSource
-import app.folio.core.source.toTextRuns
 import app.folio.core.structure.ChapterDetector
 
 /**
@@ -40,16 +35,16 @@ class PdfPipeline(
 ) {
 
     /**
-     * @param ocr null when no OCR is available; a scanned book then imports flagged
-     *   for the original-PDF fallback rather than failing.
+     * Turns a PDF into a book, or into the honest statement that it is a scan.
+     *
+     * A PDF with a text layer is reflowed as before. A scan imports successfully and
+     * is marked for reading as original pages — it is a real book in the Library,
+     * with a cover and a title, that happens to be read rather than reflowed.
      */
     suspend fun process(
         id: String,
         title: String,
         source: PdfTextSource,
-        ocr: OcrEngine? = null,
-        rasterizer: PageRasterizer? = null,
-        enhancer: ImageEnhancer? = null,
         onProgress: (ProcessingStatus) -> Unit = {},
     ): Book {
         if (source.isEncrypted()) return failed(id, title, FailureReason.ENCRYPTED)
@@ -59,24 +54,25 @@ class PdfPipeline(
         val verdict = runCatching { scanned.classify(source) }
             .getOrElse { return failed(id, title, FailureReason.EXTRACTION_FAILED) }
 
-        var usedOcr = false
-        var ocrDegraded = false
-        var effective: PdfTextSource = source
-
+        // A scan is shown as the pages it actually is.
+        //
+        // Recognising them and reflowing the result was tried and abandoned. The
+        // problem is not that recognition is bad but that its mistakes are
+        // invisible: a filter that is right nineteen times in twenty still drops a
+        // page of someone's book, silently, and they find out later or never. Whole
+        // pages, rendered as printed, are always correct. "This one cannot be
+        // reflowed" is an honest limit; a book with sentences quietly missing is a
+        // broken product.
+        //
+        // The reader is told, and gets the original. See ORIGINAL_PAGES copy.
         if (verdict.isScanned) {
-            if (ocr == null || rasterizer == null) {
-                // No recogniser available: keep the book, offer the original PDF.
-                return normalizer.assemble(
-                    id = id, title = title, author = null, metadata = BookMetadata(),
-                    sourceFormat = SourceFormat.PDF_TEXT, chapters = emptyList(),
-                    reflowFailed = true,
-                )
-            }
-            val recognised = recognise(source, verdict, ocr, rasterizer, enhancer, onProgress)
-            usedOcr = recognised.pages.isNotEmpty()
-            ocrDegraded = recognised.meanConfidence < FolioConstants.MIN_OCR_CONFIDENCE
-            effective = OcrBackedSource(source, recognised.pages)
+            return normalizer.assemble(
+                id = id, title = title, author = null, metadata = BookMetadata(),
+                sourceFormat = SourceFormat.PDF_SCANNED, chapters = emptyList(),
+                reflowFailed = true,
+            )
         }
+        val effective: PdfTextSource = source
 
         onProgress(ProcessingStatus.Normalizing)
         val result = runCatching { reflow.reflow(effective) }
@@ -88,7 +84,7 @@ class PdfPipeline(
         val outline = runCatching { source.outline() }.getOrDefault(emptyList())
         val detected = chapters.detect(result.blocks, outline, result.pageBreaks)
 
-        val poor = ocrDegraded || result.confidence < FolioConstants.MIN_REFLOW_CONFIDENCE
+        val poor = result.confidence < FolioConstants.MIN_REFLOW_CONFIDENCE
 
         // The filename is the floor, not the answer. Reading the document's own
         // metadata and its title page can do better, and the resolver refuses both
@@ -104,103 +100,10 @@ class PdfPipeline(
             title = named.title,
             author = named.author,
             metadata = BookMetadata(),
-            sourceFormat = if (usedOcr) SourceFormat.PDF_OCR else SourceFormat.PDF_TEXT,
+            sourceFormat = SourceFormat.PDF_TEXT,
             chapters = detected,
             reflowFailed = poor,
         )
-    }
-
-    private data class Recognised(val pages: Map<Int, PdfPage>, val meanConfidence: Float)
-
-    /**
-     * Recognises the pages that need it, one at a time to bound memory.
-     *
-     * A page that fails to render or recognise is skipped rather than aborting the
-     * import: the rest of the book is still worth reading, and the shortfall shows
-     * up as reduced confidence.
-     */
-    private suspend fun recognise(
-        source: PdfTextSource,
-        verdict: ScanVerdict,
-        ocr: OcrEngine,
-        rasterizer: PageRasterizer,
-        enhancer: ImageEnhancer?,
-        onProgress: (ProcessingStatus) -> Unit,
-    ): Recognised {
-        val out = mutableMapOf<Int, PdfPage>()
-        val confidences = mutableListOf<Float>()
-        val total = verdict.pagesNeedingOcr.size
-        val enhance = enhancer?.takeIf { helps(it, verdict, ocr, rasterizer) }
-
-        verdict.pagesNeedingOcr.forEachIndexed { done, index ->
-            onProgress(ProcessingStatus.Ocr(done, total))
-            val geometry = runCatching { source.page(index).geometry }
-                .getOrDefault(PageGeometry(index, 612f, 792f))
-
-            runCatching {
-                val image = rasterizer.rasterize(index, FolioConstants.OCR_RENDER_DPI)
-                    .let { enhance?.enhance(it) ?: it }
-                // Cleaned before anything downstream sees it, so reflow, structure
-                // detection and the reader all work on the same text and none of
-                // them has to know a page was ever photographed.
-                JunkFilter.clean(ocr.recognize(index, image))
-            }.onSuccess { page ->
-                if (page.lines.isEmpty()) return@onSuccess
-                out[index] = PdfPage(geometry, page.toTextRuns(geometry))
-                confidences += page.meanConfidence
-            }
-        }
-        onProgress(ProcessingStatus.Ocr(total, total))
-
-        val mean = if (confidences.isEmpty()) 0f else confidences.average().toFloat()
-        return Recognised(out, mean)
-    }
-
-    /**
-     * Whether preprocessing is worth using on this book, decided on a sample.
-     *
-     * A clean digital scan gains nothing from contrast work and can lose by it, while
-     * a photographed page gains a great deal — so the answer differs per book and
-     * guessing it would be wrong half the time. Both paths are tried on a few pages
-     * and the recogniser's own confidence decides, which is the same trick OCRmyPDF
-     * uses for its preprocessing flags.
-     *
-     * The margin matters: confidence wobbles slightly between runs, so enhancement
-     * has to win clearly rather than merely win, or every book would pay for it.
-     * The sample is small and bounded because this costs a second pass over it.
-     */
-    private suspend fun helps(
-        enhancer: ImageEnhancer,
-        verdict: ScanVerdict,
-        ocr: OcrEngine,
-        rasterizer: PageRasterizer,
-    ): Boolean {
-        var raw = 0f
-        var enhanced = 0f
-        var compared = 0
-
-        verdict.pagesNeedingOcr.take(FolioConstants.ENHANCEMENT_SAMPLE_PAGES).forEach { index ->
-            runCatching {
-                val image = rasterizer.rasterize(index, FolioConstants.OCR_RENDER_DPI)
-                raw += ocr.recognize(index, image).meanConfidence
-                enhanced += ocr.recognize(index, enhancer.enhance(image)).meanConfidence
-                compared++
-            }
-        }
-        return compared > 0 &&
-            enhanced > raw * FolioConstants.MIN_ENHANCEMENT_GAIN
-    }
-
-    /** Serves recognised pages where they exist and the original page otherwise. */
-    private class OcrBackedSource(
-        private val delegate: PdfTextSource,
-        private val recognised: Map<Int, PdfPage>,
-    ) : PdfTextSource {
-        override fun pageCount() = delegate.pageCount()
-        override fun page(index: Int): PdfPage = recognised[index] ?: delegate.page(index)
-        override fun outline(): List<OutlineEntry> = delegate.outline()
-        override fun isEncrypted() = delegate.isEncrypted()
-        override fun close() = delegate.close()
     }
 
     private fun failed(id: String, title: String, reason: FailureReason) = Book(

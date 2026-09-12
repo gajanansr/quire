@@ -32,6 +32,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import app.folio.android.pdf.AndroidPageRasterizer
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import app.folio.android.ui.FolioStrings
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.Folio
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -54,11 +60,23 @@ fun PdfFallbackScreen(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    initialPage: Int = 0,
+    onPageChanged: (Int) -> Unit = {},
 ) {
     val colors = Folio.colors
     val rasterizer = remember(file) { AndroidPageRasterizer(file) }
     var pageCount by remember(file) { mutableStateOf(0) }
     val rendered = remember(file) { mutableStateMapOf<Int, ImageBitmap>() }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialPage)
+
+    // Saved as the reader scrolls, not on the way out: a scan is most often left by
+    // locking the phone, and a position only written on a clean exit is a position
+    // usually lost.
+    LaunchedEffect(listState, pageCount) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .collect { if (pageCount > 0) onPageChanged(it) }
+    }
 
     LaunchedEffect(file) {
         pageCount = withContext(Dispatchers.IO) {
@@ -74,10 +92,11 @@ fun PdfFallbackScreen(
                 .padding(horizontal = 18.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                "‹",
-                color = colors.ink,
-                style = MaterialTheme.typography.headlineMedium,
+            FolioIcon(
+                FolioIcons.Back,
+                contentDescription = FolioStrings.BACK,
+                tint = colors.ink,
+                size = FolioIcons.Size.Large,
                 modifier = Modifier.clickable(onClick = onBack),
             )
             Spacer(Modifier.padding(horizontal = 10.dp))
@@ -85,7 +104,7 @@ fun PdfFallbackScreen(
                 Text(title, color = colors.ink, maxLines = 1,
                     style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Original file",
+                    FolioStrings.ORIGINAL_PAGES,
                     color = colors.muted,
                     style = MaterialTheme.typography.labelSmall,
                 )
@@ -104,6 +123,7 @@ fun PdfFallbackScreen(
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize().navigationBarsPadding(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 horizontal = 12.dp, vertical = 12.dp,

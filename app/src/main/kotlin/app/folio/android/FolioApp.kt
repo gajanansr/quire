@@ -10,8 +10,6 @@ import app.folio.android.data.HabitRepository
 import app.folio.android.data.FolioDatabase
 import app.folio.android.importer.BookImporter
 import app.folio.android.importer.ContentResolverUriOpener
-import app.folio.android.ocr.MlKitOcrEngine
-import app.folio.android.ocr.PagePreprocessor
 import app.folio.android.pdf.AndroidPageRasterizer
 import app.folio.android.pdf.AndroidPdfTextSource
 import app.folio.android.work.FolioWorkerFactory
@@ -74,9 +72,7 @@ class FolioGraph(context: Context) {
             repository = repository,
             opener = ContentResolverUriOpener(app),
             pdfSource = { AndroidPdfTextSource(it) },
-            ocr = MlKitOcrEngine(),
             rasterizer = { AndroidPageRasterizer(it) },
-            enhancer = PagePreprocessor(),
         )
     }
 }

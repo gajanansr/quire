@@ -45,6 +45,8 @@ import app.folio.android.ui.reader.ReaderHost
 import app.folio.android.ui.theme.FolioTheme
 import app.folio.android.ui.theme.FolioThemeName
 import app.folio.android.work.ImportProgress
+import app.folio.core.model.PagePosition
+import app.folio.core.model.ReadingPosition
 import app.folio.core.model.FailureReason
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.flow.map
@@ -71,6 +73,12 @@ fun FolioRoot(
     var openBookId by remember { mutableStateOf<String?>(null) }
     var readingBookId by remember { mutableStateOf<String?>(null) }
     var originalPdf by remember { mutableStateOf<java.io.File?>(null) }
+    var scanPosition by remember { mutableStateOf(ReadingPosition(0, 0, 0)) }
+    var scanPages by remember { mutableStateOf(0) }
+
+    /** A scan's progress is how far through its pages the reader has come. */
+    fun scanProgress(page: Int): Double =
+        if (scanPages <= 1) 0.0 else (page.toDouble() / (scanPages - 1)).coerceIn(0.0, 1.0)
     var details by remember { mutableStateOf(BookDetailsState()) }
 
     LaunchedEffect(openBookId) {
@@ -145,6 +153,19 @@ fun FolioRoot(
                     title = details.title,
                     onBack = { originalPdf = null },
                     modifier = Modifier.fillMaxSize(),
+                    // A scan is read by page, so that is what its position is. The
+                    // same storage as every other book, holding the one unit this
+                    // one divides into.
+                    initialPage = PagePosition.pageOf(scanPosition),
+                    onPageChanged = { page ->
+                        scope.launch {
+                            repository.saveProgress(
+                                details.id,
+                                PagePosition.of(page),
+                                progress = scanProgress(page),
+                            )
+                        }
+                    },
                 )
 
                 readingBookId != null -> ReaderHost(
@@ -162,7 +183,12 @@ fun FolioRoot(
                     state = details,
                     onBack = { openBookId = null },
                     onContinue = { readingBookId = details.id },
-                    onReadOriginal = { originalPdf = repository.originalFileOf(details.id) },
+                    onReadOriginal = {
+                        scope.launch {
+                            scanPosition = repository.progressOf(details.id)
+                            originalPdf = repository.originalFileOf(details.id)
+                        }
+                    },
                     onOpenContents = { /* Contents sheet arrives in Plan 4 */ },
                     onOpenBookmarks = { openBookId = null; destination = FolioDestination.BOOKMARKS },
                     modifier = Modifier.fillMaxSize(),

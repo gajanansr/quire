@@ -12,8 +12,6 @@ import app.folio.core.model.FailureReason
 import app.folio.core.model.ProcessingStatus
 import app.folio.core.model.SourceFormat
 import app.folio.core.pdf.PdfPipeline
-import app.folio.core.source.OcrEngine
-import app.folio.core.source.ImageEnhancer
 import app.folio.core.source.PageRasterizer
 import app.folio.core.source.PdfTextSource
 import app.folio.core.txt.TxtParser
@@ -42,9 +40,7 @@ class BookImporter(
     private val repository: BookRepository,
     private val opener: UriOpener,
     private val pdfSource: (File) -> PdfTextSource,
-    private val ocr: OcrEngine? = null,
     private val rasterizer: ((File) -> PageRasterizer)? = null,
-    private val enhancer: ImageEnhancer? = null,
     private val epubParser: EpubParser = EpubParser(),
     private val txtParser: TxtParser = TxtParser(),
     private val pdfPipeline: PdfPipeline = PdfPipeline(),
@@ -62,7 +58,7 @@ class BookImporter(
         runCatching {
             val bytes = when (format) {
                 SourceFormat.EPUB -> EpubContainer(file).use { it.coverImage() }
-                SourceFormat.PDF_TEXT, SourceFormat.PDF_OCR ->
+                SourceFormat.PDF_TEXT, SourceFormat.PDF_OCR, SourceFormat.PDF_SCANNED ->
                     rasterizer?.invoke(file)?.rasterize(0, FolioConstants.COVER_RENDER_DPI)
                 // A text file carries no art, and inventing one would be a lie about
                 // the source rather than a missing feature.
@@ -100,7 +96,11 @@ class BookImporter(
             val book = when (format) {
                 SourceFormat.EPUB -> epubParser.parse(copied, id)
                 SourceFormat.TXT -> txtParser.parse(copied, id)
-                SourceFormat.PDF_TEXT, SourceFormat.PDF_OCR -> processPdf(id, title, copied, onProgress)
+                // Detection reads magic bytes, so every PDF arrives as PDF_TEXT;
+                // whether it is really a scan is the pipeline's finding, not this
+                // one's. The other PDF formats are listed to keep this exhaustive.
+                SourceFormat.PDF_TEXT, SourceFormat.PDF_OCR, SourceFormat.PDF_SCANNED ->
+                    processPdf(id, title, copied, onProgress)
             }
 
             val status = book.status
@@ -135,9 +135,6 @@ class BookImporter(
             id = id,
             title = title,
             source = source,
-            ocr = ocr,
-            rasterizer = rasterizer?.invoke(file),
-            enhancer = enhancer,
             onProgress = onProgress,
         )
     }
