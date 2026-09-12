@@ -39,6 +39,7 @@ import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import androidx.compose.ui.platform.LocalDensity
 import app.folio.core.paginate.BlockStyles
+import app.folio.core.paginate.Indentation
 import app.folio.core.paginate.trailingSpacingPx
 import app.folio.core.paginate.spacingAbovePx
 import app.folio.core.model.ContentBlock
@@ -204,7 +205,14 @@ private fun PageContent(
                 slice.startChar.coerceIn(0, text.length),
                 slice.endChar.coerceIn(0, text.length),
             )
-            BlockText(block = block, text = portion, state = state)
+            BlockText(
+                block = block,
+                text = portion,
+                state = state,
+                indented = Indentation.shouldIndent(
+                    chapter.blocks, slice.blockIndex, slice.startChar,
+                ),
+            )
 
             val below = trailingSpacingPx(block, settings)
             if (below > 0f) Spacer(Modifier.height(with(density) { below.toDp() }))
@@ -213,17 +221,22 @@ private fun PageContent(
 }
 
 @Composable
-private fun BlockText(block: ContentBlock, text: String, state: ReaderState) {
+private fun BlockText(
+    block: ContentBlock,
+    text: String,
+    state: ReaderState,
+    indented: Boolean,
+) {
     val colors = Folio.colors
     val density = LocalDensity.current
     val prefs = state.preferences
 
     // Asked for, not restated. Every place this was described separately from the
     // paginator, the two drifted and the page lost its last line.
-    val blockStyle = BlockStyles.of(
-        block,
-        prefs.toSettings(with(density) { 1.sp.toPx() }),
-    )
+    val settings = prefs.toSettings(with(density) { 1.sp.toPx() })
+    val blockStyle = BlockStyles.of(block, settings).let {
+        if (indented) it.copy(firstLineIndentPx = BlockStyles.firstLineIndentPx(settings)) else it
+    }
     val style = readerTextStyle(blockStyle, prefs.font.family(), density)
 
     Text(

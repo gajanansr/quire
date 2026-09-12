@@ -176,9 +176,19 @@ class ResumeLoopTest {
         val reopened = open("b", ReaderPreferences(fontSizeSp = 24f))
 
         assertEquals("chapter changed", left.chapterIndex, reopened.position.chapterIndex)
+
+        // Compared as a distance into the chapter, not by charOffset alone. An
+        // offset is measured from its own block, so two offsets in different blocks
+        // are not comparable — (block 4, char 0) is far past (block 2, char 372),
+        // and comparing the numbers says the opposite.
+        val chapter = reopened.chapter!!
+        fun into(position: ReadingPosition): Int =
+            chapter.blockTexts.take(position.blockIndex).sumOf { it.length } + position.charOffset
+
         assertTrue(
-            "reopened past where the reader left off: ${left.charOffset} -> ${reopened.position.charOffset}",
-            reopened.position.charOffset <= left.charOffset,
+            "reopened past where the reader left off: " +
+                "${into(left)} -> ${into(reopened.position)} characters in",
+            into(reopened.position) <= into(left),
         )
         assertTrue("landed outside the book", reopened.pageIndex in reopened.pages.indices)
     }

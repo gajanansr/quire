@@ -6,6 +6,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.sp
@@ -48,4 +49,5 @@ fun readerTextStyle(
     textAlign = if (style.justify) TextAlign.Justify else TextAlign.Start,
     hyphens = Hyphens.Auto,
     lineBreak = LineBreak.Paragraph,
+    textIndent = TextIndent(firstLine = with(density) { style.firstLineIndentPx.toSp() }),
 )

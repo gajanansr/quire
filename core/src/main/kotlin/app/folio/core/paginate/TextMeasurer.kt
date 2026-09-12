@@ -26,6 +26,14 @@ data class BlockStyle(
      * drawing it indented is another way to lose the bottom of a page.
      */
     val indentPx: Float = 0f,
+    /**
+     * How far this block's first line is set in, in device pixels.
+     *
+     * The mark that separates one paragraph from the next in a book. It changes
+     * where the first line breaks, so the measurer has to know it or the page is
+     * laid out for a paragraph that is one line shorter than the one drawn.
+     */
+    val firstLineIndentPx: Float = 0f,
 )
 
 /**
@@ -96,8 +104,17 @@ object BlockStyles {
     /** How far a quotation is set in from the margin, as a multiple of type size. */
     private const val QUOTE_INDENT_RATIO = 0.8f
 
-    /** Space after a paragraph, as a multiple of its line height. */
-    internal val paragraphSpacing = 0.55f
+    /**
+     * Space between paragraphs, as a multiple of line height.
+     *
+     * Zero, because paragraphs are separated by an indent instead. A book does not
+     * do both: the gap is the web's convention and the indent is the book's, and
+     * using each for what it is for is most of what makes a page read as printed.
+     */
+    internal val paragraphSpacing = 0f
+
+    /** How far a paragraph's first line is set in, as a multiple of type size. */
+    private const val FIRST_LINE_INDENT_RATIO = 1.2f
 
     /** Extra space above a heading. */
     internal val headingSpacingAbove = 1.4f
@@ -130,6 +147,38 @@ object BlockStyles {
             lineHeightPx = settings.bodyLineHeightPx,
             justify = settings.justify,
         )
+    }
+
+    /** The indent a paragraph's opening line takes, when it takes one. */
+    fun firstLineIndentPx(settings: TypographySettings): Float =
+        settings.fontSizeSp * FIRST_LINE_INDENT_RATIO * settings.pixelsPerSp
+}
+
+/**
+ * Whether a paragraph opens with an indent.
+ *
+ * Four cases do not, and they are the rule rather than exceptions to it: a
+ * paragraph that opens a chapter, one that follows a heading, one that follows a
+ * scene break, and one continued from the previous page. In every case the reader
+ * already knows a new paragraph has begun — from the space above it, or from having
+ * just turned the page — and an indent there reads as an error.
+ *
+ * Asked rather than decided, because pagination and drawing must agree: an indent
+ * applied on one side only is a line's worth of width the page was not laid out for.
+ */
+object Indentation {
+
+    fun shouldIndent(blocks: List<ContentBlock>, index: Int, startChar: Int): Boolean {
+        val block = blocks.getOrNull(index) ?: return false
+        if (block !is ContentBlock.Paragraph) return false
+        // Continued from the previous page: the sentence is already in progress.
+        if (startChar > 0) return false
+        return when (blocks.getOrNull(index - 1)) {
+            null -> false
+            is ContentBlock.Heading -> false
+            is ContentBlock.PageBreak -> false
+            else -> true
+        }
     }
 }
 
