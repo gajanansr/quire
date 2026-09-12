@@ -21,6 +21,20 @@ data class TextRun(
     val fontName: String,
     val bold: Boolean,
     val italic: Boolean,
+    /**
+     * Which line of the page this run belongs to, as the PDF engine grouped it.
+     *
+     * PDF content streams carry no notion of a line, but a mature engine works one
+     * out — from the text matrix, the drop threshold and the font's own metrics —
+     * and does it far better than clustering baselines afterwards, which is what
+     * this project used to do. Superscripts, kerning, inline font changes and
+     * multi-column reading order are all decided there.
+     *
+     * -1 when the source cannot say, in which case the baselines are clustered as
+     * before. That is a real fallback, not a formality: a source built from
+     * synthetic runs has no engine behind it.
+     */
+    val lineIndex: Int = -1,
 )
 
 data class PageGeometry(

@@ -136,6 +136,13 @@ class AndroidPdfTextSource(file: File) : PdfTextSource {
     private class RunCollector : PDFTextStripper() {
         val runs = mutableListOf<TextRun>()
 
+        /** Incremented by the engine between lines; see TextRun.lineIndex. */
+        private var line = 0
+
+        override fun writeLineSeparator() {
+            line++
+        }
+
         override fun writeString(text: String, textPositions: MutableList<TextPosition>?) {
             val positions = textPositions?.filter { it.unicode.isNotEmpty() }
             if (positions.isNullOrEmpty() || text.isBlank()) return
@@ -161,6 +168,7 @@ class AndroidPdfTextSource(file: File) : PdfTextSource {
                     fontName.contains("Heavy", ignoreCase = true),
                 italic = fontName.contains("Italic", ignoreCase = true) ||
                     fontName.contains("Oblique", ignoreCase = true),
+                lineIndex = line,
             )
         }
     }

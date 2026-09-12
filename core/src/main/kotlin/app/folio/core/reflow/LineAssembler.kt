@@ -75,6 +75,20 @@ class LineAssembler {
         // Held back here and reattached once the lines around it are known.
         val (capCandidates, runs) = allRuns.partition { it.mayBeDropCap(bodySize) }
 
+        // Where the engine grouped the runs into lines, use its grouping. It decides
+        // from the text matrix, the drop threshold and the font's own metrics, and
+        // gets superscripts, kerning and inline font changes right — none of which
+        // survive being re-derived from baselines afterwards. Clustering below is
+        // the fallback for sources with no engine behind them.
+        if (runs.isNotEmpty() && runs.all { it.lineIndex >= 0 }) {
+            val declared = runs.groupBy { it.lineIndex }
+                .mapNotNull { (_, band) ->
+                    toLine(band, band.sumOf { it.y.toDouble() }.toFloat() / band.size)
+                }
+                .sortedByDescending { it.y }
+            return attachDropCaps(declared, capCandidates, tolerance)
+        }
+
         // Group by descending baseline, folding each run into an open band when it
         // is close enough to that band's running mean.
         val bands = mutableListOf<MutableList<TextRun>>()
