@@ -116,4 +116,52 @@ class DropCapTest {
         assertEquals(2, lines.size)
         assertEquals("Palm trees along the Marriott pool swayed green in", lines.first().text)
     }
+
+    @Test
+    fun `an engine that already grouped the capital is not second-guessed`() {
+        // Taken from a real book: PDFBox puts the 65pt "P" and the 20pt line it
+        // opens on the same line, and the fix is to leave that alone. Holding the
+        // capital back to place it geometrically took it out of a correct grouping
+        // and put it back worse — the same mistake as re-deriving lines at all.
+        val page = PdfPage(
+            geometry = PageGeometry(0, 612f, 792f),
+            runs = listOf(
+                TextRun("P", 77f, 627f, 33f, 30f, 65f, "Serif", false, false, lineIndex = 2),
+                TextRun(
+                    "alm trees along the Marriott pool swayed green in the breeze.",
+                    107f, 639f, 430f, 9.2f, 20f, "Serif", false, false, lineIndex = 2,
+                ),
+                TextRun(
+                    "December sun lit up the hotel's cottages, casting shadows.",
+                    107f, 623f, 420f, 9.2f, 20f, "Serif", false, false, lineIndex = 3,
+                ),
+            ),
+        )
+        val lines = LineAssembler().assemble(page)
+        assertEquals(2, lines.size, "the engine's grouping was broken up")
+        assertTrue(
+            lines.first().text.startsWith("Palm trees along the Marriott"),
+            "the capital did not join its word: ${lines.first().text}",
+        )
+    }
+
+    @Test
+    fun `one huge letter does not make its line a heading`() {
+        // A 65pt capital on a line of 20pt prose. Taking the plain median of two
+        // runs gives 65, and everything downstream then reads the sentence as a
+        // chapter title and prints it as one.
+        val page = PdfPage(
+            geometry = PageGeometry(0, 612f, 792f),
+            runs = listOf(
+                TextRun("P", 77f, 627f, 33f, 30f, 65f, "Serif", false, false, lineIndex = 2),
+                TextRun(
+                    "alm trees along the Marriott pool swayed green in the breeze.",
+                    107f, 639f, 430f, 9.2f, 20f, "Serif", false, false, lineIndex = 2,
+                ),
+            ),
+        )
+        val line = LineAssembler().assemble(page).single()
+        assertEquals(20f, line.medianFontSize, "the capital defined the line's type size")
+        assertEquals(639f, line.y, "the line sits on the capital's baseline, not its own")
+    }
 }

@@ -65,29 +65,25 @@ class LineAssembler {
         val allRuns = page.runs.filter { it.text.isNotBlank() }
         if (allRuns.isEmpty()) return emptyList()
 
+        // Where the engine grouped the runs into lines, use its grouping whole.
+        // It decides from the text matrix, the drop threshold and the font's own
+        // metrics, and it already puts a dropped capital on the line it opens —
+        // verified on a real book, where the 65pt "P" and the 20pt "alm trees along
+        // the Marriott pool" arrive on the same line. Holding the capital back to
+        // place it geometrically took it out of a correct grouping and put it back
+        // worse, which is the same mistake as re-deriving the lines in the first
+        // place.
+        if (allRuns.all { it.lineIndex >= 0 }) {
+            return allRuns.groupBy { it.lineIndex }
+                .mapNotNull { band -> toLine(band.value, dominantY(band.value)) }
+                .sortedByDescending { it.y }
+        }
+
+        // No engine behind this source: cluster baselines, and reattach dropped
+        // capitals by geometry, since nothing else will.
         val tolerance = toleranceFor(allRuns)
         val bodySize = bodyFontSize(allRuns)
-
-        // A dropped capital is set two or three lines tall, so its baseline sits
-        // with a line it does not belong to. Banding it by baseline puts the letter
-        // in the middle of a later sentence and leaves the word it opened without
-        // its first letter: "The 5 p.m. P" and "alm trees along the Marriott pool".
-        // Held back here and reattached once the lines around it are known.
         val (capCandidates, runs) = allRuns.partition { it.mayBeDropCap(bodySize) }
-
-        // Where the engine grouped the runs into lines, use its grouping. It decides
-        // from the text matrix, the drop threshold and the font's own metrics, and
-        // gets superscripts, kerning and inline font changes right — none of which
-        // survive being re-derived from baselines afterwards. Clustering below is
-        // the fallback for sources with no engine behind them.
-        if (runs.isNotEmpty() && runs.all { it.lineIndex >= 0 }) {
-            val declared = runs.groupBy { it.lineIndex }
-                .mapNotNull { (_, band) ->
-                    toLine(band, band.sumOf { it.y.toDouble() }.toFloat() / band.size)
-                }
-                .sortedByDescending { it.y }
-            return attachDropCaps(declared, capCandidates, tolerance)
-        }
 
         // Group by descending baseline, folding each run into an open band when it
         // is close enough to that band's running mean.
@@ -192,12 +188,36 @@ class LineAssembler {
         return if (median > 0f) median * BASELINE_TOLERANCE else FALLBACK_TOLERANCE
     }
 
+    /**
+     * The baseline of the run carrying most of the line's characters.
+     *
+     * Not the mean: a line opened by a dropped capital has one run sitting three
+     * lines lower, and averaging would place the line halfway between, where it
+     * belongs to neither. Paragraph gaps and header detection both measure from
+     * this, so it has to be the baseline the body text actually sits on.
+     */
+    private fun dominantY(band: List<TextRun>): Float =
+        band.maxByOrNull { it.text.trim().length }?.y ?: band.first().y
+
+    /**
+     * Type size weighted by character, so one enormous glyph does not define a line.
+     *
+     * A dropped capital is a single 65pt letter on a line of 20pt prose. Taking the
+     * plain median of two runs gives 65, and the line then reads as a heading to
+     * everything downstream — the sentence would be printed as a chapter title.
+     */
+    private fun weightedMedianSize(band: List<TextRun>): Float {
+        val sizes = band.flatMap { run ->
+            List(run.text.trim().length.coerceAtLeast(1)) { run.fontSize }
+        }.sorted()
+        return if (sizes.isEmpty()) 0f else sizes[sizes.size / 2]
+    }
+
     private fun toLine(band: List<TextRun>, y: Float): Line? {
         val ordered = band.sortedBy { it.x }
         val text = joinWithSpacing(ordered)
         if (text.isBlank()) return null
 
-        val sizes = ordered.map { it.fontSize }.sorted()
         val minX = ordered.minOf { it.x }
         val maxX = ordered.maxOf { it.x + it.width }
 
@@ -206,8 +226,11 @@ class LineAssembler {
             x = minX,
             y = y,
             width = maxX - minX,
-            height = ordered.maxOf { it.height },
-            medianFontSize = sizes[sizes.size / 2],
+            // Weighted for the same reason as the size: a drop cap is 30pt tall and
+            // the line it opens is not.
+            height = ordered.maxByOrNull { it.text.trim().length }?.height
+                ?: ordered.maxOf { it.height },
+            medianFontSize = weightedMedianSize(ordered),
             // A partly-bold line is not a heading candidate, so require all runs.
             bold = ordered.all { it.bold },
             runs = ordered,
