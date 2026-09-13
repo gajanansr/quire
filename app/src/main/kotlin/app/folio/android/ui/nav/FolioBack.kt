@@ -33,11 +33,19 @@ data class NavSnapshot(
  */
 fun invitationVisible(
     offered: Boolean,
+    onboarded: Boolean,
     readingBookId: String?,
     readingOriginal: Boolean,
     importing: Boolean,
     goalJustReached: Boolean,
 ): Boolean = offered &&
+    // Every screen `FolioRoot` draws ahead of the invitation, including the two
+    // onboarding ones. Nothing can raise the offer before onboarding today —
+    // `ReminderPermission.shouldInvite` requires it — but a predicate that is
+    // complete *except* for the branches that happen to be unreachable is exactly
+    // the kind that drifts back out of step the next time the list changes, which
+    // is how this function came to exist.
+    onboarded &&
     readingBookId == null &&
     !readingOriginal &&
     !importing &&

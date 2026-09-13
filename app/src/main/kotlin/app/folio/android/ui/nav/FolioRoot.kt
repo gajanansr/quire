@@ -142,6 +142,7 @@ fun FolioRoot(
     // and it is used by both the screen switch below and the Back handler.
     val invitePending = invitationVisible(
         offered = offerReminders,
+        onboarded = settings.onboarded,
         readingBookId = readingBookId,
         readingOriginal = originalPdf != null,
         importing = importProgress != null,
