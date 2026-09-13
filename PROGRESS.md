@@ -1822,3 +1822,38 @@ resolution of an "additive" conflict is not automatically safe.
 to delete a book, and a scanned PDF with no text layer still takes its title from the
 filename. The pre-rewrite repository is at `/tmp/folio-backup-prerewrite` until the
 next reboot, if the old history is ever wanted.
+
+## 2026-09-13 — A landing page, and a privacy policy with a URL
+
+**https://gajanansr.github.io/folio/** — a static page in `site/`, deployed by a
+workflow on every push that touches it. No fonts, no analytics, no CDN, nothing loaded
+from anywhere else. That is not a performance decision: Folio's whole claim is that it
+makes no network requests, and a page that quietly called three companies to say so
+would be the wrong way to say it.
+
+**The privacy policy is generated, not copied.** Google Play needs it at a public URL
+and the repository should carry the document it ships, and two hand-maintained copies
+of a legal text is exactly how a stale privacy policy gets published.
+`scripts/build-site.py` renders `docs/privacy-policy.md` into `site/privacy.html`, the
+deploy workflow re-renders it and fails if the committed copy disagrees, and the
+script refuses to build at all if a `[CONTACT EMAIL]`-style placeholder survives — a
+placeholder that reaches a published policy is worse than a failed build, because
+nobody re-reads a privacy policy after the first time they host it. This closes one of
+the five things only a human could supply; the contact route is now the public issue
+tracker.
+
+**`FolioLinks` is filled in.** `PRIVACY_POLICY`, `WEBSITE` and `SOURCE` are real.
+`CONTACT_EMAIL` stays deliberately blank: Play's listing needs a real mailbox and that
+is not something to invent.
+
+**A flash of onboarding on every cold start, found while capturing screenshots.**
+`FolioRoot` collected settings with `initial = AppSettingsEntity()`, whose `onboarded`
+is false — so for the frame or two before the database answered, a reader who had used
+Folio for months was greeted with "A quiet place to read / Get Started". The honest
+state before an answer is "not known yet", and the screen for that is nothing at all.
+
+**Two things verified on the device that only the device could answer.** The widget on
+a real home screen followed a theme change instantly — which is the one-line refresh
+fix proving itself — and the live site renders correctly in a phone browser.
+
+Screenshots for the site and the Play listing are in `docs/screenshots/`.

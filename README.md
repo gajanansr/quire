@@ -6,6 +6,8 @@
 
 **A quiet place to read.** Your books never leave your device.
 
+[**gajanansr.github.io/folio**](https://gajanansr.github.io/folio/)
+
 [![CI](https://github.com/gajanansr/folio/actions/workflows/ci.yml/badge.svg)](https://github.com/gajanansr/folio/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -75,8 +77,15 @@ that survives being written down.
 
 ## Privacy
 
-[docs/privacy-policy.md](docs/privacy-policy.md). Folio collects nothing. There is
+[The policy](https://gajanansr.github.io/folio/privacy.html), published from
+[docs/privacy-policy.md](docs/privacy-policy.md) by `scripts/build-site.py` so the
+hosted page and the repository cannot drift apart. Folio collects nothing. There is
 nowhere for it to send anything to.
+
+## The site
+
+`site/` is a static page with no build step and no third-party requests — no fonts, no
+analytics, no CDN. It deploys to GitHub Pages on every push that touches it.
 
 ## Licence
 
