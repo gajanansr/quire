@@ -93,7 +93,7 @@ Append to the log; never rewrite history.
 - [x] Plan 3 — design system + Library/Details UI **COMPLETE** (287 JVM + 15 device)
 - [x] Plan 4 — reader + pagination + bookmarks **COMPLETE** (337 JVM + 15 device)
 - [x] Plan 5 — habits, settings, share sheets **COMPLETE** (387 JVM + 15 device)
-- [x] Reading reminders **COMPLETE** (662 JVM) · `docs/superpowers/plans/2026-09-13-folio-notifications.md`
+- [x] Reading reminders **COMPLETE** (663 JVM) · `docs/superpowers/plans/2026-09-13-folio-notifications.md`
 
 When a plan's tasks are all ticked, write the next plan from the spec using the same
 structure, commit it, then continue. Later plans should incorporate what was actually
@@ -1215,7 +1215,7 @@ there is no way to delete a book from the library.
 ## 2026-09-13 — Reminders that stay quiet on the days it matters
 
 Plan: `docs/superpowers/plans/2026-09-13-folio-notifications.md`, branch
-`agent/notifications`. All eight tasks ticked. **662 JVM tests, 0 failures.**
+`agent/notifications`. All eight tasks ticked. **663 JVM tests, 0 failures.**
 
 One notification a day, at a time the reader picks, in words taken from the book they
 are actually mid-way through — and none at all on a day they have already read.
@@ -1309,16 +1309,30 @@ never asked is the worst possible introduction to this feature.
 notification (the import is already on screen), per-book reminders, and a weekly
 summary (a second notification whose job is to mention the first).
 
-**A second bug of the same shape, found by looking rather than by testing.** A
-scanned PDF is read as rendered pages, and `PagePosition` keeps the page number in
-the *chapter* slot of the same reading-position row a reflowed book uses. Read back
-as a chapter index it produced "Chapter 41" for a reader on page 41 — specific,
-confident, and false about something they can check. `BookInProgress.chapterLabel`
-is now nullable, and when there is no chapter to name the copy falls back to the
-lines that never name one, so the book is still named. The first version of that
-test passed with the bug still in place: it ran one day, and more than half the
-variants never mention a chapter anyway, so it would have passed or failed depending
-on the date. It now walks six days.
+**A second bug of the same shape, and it took two passes to actually kill.** A book
+read as pages keeps its page number in the *chapter* slot of the same
+`reading_progress` row a reflowed book uses — `PagePosition` puts it there, and both
+readers share one row per book. Read back as a chapter index it produced "Chapter 41"
+for a reader on page 41: specific, confident, and false about something they can
+check.
+
+The first fix nulled the label when the stored index fell *outside* the chapter list.
+That covers a scan, which carries no chapters at all — and misses the worse case
+entirely. `reflowFailed` has two routes (`PdfPipeline` lines 68 and 104), and the
+second is a reflow whose confidence was merely too low, which keeps a **real** chapter
+list. Book Details offers "read the pages" for both. So on that route the page number
+lands *inside* the list, resolves to a genuine chapter, and the reminder announces
+chapter two's real title to someone sitting on page two. A range check cannot see it.
+The guard is now `candidate.reflowFailed` asked *before* the lookup.
+
+`BookInProgress.chapterLabel` is nullable, and when there is no chapter to name the
+copy falls back to the lines that never name one, so the book is still named.
+
+**Two tests here were worthless when first written**, and both for the same reason.
+The scanned-book test ran a single day — and more than half the copy variants never
+mention a chapter anyway, so it passed or failed depending on the date. It now walks
+six days, and was confirmed by reinstating the bug and watching it go red. The rule
+holds generally: a test against copy chosen by a rotation has to walk the rotation.
 
 **What a review caught that neither found.** `FolioRoot` holds the app's only
 `BackHandler`, and the invitation's Back clause was keyed on the offer being *owed*
@@ -1329,6 +1343,13 @@ screen nobody could see, and the one-shot offer recorded as answered: the reader
 lost a Back press and lost reminders permanently, with nothing on screen to explain
 either. The rule is now `invitationVisible(...)` in `ui/nav/FolioBack.kt`, read by
 both the screen switch and the Back handler so they cannot disagree, with four tests.
+
+The same review then caught that the first scanned-book fix was only half of one —
+the low-confidence route above. Worth recording *why* two rounds were needed: both
+misses were the same mistake, checking a proxy (is the index in range? is the offer
+owed?) instead of the thing itself (is this book read by page? is the screen
+visible?). A proxy that is true in every case you thought of is indistinguishable
+from the real rule until the case you didn't.
 
 Three more from the same review: the notification's `PendingIntent` had
 `CLEAR_TOP` without `SINGLE_TOP`, which on a `standard` activity destroys and
