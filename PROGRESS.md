@@ -93,7 +93,7 @@ Append to the log; never rewrite history.
 - [x] Plan 3 — design system + Library/Details UI **COMPLETE** (287 JVM + 15 device)
 - [x] Plan 4 — reader + pagination + bookmarks **COMPLETE** (337 JVM + 15 device)
 - [x] Plan 5 — habits, settings, share sheets **COMPLETE** (387 JVM + 15 device)
-- [x] Reading reminders **COMPLETE** (651 JVM) · `docs/superpowers/plans/2026-09-13-folio-notifications.md`
+- [x] Reading reminders **COMPLETE** (656 JVM) · `docs/superpowers/plans/2026-09-13-folio-notifications.md`
 
 When a plan's tasks are all ticked, write the next plan from the spec using the same
 structure, commit it, then continue. Later plans should incorporate what was actually
@@ -1215,7 +1215,7 @@ there is no way to delete a book from the library.
 ## 2026-09-13 — Reminders that stay quiet on the days it matters
 
 Plan: `docs/superpowers/plans/2026-09-13-folio-notifications.md`, branch
-`agent/notifications`. All eight tasks ticked. **651 JVM tests, 0 failures.**
+`agent/notifications`. All eight tasks ticked. **656 JVM tests, 0 failures.**
 
 One notification a day, at a time the reader picks, in words taken from the book they
 are actually mid-way through — and none at all on a day they have already read.
@@ -1244,6 +1244,22 @@ are tested rather than reviewed, because copy decays the moment nobody re-reads 
 - **No guilt.** A word list, asserted: `broke`, `broken`, `lost`, `fail`, `missed`,
   `don't`, `should`, `last chance`, `hurry`, `at risk`, `behind`, and no `!`.
 - **Always the reader's own book.** Every with-book line must contain the title.
+
+**The bug that would actually have shipped.** The rule above reads
+`reading_days.minutes`, and that number lags reality by a whole session: minutes are
+written when a session *ends* — on leaving the Reader, or on the app backgrounding.
+A reader who starts at 19:50 with a reminder set for 20:00 therefore still has zero
+recorded minutes at 20:00, every check passes, and the phone buzzes in their hands
+on the page they are looking at. The worst possible version of the one rule that
+matters, and every test of that rule passed.
+
+The fix is a second signal: `reading_progress.updatedAt`, which is written on every
+page turn because that is where the reading position is saved. Less than ten minutes
+since the last turn means the book is still open, and Folio says nothing. Ten rather
+than the accumulator's two-minute idle timeout because the costs are not symmetric —
+being generous costs at most a skipped evening, and costs nothing in practice, since
+a reader who really did stop gets their minutes recorded the moment the session
+flushes.
 
 **Two traps found by tests rather than by reading.**
 
