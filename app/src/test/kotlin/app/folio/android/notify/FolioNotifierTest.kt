@@ -170,21 +170,28 @@ class FolioNotifierTest {
     }
 
     @Test
-    fun `posting without permission reports failure rather than crashing the worker`() {
+    fun `posting never throws out of the worker, and reports what really happened`() {
         // Android throws a SecurityException for a post without POST_NOTIFICATIONS.
         // Inside a background worker that is an uncaught crash in a job nobody is
-        // watching, so the failure has to come back as a value the caller can act
-        // on — ReminderWorker uses it to decline to mark the day as reminded, which
-        // is what stops one refused notification from silencing tomorrow as well.
+        // watching, so the outcome has to come back as a value — ReminderWorker uses
+        // it to decline to mark the day as reminded, which is what stops one refused
+        // notification from silencing tomorrow as well.
+        //
+        // Robolectric's NotificationManager has no permission check in `notify`, so
+        // the post here succeeds whatever the permission says; what can be asserted
+        // without a device is the pairing — the returned value and the shade agree,
+        // and nothing escapes as an exception. The `false` branch is exercised for
+        // real only on hardware.
         shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
         val reported = try {
             FolioNotifier.post(app, copy)
         } catch (e: Exception) {
             throw AssertionError("post threw instead of reporting failure", e)
         }
-        assertFalse(
-            "a reminder was reported as delivered when it could not be",
-            reported && shadowOf(manager).allNotifications.isEmpty(),
+        assertEquals(
+            "post reported a delivery that does not match the shade",
+            reported,
+            shadowOf(manager).allNotifications.isNotEmpty(),
         )
     }
 }

@@ -177,14 +177,16 @@ class MainActivity : ComponentActivity() {
      */
     private fun disableReminders() {
         lifecycleScope.launch {
-            // NonCancellable because this particular write must not be lost. A
-            // rotation in the moment between the tap and the write would cancel
-            // lifecycleScope, leaving the stored flag on — and `onResume` would then
-            // dutifully reschedule the reminders the reader had just switched off.
+            // NonCancellable because neither half of this may be lost. A rotation in
+            // the moment between the tap and the write would cancel lifecycleScope,
+            // leaving the stored flag on — and `onResume` would then dutifully
+            // reschedule the reminders the reader had just switched off. The cancel
+            // is inside for the same reason: off should not leave a job pending even
+            // briefly, whatever the worker would later do about it.
             withContext(NonCancellable) {
                 graph.habits.setRemindersEnabled(false)
+                ReminderScheduler.cancel(this@MainActivity)
             }
-            ReminderScheduler.cancel(this@MainActivity)
         }
     }
 

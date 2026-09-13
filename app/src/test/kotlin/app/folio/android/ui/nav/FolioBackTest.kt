@@ -119,7 +119,8 @@ class FolioBackTest {
             "the invitation claimed the screen from under the Reader",
             invitationVisible(
                 offered = true, onboarded = true, readingBookId = "b1",
-                readingOriginal = false, importing = false, goalJustReached = false,
+                readingOriginal = false, importing = false, importFailed = false,
+                goalJustReached = false,
             ),
         )
     }
@@ -130,11 +131,12 @@ class FolioBackTest {
         // Kept as a list so that adding a screen there without adding it here is a
         // visible omission rather than a silent one.
         val covered = listOf(
-            "the Reader" to invitationVisible(true, true, "b1", false, false, false),
-            "a scanned book's pages" to invitationVisible(true, true, null, true, false, false),
-            "an import in flight" to invitationVisible(true, true, null, false, true, false),
-            "the goal screen" to invitationVisible(true, true, null, false, false, true),
-            "onboarding" to invitationVisible(true, false, null, false, false, false),
+            "the Reader" to invitationVisible(true, true, "b1", false, false, false, false),
+            "a scanned book's pages" to invitationVisible(true, true, null, true, false, false, false),
+            "an import in flight" to invitationVisible(true, true, null, false, true, false, false),
+            "an import that failed" to invitationVisible(true, true, null, false, false, true, false),
+            "the goal screen" to invitationVisible(true, true, null, false, false, false, true),
+            "onboarding" to invitationVisible(true, false, null, false, false, false, false),
         )
         covered.forEach { (screen, visible) ->
             assertFalse("the invitation stole Back from $screen", visible)
@@ -146,13 +148,14 @@ class FolioBackTest {
         assertTrue(
             invitationVisible(
                 offered = true, onboarded = true, readingBookId = null,
-                readingOriginal = false, importing = false, goalJustReached = false,
+                readingOriginal = false, importing = false, importFailed = false,
+                goalJustReached = false,
             ),
         )
     }
 
     @Test
     fun `an invitation that is not owed is never on screen`() {
-        assertFalse(invitationVisible(false, true, null, false, false, false))
+        assertFalse(invitationVisible(false, true, null, false, false, false, false))
     }
 }

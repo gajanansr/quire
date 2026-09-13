@@ -37,18 +37,21 @@ fun invitationVisible(
     readingBookId: String?,
     readingOriginal: Boolean,
     importing: Boolean,
+    importFailed: Boolean,
     goalJustReached: Boolean,
 ): Boolean = offered &&
-    // Every screen `FolioRoot` draws ahead of the invitation, including the two
-    // onboarding ones. Nothing can raise the offer before onboarding today —
-    // `ReminderPermission.shouldInvite` requires it — but a predicate that is
-    // complete *except* for the branches that happen to be unreachable is exactly
-    // the kind that drifts back out of step the next time the list changes, which
-    // is how this function came to exist.
+    // One term per screen `FolioRoot` draws ahead of the invitation, including the
+    // ones that cannot currently coincide with an offer: onboarding, because
+    // `ReminderPermission.shouldInvite` requires it, and [importFailed], which today
+    // is derived from [importing] and so is already covered by it. A predicate that
+    // is complete *except* for the terms that happen to be redundant is exactly the
+    // kind that drifts back out of step the next time the list changes — which is
+    // how this function came to exist.
     onboarded &&
     readingBookId == null &&
     !readingOriginal &&
     !importing &&
+    !importFailed &&
     !goalJustReached
 
 /** What a press of Back should do from a given [NavSnapshot]. */

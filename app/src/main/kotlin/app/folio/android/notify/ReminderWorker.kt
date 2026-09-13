@@ -71,13 +71,14 @@ class ReminderWorker(
 
         // Re-read rather than reusing the snapshot taken at the top of this method.
         // Gathering the facts, deciding and posting all take time, and a reader who
-        // switches reminders off during that window would otherwise have their
-        // decision undone by the enqueue below — a job surviving "off" and waking
-        // the device tomorrow for nothing.
-        if (habits.settings().remindersEnabled) {
+        // changes something during that window would otherwise have it undone by the
+        // enqueue below — reminders switched off leaving a job alive to wake the
+        // device tomorrow, or a newly chosen time re-enqueued at the old one.
+        val current = habits.settings()
+        if (current.remindersEnabled) {
             ReminderScheduler.schedule(
                 applicationContext,
-                reminderMinuteOfDay = settings.reminderMinuteOfDay,
+                reminderMinuteOfDay = current.reminderMinuteOfDay,
                 nowMinuteOfDay = minuteOfDay,
                 replaceExisting = true,
             )
@@ -120,9 +121,20 @@ class ReminderWorker(
         return BookInProgress(
             title = candidate.title,
             chapterLabel = when {
-                // The stored place does not name a chapter of this book. A scanned
-                // PDF is read by page and keeps its page number in this slot, so
-                // "Chapter 43" would be a confident lie about page 43.
+                // This book is read as pages, so the chapter slot of its stored
+                // position holds a *page number* — PagePosition puts it there, and
+                // both readers share one reading_progress row per book.
+                //
+                // Asked before the lookup below, and that order is the whole point.
+                // `reflowFailed` covers two routes: a scan, which carries no
+                // chapters at all, and a low-confidence reflow, which keeps a real
+                // chapter list. On the second route a page number lands *inside*
+                // that list and resolves to a genuine chapter with a genuine title —
+                // so a range check alone would announce chapter two's real name to
+                // someone sitting on page two.
+                candidate.reflowFailed -> null
+
+                // The stored place does not name a chapter of this book at all.
                 chapter == null -> null
                 // A chapter with no detected title still has an ordinal, and the
                 // ordinal is true.

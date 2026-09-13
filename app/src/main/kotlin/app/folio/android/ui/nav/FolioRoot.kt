@@ -146,6 +146,7 @@ fun FolioRoot(
         readingBookId = readingBookId,
         readingOriginal = originalPdf != null,
         importing = importProgress != null,
+        importFailed = importProgress?.failureReason != null,
         goalJustReached = goalJustReached,
     )
 

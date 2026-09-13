@@ -130,10 +130,10 @@ class ReminderWorkerTest {
         return infos
     }
 
-    private fun book(id: String, title: String) = Book(
+    private fun book(id: String, title: String, reflowFailed: Boolean = false) = Book(
         id = id, title = title, author = "Ursula K. Le Guin", coverPath = null,
         metadata = BookMetadata(language = "en"), sourceFormat = SourceFormat.EPUB,
-        status = ProcessingStatus.Ready,
+        status = ProcessingStatus.Ready, reflowFailed = reflowFailed,
         chapters = listOf(
             Chapter(0, "The Year 1491", listOf(ContentBlock.Paragraph(listOf(InlineSpan("aaaa")))), 0, 4),
             Chapter(1, "The Place Inside the Blizzard", listOf(ContentBlock.Paragraph(listOf(InlineSpan("bbbb")))), 4, 4),
@@ -384,6 +384,39 @@ class ReminderWorkerTest {
         texts.forEach { text ->
             assertTrue("a page number was announced as a chapter: $text", "Chapter" !in text)
             assertTrue("the scan's own title went missing: $text", "A Photographed Book" in text)
+        }
+    }
+
+    @Test
+    fun `a book read by page never has a real chapter title put to its page number`() = runBlocking {
+        // The nastier half of the same bug. `reflowFailed` has two routes: a scan,
+        // which carries no chapters at all, and a reflow whose confidence was too
+        // low, which keeps a *real* chapter list. Book Details offers "read the
+        // pages" for both, and both write a page number into the same
+        // reading_progress row — so on the second route the page number lands
+        // *inside* the chapter list and resolves to a genuine chapter with a genuine
+        // title. Checking only whether the index is out of range misses it entirely,
+        // and the reminder then announces chapter two's real title to someone on
+        // page two.
+        books.save(book("poor", "A Hard Layout", reflowFailed = true))
+        books.markOpened("poor")
+        books.saveProgress("poor", PagePosition.of(1), progress = 0.5)
+        habits.setRemindersEnabled(true)
+
+        val texts = (1..6).map { offset ->
+            nowMs = date.plusDays(offset.toLong()).atTime(20, 5)
+                .atZone(zone).toInstant().toEpochMilli()
+            habits.recordReminderSent(-1L)
+            manager.cancelAll()
+            run()
+            shade().single().let { "${titleOf(it)} ${bodyOf(it)}" }
+        }
+
+        texts.forEach { text ->
+            assertTrue("a page number wore a chapter's real title: $text", "The Place Inside the Blizzard" !in text)
+            assertTrue("a page number wore a chapter's real title: $text", "The Year 1491" !in text)
+            assertTrue("a page number was announced as a chapter: $text", "Chapter" !in text)
+            assertTrue("the book's own title went missing: $text", "A Hard Layout" in text)
         }
     }
 
