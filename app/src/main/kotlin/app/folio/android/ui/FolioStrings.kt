@@ -117,6 +117,21 @@ object FolioStrings {
     const val REMOVE = "Remove"
 
     /**
+     * What the reminders row says.
+     *
+     * A function rather than a value at the call site because there are three
+     * states and only two of them are obvious. The one that matters is the third:
+     * the reader has reminders switched on in Folio and Android will not deliver
+     * them. A row reading "On" there is the only thing standing between them and
+     * quietly wondering why Folio stopped reminding them.
+     */
+    fun reminderStatus(remindersEnabled: Boolean, canPost: Boolean): String = when {
+        !remindersEnabled -> REMINDERS_OFF
+        !canPost -> REMINDERS_BLOCKED
+        else -> REMINDERS_ON
+    }
+
+    /**
      * Greeting by time of day. The handoff shows "Good evening"; the others follow
      * the same voice.
      */

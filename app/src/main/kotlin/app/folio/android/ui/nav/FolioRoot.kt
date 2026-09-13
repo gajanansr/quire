@@ -87,6 +87,8 @@ fun FolioRoot(
      */
     onEnableReminders: () -> Unit = {},
     onDisableReminders: () -> Unit = {},
+    /** Re-enqueues the pending job so a changed time takes effect tonight. */
+    onRescheduleReminders: () -> Unit = {},
     /** Opens Folio's own page in system notification settings. */
     onOpenNotificationSettings: () -> Unit = {},
     /** Whether the OS will currently deliver anything Folio posts. */
@@ -133,11 +135,21 @@ fun FolioRoot(
     var confirmExit by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
     val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // One Back rule for the whole app, and it lives in [back] where a test can read
     // it. Every screen below is a `when` branch over these same variables, so Back
     // is that `when` in reverse rather than a second opinion about it.
     BackHandler(enabled = !confirmExit) {
+        if (offerReminders) {
+            // Backing out of the offer is a "no thanks" like any other, and it is
+            // recorded as one. Leaving the flag unset would bring the question back
+            // the next time a session recorded minutes, which is the definition of
+            // nagging about not being allowed to nag.
+            offerReminders = false
+            scope.launch { habitRepository.markRemindersAsked() }
+            return@BackHandler
+        }
         val here = NavSnapshot(
             readingOriginal = originalPdf != null,
             readingBookId = readingBookId,
@@ -160,7 +172,6 @@ fun FolioRoot(
     }
 
     val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
-    val scope = rememberCoroutineScope()
 
     FolioTheme(theme) {
         Box(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -187,25 +198,6 @@ fun FolioRoot(
                     modifier = Modifier.fillMaxSize(),
                 )
 
-                // After the goal screen rather than instead of it: the reader has
-                // just finished reading and been told so, which is the warmest
-                // moment in the app to ask whether they would like to be invited
-                // back. Never on first launch — see ReminderPermission.
-                offerReminders -> ReminderInviteScreen(
-                    time = Reminders.formatTime(
-                        settings.reminderMinuteOfDay,
-                        use24Hour = DateFormat.is24HourFormat(context),
-                    ),
-                    onAccept = { offerReminders = false; onEnableReminders() },
-                    onDecline = {
-                        offerReminders = false
-                        // Asked, and answered. The flag is set on a "no" exactly as
-                        // it is on a yes, so declining is something the reader does
-                        // once rather than something they keep having to do.
-                        scope.launch { habitRepository.markRemindersAsked() }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
                 // An import in flight owns the screen: the handoff shows it as a
                 // full view, not a banner over the Library.
                 failure != null -> ErrorState(
@@ -255,6 +247,26 @@ fun FolioRoot(
                     theme = theme,
                     onThemeChange = onThemeChange,
                     onExit = { readingBookId = null },
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                // Below the Reader, deliberately. A session is also flushed when the
+                // app goes to the background, so a reader who locks their phone
+                // mid-chapter would otherwise come back to this question instead of
+                // to their book. Here it waits until they have actually left.
+                offerReminders -> ReminderInviteScreen(
+                    time = Reminders.formatTime(
+                        settings.reminderMinuteOfDay,
+                        use24Hour = DateFormat.is24HourFormat(context),
+                    ),
+                    onAccept = { offerReminders = false; onEnableReminders() },
+                    onDecline = {
+                        offerReminders = false
+                        // Asked, and answered. The flag is set on a "no" exactly as
+                        // it is on a yes, so declining is something the reader does
+                        // once rather than something they keep having to do.
+                        scope.launch { habitRepository.markRemindersAsked() }
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
 
@@ -346,6 +358,28 @@ fun FolioRoot(
                         onThemeChange(all[(all.indexOf(theme) + 1).mod(all.size)])
                     },
                     onGoalChange = { scope.launch { habitRepository.setDailyGoal(it) } },
+                    canPostNotifications = canPostNotifications,
+                    use24HourClock = DateFormat.is24HourFormat(context),
+                    // Enabling routes through the Activity because it may need the
+                    // system prompt; disabling cancels the pending job as well as
+                    // clearing the flag, so off is off now rather than at the next
+                    // scheduled wake-up.
+                    onRemindersChange = { wanted ->
+                        if (wanted) onEnableReminders() else onDisableReminders()
+                    },
+                    onReminderTimeChange = { minute ->
+                        scope.launch {
+                            habitRepository.setReminderTime(minute)
+                            // The pending job carries the old delay, so the new time
+                            // only means anything once the job is replaced. Without
+                            // this the change would take effect a day late.
+                            onRescheduleReminders()
+                        }
+                    },
+                    onReminderKindsChange = { daily, streak ->
+                        scope.launch { habitRepository.setReminderKinds(daily, streak) }
+                    },
+                    onOpenNotificationSettings = onOpenNotificationSettings,
                     onOpenLicences = { /* the licence text ships in res/raw */ },
                     onShowSupport = {
                         Sharing.start(context, ShareIntents.view(SupportLink.URL))

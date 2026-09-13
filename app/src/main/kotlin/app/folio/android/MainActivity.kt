@@ -100,6 +100,9 @@ class MainActivity : ComponentActivity() {
                 onDismissImport = { activeImportId = null },
                 onEnableReminders = ::enableReminders,
                 onDisableReminders = ::disableReminders,
+                onRescheduleReminders = {
+                    lifecycleScope.launch { scheduleReminders() }
+                },
                 onOpenNotificationSettings = ::openNotificationSettings,
                 // Recomposed whenever the reader returns, so coming back from
                 // system settings with notifications switched on updates the row
@@ -149,7 +152,16 @@ class MainActivity : ComponentActivity() {
                     Build.VERSION.SDK_INT, canPost, settings.reminderPermissionDenied,
                 ) -> askToNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
 
-                else -> openNotificationSettings()
+                else -> {
+                    // Folio cannot ask again, so the reader is handed the screen
+                    // where they can. The preference is recorded as on even though
+                    // nothing can be delivered yet: it is what they asked for, it
+                    // makes Settings explain the block rather than silently
+                    // forgetting the tap, and onResume schedules the job the moment
+                    // they come back having allowed it.
+                    graph.habits.setRemindersEnabled(true)
+                    openNotificationSettings()
+                }
             }
         }
     }

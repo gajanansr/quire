@@ -1,5 +1,6 @@
 package app.folio.android.notify
 
+import app.folio.android.data.AppSettingsEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -89,6 +90,55 @@ class ReminderScheduleTest {
             assertTrue("a 12-hour clock showing $hour at minute $minute", hour in 1..12)
             assertEquals("minute $minute lost its padding: $twentyFour", 5, twentyFour.length)
         }
+    }
+
+    // ------------------------------------------------ the times on offer
+
+    @Test
+    fun `every time a reader can pick is a real time of day`() {
+        Reminders.TIME_OPTIONS.forEach { minute ->
+            assertTrue("$minute is not a time of day", minute in 0 until day)
+            assertTrue(
+                "$minute would show as a ragged time on a chip",
+                minute % 30 == 0,
+            )
+        }
+    }
+
+    @Test
+    fun `the times are offered in the order a clock runs`() {
+        assertEquals(
+            "the time chips are out of order",
+            Reminders.TIME_OPTIONS.sorted(),
+            Reminders.TIME_OPTIONS,
+        )
+        assertEquals(
+            "a time is offered twice",
+            Reminders.TIME_OPTIONS.distinct().size,
+            Reminders.TIME_OPTIONS.size,
+        )
+    }
+
+    @Test
+    fun `the default reminder time is one a reader can get back to`() {
+        // A stored value with no chip to match it would show the reader a row of
+        // options none of which is selected, and no way back to what they have.
+        assertTrue(
+            "the default time is not among the ones offered",
+            AppSettingsEntity().reminderMinuteOfDay in Reminders.TIME_OPTIONS,
+        )
+    }
+
+    @Test
+    fun `the times cover a morning reader as well as an evening one`() {
+        assertTrue(
+            "nothing on offer before noon",
+            Reminders.TIME_OPTIONS.any { it < 12 * 60 },
+        )
+        assertTrue(
+            "nothing on offer late enough for someone who reads in bed",
+            Reminders.TIME_OPTIONS.any { it >= 21 * 60 },
+        )
     }
 
     @Test

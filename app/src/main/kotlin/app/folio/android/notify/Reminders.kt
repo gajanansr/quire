@@ -98,6 +98,18 @@ object Reminders {
     const val MINUTES_PER_DAY = 24 * 60
 
     /**
+     * The times a reader can pick from, as chips.
+     *
+     * Eight presets rather than a free time picker: the goal picker and the theme
+     * row in Settings already work this way, a chip is one tap against a picker's
+     * four, and nobody's reading habit needs 7:23 pm. They cover a commute, a lunch
+     * break, an evening and a bedtime — the four occasions people actually read.
+     */
+    val TIME_OPTIONS = listOf(
+        6 * 60, 7 * 60, 8 * 60, 12 * 60, 18 * 60, 20 * 60, 21 * 60, 22 * 60,
+    )
+
+    /**
      * Whether Folio says anything right now, and in which register.
      *
      * The order of these clauses is part of the rule, not an implementation

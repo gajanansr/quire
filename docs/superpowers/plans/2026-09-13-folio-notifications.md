@@ -279,23 +279,31 @@ recorded minutes — the first moment there is evidence they want to come back.
 
 ### Task 8: The controls
 
-**Files:** `ui/settings/SettingsScreen.kt`, `ui/FolioStrings.kt`,
-`ui/nav/FolioRoot.kt`, `FolioApp.kt`, `test/ui/FolioStringsTest.kt`
+**Departure from the plan as written:** the start-up re-sync lives in
+`MainActivity.onResume`, not `FolioApp`. It has to run on every *return*, not only on
+process start — the reader can switch notifications off in system settings without
+Folio's process ever dying — and it needs a coroutine scope that ends with the
+screen. The same `onResume` re-reads whether Folio may post, so Settings can never
+show a stale answer.
 
-- [ ] A **Reminders** group in Settings: a master toggle row; below it, only while it
+**Files:** `ui/settings/SettingsScreen.kt`, `ui/FolioStrings.kt`,
+`ui/nav/FolioRoot.kt`, `MainActivity.kt`, `test/ui/FolioStringsTest.kt`,
+`test/notify/ReminderScheduleTest.kt`
+
+- [x] A **Reminders** group in Settings: a master toggle row; below it, only while it
       is on, the time and the two per-kind toggles. Controls for something switched
       off are clutter.
-- [ ] Time is chosen from preset chips in the existing option-tile style — the same
+- [x] Time is chosen from preset chips in the existing option-tile style — the same
       control the goal picker uses. Rendered through a pure
       `Reminders.formatTime(minuteOfDay, use24Hour)` fed by the system's own 24-hour
       setting, so the time a reader sees is written the way their phone writes times.
-- [ ] Toggling the master switch schedules or cancels immediately — the reader should
+- [x] Toggling the master switch schedules or cancels immediately — the reader should
       not have to trust that something happens later.
-- [ ] When Folio cannot post, the group says so plainly and the row opens system
+- [x] When Folio cannot post, the group says so plainly and the row opens system
       settings rather than pretending the toggle works.
-- [ ] `FolioApp` re-syncs the scheduled job on start with `KEEP`, so a reminder
+- [x] `FolioApp` re-syncs the scheduled job on start with `KEEP`, so a reminder
       survives an app-data quirk without being pushed back a day on every launch.
-- [ ] Test: `formatTime` across the whole clock in both 12- and 24-hour form —
+- [x] Test: `formatTime` across the whole clock in both 12- and 24-hour form —
       midnight and noon are where this is always wrong; every preset formats to
       something a person would write; no new string leaks an enum name (the existing
       `FolioStringsTest` rule, extended to the reminder strings).
