@@ -104,7 +104,7 @@ git check-ignore -v keystore.properties   # must print the .gitignore line
 ```
 
 For CI, skip the file and export four variables instead:
-`FOLIO_KEYSTORE`, `FOLIO_KEYSTORE_PASSWORD`, `FOLIO_KEY_ALIAS`, `FOLIO_KEY_PASSWORD`.
+`QUIRE_KEYSTORE`, `QUIRE_KEYSTORE_PASSWORD`, `QUIRE_KEY_ALIAS`, `QUIRE_KEY_PASSWORD`.
 
 **Back it up** somewhere that is not this machine — a password manager holds both the
 file and the passwords.
@@ -204,7 +204,7 @@ one:
 
 ```bash
 ./gradlew :app:bundleRelease -PquireVersionCode=2 -PquireVersionName=0.1.1
-# or FOLIO_VERSION_CODE / FOLIO_VERSION_NAME in the environment
+# or QUIRE_VERSION_CODE / QUIRE_VERSION_NAME in the environment
 ```
 
 ---

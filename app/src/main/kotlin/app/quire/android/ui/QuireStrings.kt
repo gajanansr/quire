@@ -99,8 +99,8 @@ object QuireStrings {
 
     // Leaving. Back means "out of this"; only the last one out means "done", and
     // that one asks — closing a reading app by accident loses the thread, not data.
-    const val CLOSE_FOLIO = "Close Quire?"
-    const val CLOSE_FOLIO_HINT = "Your place is saved. You can pick it up whenever."
+    const val CLOSE_QUIRE = "Close Quire?"
+    const val CLOSE_QUIRE_HINT = "Your place is saved. You can pick it up whenever."
     const val CLOSE = "Close"
     const val KEEP_READING = "Stay"
 

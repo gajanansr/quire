@@ -469,8 +469,8 @@ fun QuireRoot(
                     titleContentColor = colors.ink,
                     textContentColor = colors.muted,
                     shape = app.quire.android.ui.theme.QuireShapes.card,
-                    title = { Text(QuireStrings.CLOSE_FOLIO) },
-                    text = { Text(QuireStrings.CLOSE_FOLIO_HINT) },
+                    title = { Text(QuireStrings.CLOSE_QUIRE) },
+                    text = { Text(QuireStrings.CLOSE_QUIRE_HINT) },
                     confirmButton = {
                         TextButton(onClick = { activity?.finish() }) {
                             Text(QuireStrings.CLOSE, color = colors.accent)

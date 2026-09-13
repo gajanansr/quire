@@ -3,10 +3,10 @@
 # same thing without repeating the logic.
 #
 # A plugged-in phone always wins over the emulator: if you went to the trouble of
-# connecting it, that is the thing you want to look at. Set FOLIO_DEVICE to a
+# connecting it, that is the thing you want to look at. Set QUIRE_DEVICE to a
 # serial from `adb devices` to override.
 resolve_device() {
-  if [ -n "${FOLIO_DEVICE:-}" ]; then echo "$FOLIO_DEVICE"; return 0; fi
+  if [ -n "${QUIRE_DEVICE:-}" ]; then echo "$QUIRE_DEVICE"; return 0; fi
   local phone emu
   phone=$(adb devices | awk '$2=="device" && $1 !~ /^emulator-/ {print $1; exit}')
   [ -n "$phone" ] && { echo "$phone"; return 0; }
