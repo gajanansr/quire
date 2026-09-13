@@ -254,15 +254,15 @@ content bottom in every state the device test's fixed XML visibilities never rea
 
 **Files:** `test/widget/WidgetLayoutBudgetTest.kt` (create)
 
-- [ ] Test: replaying `WidgetLayoutTest`'s own `contentBottom` on both layouts at
+- [x] Test: replaying `WidgetLayoutTest`'s own `contentBottom` on both layouts at
       250×110, 180×110 and 330×160 under Robolectric, with the same XML visibilities
       the device test inflates, nothing exceeds the box. This is the device test,
       run where it can be run.
-- [ ] Test: measuring the true content bottom of the rendered `RemoteViews` in every
+- [x] Test: measuring the true content bottom of the rendered `RemoteViews` in every
       state — streak lit and unlit, stats stocked, empty and prompt — at the same
       three sizes plus the declared maximum, nothing exceeds the box and at least
       6dp of slack remains at the minimum.
-- [ ] Test: at a 1.3× font scale the layouts still fit, because the text autosizes.
+- [x] Test: at a 1.3× font scale the layouts still fit, because the text autosizes.
 
 ### Task 7: Record it
 
