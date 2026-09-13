@@ -23,6 +23,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.folio.android.data.AppSettingsEntity
 import app.folio.android.data.HabitRepository
+import app.folio.android.share.FolioLinks
+import app.folio.android.share.FolioRelease
 import app.folio.android.share.SupportLink
 import app.folio.android.ui.theme.Folio
 import app.folio.android.ui.theme.FolioIcon
@@ -47,6 +49,7 @@ fun SettingsScreen(
     onGoalChange: (Int) -> Unit,
     onOpenLicences: () -> Unit,
     onShowSupport: () -> Unit,
+    onOpenLink: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = Folio.colors
@@ -102,7 +105,7 @@ fun SettingsScreen(
         Spacer(Modifier.height(22.dp))
         GroupLabel("About")
         Group {
-            ValueRow(label = "Folio", value = "0.1.0", onClick = null)
+            ValueRow(label = "Folio", value = FolioRelease.VERSION_NAME, onClick = null)
             Divider()
             ValueRow(label = "Fonts", value = "SIL OFL 1.1", onClick = onOpenLicences)
             Divider()
@@ -116,6 +119,54 @@ fun SettingsScreen(
                 value = "Never leave this device",
                 onClick = null,
             )
+            Divider()
+            // The privacy policy. Play requires one at a public URL, and a reader who
+            // wants to read it should not have to find the store listing to do it.
+            //
+            // Until that URL exists the row is the short answer instead of a link:
+            // tapping through to a browser that shows a 404 would make Folio look
+            // like it is hiding the very thing this row is for.
+            if (FolioLinks.isSet(FolioLinks.PRIVACY_POLICY)) {
+                ValueRow(
+                    label = "Privacy policy",
+                    value = FolioLinks.displayHost(FolioLinks.PRIVACY_POLICY),
+                    onClick = { onOpenLink(FolioLinks.PRIVACY_POLICY) },
+                )
+            } else {
+                ValueRow(
+                    label = "Privacy",
+                    value = "Nothing is collected",
+                    onClick = null,
+                )
+            }
+            if (FolioLinks.isSet(FolioLinks.WEBSITE)) {
+                Divider()
+                ValueRow(
+                    label = "Website",
+                    value = FolioLinks.displayHost(FolioLinks.WEBSITE),
+                    onClick = { onOpenLink(FolioLinks.WEBSITE) },
+                )
+            }
+            if (FolioLinks.isSet(FolioLinks.SOURCE)) {
+                Divider()
+                ValueRow(
+                    label = "Source",
+                    value = FolioLinks.displayHost(FolioLinks.SOURCE),
+                    onClick = { onOpenLink(FolioLinks.SOURCE) },
+                )
+            }
+            if (FolioLinks.isSet(FolioLinks.CONTACT_EMAIL)) {
+                Divider()
+                ValueRow(
+                    label = "Contact",
+                    value = FolioLinks.displayHost(FolioLinks.CONTACT_EMAIL),
+                    onClick = {
+                        onOpenLink(
+                            FolioLinks.mailto(FolioLinks.CONTACT_EMAIL, "Folio on Android"),
+                        )
+                    },
+                )
+            }
         }
 
         Spacer(Modifier.height(22.dp))

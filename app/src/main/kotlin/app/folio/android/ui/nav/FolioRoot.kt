@@ -309,6 +309,12 @@ fun FolioRoot(
                     onShowSupport = {
                         Sharing.start(context, ShareIntents.view(SupportLink.URL))
                     },
+                    // Every external address goes out the same door: an ACTION_VIEW
+                    // handed to whatever the reader uses. Folio has no INTERNET
+                    // permission and fetches none of these itself.
+                    onOpenLink = { url ->
+                        Sharing.start(context, ShareIntents.view(url))
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
