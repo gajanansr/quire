@@ -22,6 +22,7 @@ import app.folio.core.model.BookMetadata
 import app.folio.core.model.Chapter
 import app.folio.core.model.ContentBlock
 import app.folio.core.model.InlineSpan
+import app.folio.core.model.PagePosition
 import app.folio.core.model.ProcessingStatus
 import app.folio.core.model.ReadingPosition
 import app.folio.core.model.SourceFormat
@@ -346,6 +347,36 @@ class ReminderWorkerTest {
             "a variant named a chapter the reader is not in: $named",
             named.none { "The Year 1491" in it },
         )
+    }
+
+    @Test
+    fun `a scanned book's page number is never announced as a chapter`() = runBlocking {
+        // A scan is read as rendered pages, and PagePosition keeps the page in the
+        // chapter slot of the very same reading-position row a reflowed book uses.
+        // Reading that slot as a chapter index produces "Chapter 41" for someone on
+        // page 41 — specific, confident, and false about a book they can check.
+        books.save(book("scan", "A Photographed Book"))
+        books.markOpened("scan")
+        books.saveProgress("scan", PagePosition.of(40), progress = 0.5)
+        habits.setRemindersEnabled(true)
+
+        // Walked across days so every variant is reached. A single run picks one
+        // line by epoch day, and more than half of them never mention a chapter at
+        // all — so a one-shot version of this test would pass or fail depending on
+        // what day it happened to be run, which is worse than no test.
+        val texts = (1..6).map { offset ->
+            nowMs = date.plusDays(offset.toLong()).atTime(20, 5)
+                .atZone(zone).toInstant().toEpochMilli()
+            habits.recordReminderSent(-1L)
+            manager.cancelAll()
+            run()
+            shade().single().let { "${titleOf(it)} ${bodyOf(it)}" }
+        }
+
+        texts.forEach { text ->
+            assertTrue("a page number was announced as a chapter: $text", "Chapter" !in text)
+            assertTrue("the scan's own title went missing: $text", "A Photographed Book" in text)
+        }
     }
 
     @Test

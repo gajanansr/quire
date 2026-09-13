@@ -18,7 +18,6 @@ class ReminderCopyTest {
     private val book = BookInProgress(
         title = "The Vanishing Half",
         chapterLabel = "Chapter 12",
-        chapterNumber = 12,
         percentRead = 43,
     )
 
@@ -68,7 +67,7 @@ class ReminderCopyTest {
         val allowed = setOf(17, 43, 6)
         everyLine().forEach { (kind, copy) ->
             val text = ("${copy.title} ${copy.body}")
-                .replace(book.chapterLabel, " ")
+                .replace(book.chapterLabel.orEmpty(), " ")
                 .replace(book.title, " ")
             val invented = Regex("\\d+").findAll(text)
                 .map { it.value.toInt() }
@@ -182,11 +181,30 @@ class ReminderCopyTest {
     }
 
     @Test
+    fun `a book whose chapter cannot be named is never given an invented one`() {
+        // A scanned book keeps its place as a page number in the chapter slot, so
+        // "Chapter 43" for a reader on page 43 would be warm, specific, confident
+        // and false — the exact failure the honesty rules exist to prevent. With no
+        // chapter to name, only the lines that never name one are used.
+        val noChapter = book.copy(chapterLabel = null)
+        ReminderKind.entries.forEach { kind ->
+            (0L until 40L).forEach { day ->
+                val copy = ReminderWords.pick(kind, facts(day, book = noChapter))
+                val text = "${copy.title} ${copy.body}"
+                assertFalse("$kind invented a chapter: $text", "Chapter" in text)
+                assertFalse("$kind leaked a null: $text", "null" in text)
+                assertTrue("$kind stopped naming the book: $text", book.title in text)
+                assertTrue("$kind said nothing: $text", copy.body.isNotBlank())
+            }
+        }
+    }
+
+    @Test
     fun `a chapter with no title of its own still gets a true label`() {
         // Chapter detection does not always yield a name; the caller falls back to
         // the ordinal. Either way the label has to reach the reader intact — an
         // empty quotation mark in a notification reads as a bug, because it is one.
-        val unnamed = book.copy(chapterLabel = "Chapter 7", chapterNumber = 7)
+        val unnamed = book.copy(chapterLabel = "Chapter 7")
         everyLine(book = unnamed).forEach { (kind, copy) ->
             val text = "${copy.title} ${copy.body}"
             assertFalse("$kind left an empty chapter in: $text", "“”" in text)
@@ -222,7 +240,6 @@ class ReminderCopyTest {
         val long = BookInProgress(
             title = "The Strange Case of Doctor Jekyll and Mister Hyde and Other Tales of Terror",
             chapterLabel = "The Carew Murder Case",
-            chapterNumber = 4,
             percentRead = 22,
         )
         everyLine(book = long).forEach { (kind, copy) ->
@@ -264,14 +281,22 @@ class ReminderCopyTest {
     fun `every hand-written variant is reachable`() {
         // A variant that no day selects is copy nobody will ever read, and the
         // rotation arithmetic is exactly where that happens.
-        listOf(true, false).forEach { hasBook ->
+        val shapes = listOf(
+            "a book with a chapter" to book,
+            "a book with no nameable chapter" to book.copy(chapterLabel = null),
+            "no book at all" to null,
+        )
+        shapes.forEach { (name, subject) ->
             ReminderKind.entries.forEach { kind ->
                 val seen = (0L until 60L)
-                    .map { ReminderWords.pick(kind, facts(it, book = if (hasBook) book else null)) }
+                    .map { ReminderWords.pick(kind, facts(it, book = subject)) }
                     .distinct()
                 assertEquals(
-                    "$kind (book=$hasBook) has unreachable variants",
-                    ReminderWords.variantCount(kind, hasBook),
+                    "$kind with $name has unreachable variants",
+                    ReminderWords.variantCount(
+                        kind, hasBook = subject != null,
+                        hasChapter = subject?.chapterLabel != null,
+                    ),
                     seen.size,
                 )
             }

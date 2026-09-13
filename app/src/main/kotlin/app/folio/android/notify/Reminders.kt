@@ -39,15 +39,17 @@ enum class Silence {
 /**
  * The book the reader is part-way through, as the copy needs it.
  *
- * Everything here is read from storage. [chapterLabel] is always a true label —
- * the chapter's own title when it has one, "Chapter N" when it does not — because
- * a notification that names a chapter the reader cannot find is worse than one that
- * names none.
+ * Everything here is read from storage.
+ *
+ * [chapterLabel] is null when the reader's stored place does not resolve to a
+ * chapter of this book, and that is not a rare edge: a scanned PDF is read by page
+ * and keeps its page number in the chapter slot, so naming "Chapter 43" for someone
+ * on page 43 would be warm, specific, confident and false. When it is non-null it is
+ * a true label — the chapter's own title, or its ordinal when it has no title.
  */
 data class BookInProgress(
     val title: String,
-    val chapterLabel: String,
-    val chapterNumber: Int,
+    val chapterLabel: String?,
     val percentRead: Int,
 )
 

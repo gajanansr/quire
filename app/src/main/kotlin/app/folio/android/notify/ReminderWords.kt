@@ -41,26 +41,39 @@ object ReminderWords {
         val streak: Int,
     )
 
-    private val dailyWithBook: List<(Ingredients) -> ReminderCopy> = listOf(
-        { it ->
+    /**
+     * One hand-written line, and whether it names a chapter.
+     *
+     * The flag is what lets a book with no nameable chapter — a scan, read by page —
+     * still be reminded about by name, using only the lines that never mention one.
+     * The alternative was a second set of near-duplicate copy, which is a second set
+     * of lines to keep in the same voice.
+     */
+    private class Line(
+        val namesChapter: Boolean,
+        val render: (Ingredients) -> ReminderCopy,
+    )
+
+    private val dailyWithBook = listOf(
+        Line(namesChapter = true) {
             ReminderCopy(
                 "Still on the nightstand",
                 "${it.book} is open at ${it.chapter}. ${it.goal} quiet minutes?",
             )
         },
-        { it ->
+        Line(namesChapter = false) {
             ReminderCopy(
                 "Where you left off",
                 "You're ${it.percent}% through ${it.book}. Pick it up whenever.",
             )
         },
-        { it ->
+        Line(namesChapter = true) {
             ReminderCopy(
                 "${it.chapter} is waiting",
                 "${it.book}, exactly where you stopped.",
             )
         },
-        { it ->
+        Line(namesChapter = false) {
             ReminderCopy(
                 "A few pages?",
                 "${it.goal} minutes of ${it.book} — whenever suits.",
@@ -70,14 +83,14 @@ object ReminderWords {
 
     // Nothing open: a reader with an empty library, or one who has never got past a
     // book's first page. Naming a book here would mean inventing one.
-    private val dailyWithoutBook: List<(Ingredients) -> ReminderCopy> = listOf(
-        { it ->
+    private val dailyWithoutBook = listOf(
+        Line(namesChapter = false) {
             ReminderCopy(
                 "Your reading time",
                 "Nothing open yet — ${it.goal} minutes is a good place to start.",
             )
         },
-        { it ->
+        Line(namesChapter = false) {
             ReminderCopy(
                 "A quiet ${it.goal} minutes",
                 "Folio is here whenever you'd like to begin.",
@@ -88,35 +101,41 @@ object ReminderWords {
     // A run of days, stated as a fact about what happened. Never as something at
     // risk, never as something to protect: the streak screen already tells the
     // reader that a reset costs them nothing but the number.
-    private val streakWithBook: List<(Ingredients) -> ReminderCopy> = listOf(
-        { it ->
+    private val streakWithBook = listOf(
+        Line(namesChapter = true) {
             ReminderCopy(
                 "${it.streak} days running",
                 "${it.chapter} is next in ${it.book}.",
             )
         },
-        { it ->
+        Line(namesChapter = false) {
             ReminderCopy(
                 "${it.streak} days, one after another",
                 "No rush — ${it.book} will keep.",
             )
         },
-        { it ->
+        Line(namesChapter = true) {
             ReminderCopy(
                 "You've read ${it.streak} days in a row",
                 "${it.book} is open at ${it.chapter} whenever you are.",
             )
         },
+        Line(namesChapter = false) {
+            ReminderCopy(
+                "${it.streak} days of reading",
+                "You're ${it.percent}% through ${it.book}.",
+            )
+        },
     )
 
-    private val streakWithoutBook: List<(Ingredients) -> ReminderCopy> = listOf(
-        { it ->
+    private val streakWithoutBook = listOf(
+        Line(namesChapter = false) {
             ReminderCopy(
                 "${it.streak} days running",
                 "${it.goal} minutes whenever you'd like.",
             )
         },
-        { it ->
+        Line(namesChapter = false) {
             ReminderCopy(
                 "${it.streak} days, one after another",
                 "Folio is here when you are.",
@@ -126,16 +145,20 @@ object ReminderWords {
 
     /** The line for this kind, on this day, about this reader's book. */
     fun pick(kind: ReminderKind, facts: ReminderFacts): ReminderCopy {
-        val variants = variantsFor(kind, facts.book != null)
+        val variants = variantsFor(
+            kind,
+            hasBook = facts.book != null,
+            hasChapter = facts.book?.chapterLabel != null,
+        )
         // `Long.mod` rather than `%`: the remainder of a negative day would be
         // negative and index out of the list. Epoch days before 1970 are not real
         // here, but an index-out-of-bounds inside a background worker is a silent
         // failure to notify rather than a crash anyone would see.
-        return variants[facts.today.mod(variants.size)](ingredients(facts))
+        return variants[facts.today.mod(variants.size)].render(ingredients(facts))
     }
 
-    fun variantCount(kind: ReminderKind, hasBook: Boolean): Int =
-        variantsFor(kind, hasBook).size
+    fun variantCount(kind: ReminderKind, hasBook: Boolean, hasChapter: Boolean): Int =
+        variantsFor(kind, hasBook, hasChapter).size
 
     /**
      * Trims [text] to [max] characters, on a word boundary where there is a usable
@@ -157,11 +180,15 @@ object ReminderWords {
     private fun variantsFor(
         kind: ReminderKind,
         hasBook: Boolean,
-    ): List<(Ingredients) -> ReminderCopy> = when {
-        kind == ReminderKind.STREAK && hasBook -> streakWithBook
-        kind == ReminderKind.STREAK -> streakWithoutBook
-        hasBook -> dailyWithBook
-        else -> dailyWithoutBook
+        hasChapter: Boolean,
+    ): List<Line> {
+        val all = when {
+            kind == ReminderKind.STREAK && hasBook -> streakWithBook
+            kind == ReminderKind.STREAK -> streakWithoutBook
+            hasBook -> dailyWithBook
+            else -> dailyWithoutBook
+        }
+        return if (hasChapter) all else all.filterNot { it.namesChapter }
     }
 
     private fun ingredients(facts: ReminderFacts) = Ingredients(

@@ -367,7 +367,7 @@ class RemindersTest {
         // Stated from the other side: flipping any single fact away from the
         // notifying set must silence it. A rule that stopped being consulted would
         // show up here rather than as a notification nobody can explain.
-        val ready = facts(currentStreak = 5, book = BookInProgress("A Book", "Chapter 3", 3, 41))
+        val ready = facts(currentStreak = 5, book = BookInProgress("A Book", "Chapter 3", 41))
         assertTrue(Reminders.decide(ready) is ReminderDecision.Notify)
 
         val breakers = listOf(

@@ -114,12 +114,16 @@ class ReminderWorker(
 
         return BookInProgress(
             title = candidate.title,
-            // A chapter without a detected title still has an ordinal, and the
-            // ordinal is true. An empty label would reach the reader as a sentence
-            // with a hole in it.
-            chapterLabel = chapter?.title?.takeIf { it.isNotBlank() }
-                ?: "Chapter ${position.chapterIndex + 1}",
-            chapterNumber = position.chapterIndex + 1,
+            chapterLabel = when {
+                // The stored place does not name a chapter of this book. A scanned
+                // PDF is read by page and keeps its page number in this slot, so
+                // "Chapter 43" would be a confident lie about page 43.
+                chapter == null -> null
+                // A chapter with no detected title still has an ordinal, and the
+                // ordinal is true.
+                !chapter.title.isNullOrBlank() -> chapter.title
+                else -> "Chapter ${chapter.index + 1}"
+            },
             percentRead = (candidate.progress * 100).roundToInt().coerceIn(0, 100),
         )
     }
