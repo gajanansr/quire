@@ -142,6 +142,20 @@ object Reminders {
         return minuteOfDay in target..end
     }
 
+    /**
+     * Minutes to wait before the next reminder is due.
+     *
+     * Equal times mean tomorrow, deliberately: turning reminders on at exactly the
+     * chosen minute must not buzz the phone in that same instant, and neither must
+     * the worker rescheduling itself after a delivery. The result is therefore never
+     * zero, which is also what stops a rescheduled job from running immediately and
+     * again and again.
+     */
+    fun minutesUntil(nowMinuteOfDay: Int, targetMinuteOfDay: Int): Int {
+        val ahead = targetMinuteOfDay - nowMinuteOfDay
+        return if (ahead > 0) ahead else ahead + MINUTES_PER_DAY
+    }
+
     /** Null when the reader has switched off every kind that applies today. */
     private fun kindFor(facts: ReminderFacts): ReminderKind? = when {
         facts.streakEnabled && facts.currentStreak >= STREAK_MIN -> ReminderKind.STREAK

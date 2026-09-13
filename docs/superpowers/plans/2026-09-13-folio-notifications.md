@@ -186,22 +186,22 @@ daily, which is as much variation as one-a-day needs.
 
 Pure, because "what time is it tomorrow" is where off-by-a-day bugs live.
 
-**Files:** `notify/Reminders.kt`, `notify/ReminderScheduler.kt` (create),
-`test/notify/ReminderScheduleTest.kt` (create)
+**Departure from the plan as written:** `inWindow` landed in Task 2 (`decide` needs
+it, and splitting a four-line function across two commits helps nobody), and
+`ReminderScheduler` moved to Task 6, because a scheduler has to name the worker class
+it enqueues and that class does not exist until then. Both live where they are used.
 
-- [ ] `ReminderSchedule.minutesUntil(nowMinuteOfDay, targetMinuteOfDay)` — the same
-      day when the target is still ahead, tomorrow otherwise. Equal means tomorrow:
-      turning reminders on at exactly 8:00 pm must not buzz the phone in that
-      instant.
-- [ ] `ReminderSchedule.inWindow(minuteOfDay, target)` — `[target, target + 180]`,
-      clamped to the end of the day so a 11:00 pm reminder is not silently
-      impossible.
-- [ ] `ReminderScheduler.schedule(context, minuteOfDay, now, policy)` enqueues unique
-      one-time work named `folio-reminder` with that initial delay;
-      `cancel(context)` cancels it. `REPLACE` when the reader changes something,
-      `KEEP` on app start so a launch does not push the reminder back a day.
-- [ ] Test: every hour of the clock against every hour of the target; midnight
-      crossing; equality; the window's edges; that a 23:00 target still has a window.
+**Files:** `notify/Reminders.kt`, `test/notify/ReminderScheduleTest.kt` (create)
+
+- [x] `Reminders.minutesUntil(nowMinuteOfDay, targetMinuteOfDay)` — the same day when
+      the target is still ahead, tomorrow otherwise. Equal means tomorrow: turning
+      reminders on at exactly 8:00 pm must not buzz the phone in that instant, and a
+      worker rescheduling itself right after a delivery must not either.
+- [x] `Reminders.inWindow(minuteOfDay, target)` — `[target, target + 180]`, clamped to
+      the end of the day so an 11:00 pm reminder is not silently impossible. *(Task 2)*
+- [x] Test: the property that now plus the wait always lands on the target, across a
+      sweep of the whole clock; midnight crossing; equality; and that the wait is
+      never zero, which is what stops a rescheduled job running immediately.
 
 ### Task 5: The notification itself
 
