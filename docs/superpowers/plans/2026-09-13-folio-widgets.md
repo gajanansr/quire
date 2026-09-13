@@ -70,15 +70,15 @@ light palette and Night is the dark one — the two the system can distinguish.
 `res/values-night/widget_colors.xml` (create),
 `test/ui/theme/WidgetColorTest.kt` (create)
 
-- [ ] Test first: for each of `widget_bg`, `widget_bg_alt`, `widget_ink`,
-      `widget_muted`, `widget_border`, `widget_accent`, `widget_on_accent`, the
-      resource equals `FolioPalettes.Paper.<token>.toArgb()` in the default
-      configuration and `FolioPalettes.Night.<token>.toArgb()` under
-      `@Config(qualifiers = "night")`. Run it; it fails — the resources do not exist.
-- [ ] Add both files, each token's hex carrying the OKLCH token it came from in a
+- [x] Test first: for each of `widget_bg`, `widget_bg_alt`, `widget_ink`,
+      `widget_muted`, `widget_border`, `widget_accent`, the resource equals
+      `FolioPalettes.Paper.<token>.toArgb()` in the default configuration and
+      `FolioPalettes.Night.<token>.toArgb()` under `@Config(qualifiers = "night")`.
+      Run it; it fails — the resources do not exist.
+- [x] Add both files, each token's hex carrying the OKLCH token it came from in a
       comment, the way `ic_launcher_colors.xml` does.
-- [ ] Test: the light and dark values differ on every token. A `values-night` file
-      that silently failed to be picked up would otherwise pass everything above.
+- [x] Test: the light and dark values differ. A `values-night` file that silently
+      failed to be picked up would otherwise pass everything above.
 
 ### Task 2: What a widget says, as a pure function
 

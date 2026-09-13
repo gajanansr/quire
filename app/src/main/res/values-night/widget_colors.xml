@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Night palette, for a widget in a dark launcher.
+
+  Night rather than Black: a widget sits on a wallpaper, not in a dark room, and a
+  #000000 card would read as a hole punched in the home screen. Night is also the
+  theme that avoids the halation pure white-on-black causes, which is the reason it
+  is the app's dark default too.
+
+  Converted from the handoff's OKLCH tokens by the same transform FolioColors uses.
+  WidgetColorTest pins these, and asserts they are not the light values — a file in
+  the wrong directory would otherwise show up only as a white card in a dark
+  launcher, on someone else's phone.
+-->
+<resources>
+    <!-- Night.bg      oklch(0.225 0.004 260) -->
+    <color name="widget_bg">#FF1B1C1E</color>
+    <!-- Night.bgAlt   oklch(0.275 0.005 260) -->
+    <color name="widget_bg_alt">#FF26282A</color>
+    <!-- Night.ink     oklch(0.86 0.003 260) -->
+    <color name="widget_ink">#FFD0D1D3</color>
+    <!-- Night.muted   oklch(0.62 0.005 260) -->
+    <color name="widget_muted">#FF848689</color>
+    <!-- Night.border  oklch(0.35 0.006 260) -->
+    <color name="widget_border">#FF393B3E</color>
+    <!-- Night.accent  oklch(0.72 0.09 250) -->
+    <color name="widget_accent">#FF79A9DB</color>
+</resources>
