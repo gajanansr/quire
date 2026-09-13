@@ -19,6 +19,14 @@
     -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
 
+    <!--
+      Reading reminders. Local only: it lets Folio put a line of its own text in
+      the reader's own shade, and it cannot move a byte anywhere. Asked for at
+      runtime on Android 13+, and only after the reader has said yes inside the
+      app first — see notify/ReminderPermission.kt.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".FolioApp"
         android:label="Folio"

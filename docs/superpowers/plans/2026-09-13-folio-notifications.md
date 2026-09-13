@@ -209,22 +209,22 @@ it enqueues and that class does not exist until then. Both live where they are u
 `ui/FolioStrings.kt`, `test/notify/FolioNotifierTest.kt` (create),
 `test/NoNetworkPermissionTest.kt`
 
-- [ ] One channel, `reading_reminders`, `IMPORTANCE_DEFAULT` — a sound, no heads-up.
+- [x] One channel, `reading_reminders`, `IMPORTANCE_DEFAULT` — a sound, no heads-up.
       A reminder that shoves itself in front of what the reader is doing is the
       opposite of this feature.
-- [ ] One notification id, reused, `setAutoCancel(true)`. A reused id means a second
+- [x] One notification id, reused, `setAutoCancel(true)`. A reused id means a second
       reminder replaces the first instead of stacking, so the shade can never hold a
       pile of Folio.
-- [ ] Tapping opens `MainActivity` (`FLAG_IMMUTABLE`). No action buttons: "Snooze"
+- [x] Tapping opens `MainActivity` (`FLAG_IMMUTABLE`). No action buttons: "Snooze"
       and "Dismiss" are both ways of asking the reader to manage Folio's feelings.
-- [ ] `NotificationAccess.granted(context)` — API 33+ needs `POST_NOTIFICATIONS`
+- [x] `NotificationAccess.granted(context)` — API 33+ needs `POST_NOTIFICATIONS`
       *and* `areNotificationsEnabled()`; below 33 the permission is implicit. Either
       way the channel must not be `IMPORTANCE_NONE`: a reader who muted the channel
       in system settings has said no, and Folio must treat that as no.
-- [ ] `POST_NOTIFICATIONS` declared, and added to `NoNetworkPermissionTest`'s
+- [x] `POST_NOTIFICATIONS` declared, and added to `NoNetworkPermissionTest`'s
       reviewed allowlist with its reasoning — it is local only and cannot move a byte
       off the device.
-- [ ] Test: the channel exists with the expected id and importance; posting puts one
+- [x] Test: the channel exists with the expected id and importance; posting puts one
       notification in the shade carrying the given title and body; posting twice
       leaves exactly one; the content intent targets `MainActivity`; `granted` is
       false when the channel is muted.

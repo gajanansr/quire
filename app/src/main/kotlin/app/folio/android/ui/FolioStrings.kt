@@ -64,6 +64,15 @@ object FolioStrings {
     const val NO_BOOKMARKS_HINT =
         "Highlights and bookmarks you save while reading will appear here."
 
+    // Reminders. The lines a *delivered* reminder carries are not here: they vary
+    // by kind and by day and are chosen by a rule, so they live beside that rule in
+    // notify/ReminderWords.kt where the tests that police them can reach them.
+    // These are the fixed strings — what the channel is called in system settings,
+    // and what the reader is asked and shown in Folio itself.
+    const val REMINDER_CHANNEL = "Reading reminders"
+    const val REMINDER_CHANNEL_EXPLAINER =
+        "One gentle reminder a day, and none at all on a day you've already read."
+
     // Navigation
     const val NAV_LIBRARY = "Library"
     const val NAV_BOOKMARKS = "Bookmarks"
