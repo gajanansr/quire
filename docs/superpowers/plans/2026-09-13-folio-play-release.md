@@ -52,9 +52,9 @@ refuses to carry what it reads.
 
 **Files:** `.gitignore`
 
-- [ ] Ignore `keystore.properties`, `*.jks`, `*.keystore`, `*.p12`, and
+- [x] Ignore `keystore.properties`, `*.jks`, `*.keystore`, `*.p12`, and
       `play-service-account*.json` / `fastlane/*.json`.
-- [ ] Ignore `*.hprof`. A 322 MB JVM heap dump (`java_pid90925.hprof`) is *already
+- [x] Ignore `*.hprof`. A 322 MB JVM heap dump (`java_pid90925.hprof`) is *already
       committed at HEAD*; remove it from the working tree and say plainly in the
       report that purging it from history is a separate, destructive decision.
 
@@ -62,24 +62,24 @@ refuses to carry what it reads.
 
 **Files:** `app/build.gradle.kts`, `app/proguard-rules.pro` (create)
 
-- [ ] `versionCode` / `versionName` become named values at the top of the android
+- [x] `versionCode` / `versionName` become named values at the top of the android
       block, overridable with `-PfolioVersionCode` / `-PfolioVersionName` or the
       `FOLIO_VERSION_CODE` / `FOLIO_VERSION_NAME` environment variables, so a CI run
       can bump a build without a commit and a human can still read the default.
-- [ ] Signing credentials come from `keystore.properties` at the repo root if it
+- [x] Signing credentials come from `keystore.properties` at the repo root if it
       exists, else from `FOLIO_KEYSTORE` / `FOLIO_KEYSTORE_PASSWORD` /
       `FOLIO_KEY_ALIAS` / `FOLIO_KEY_PASSWORD`. If neither supplies all four, the
       `release` signing config is simply **not created**.
-- [ ] `buildTypes.release`: not debuggable, signed with that config when it exists.
+- [x] `buildTypes.release`: not debuggable, signed with that config when it exists.
       `assembleRelease` / `bundleRelease` fail with an instruction naming the four
       values when it does not — loudly, at the release task, and nowhere else. A
       debug-signed release must never be producible by accident.
-- [ ] R8 off by default, behind `-PfolioMinify=true`. `proguard-rules.pro` is written
+- [x] R8 off by default, behind `-PfolioMinify=true`. `proguard-rules.pro` is written
       anyway, with the keep rules Room, kotlinx.serialization, Compose and
       PdfBox-Android need, so enabling it later is one flag and a device test rather
       than a research project. The reasoning goes in `docs/release.md`, not in a
       commit message.
-- [ ] `./scripts/check.sh` is green, and `:app:bundleRelease` is proven to produce a
+- [x] `./scripts/check.sh` is green, and `:app:bundleRelease` is proven to produce a
       signed `.aab` using a throwaway keystore created outside the repo and deleted
       afterwards.
 
@@ -90,18 +90,18 @@ refuses to carry what it reads.
 `app/src/main/kotlin/app/folio/android/ui/nav/FolioRoot.kt`,
 `app/src/test/kotlin/app/folio/android/share/LinksTest.kt` (create)
 
-- [ ] `FolioLinks` holds `PRIVACY_POLICY`, `WEBSITE`, `SOURCE`, `CONTACT_EMAIL` — all
+- [x] `FolioLinks` holds `PRIVACY_POLICY`, `WEBSITE`, `SOURCE`, `CONTACT_EMAIL` — all
       blank, each marked `FILL IN` with what it is for — plus `SUPPORT`, which is
       `SupportLink.URL` and stays exactly as it is.
-- [ ] `FolioRelease.VERSION_NAME` lives beside them: the About row currently spells
+- [x] `FolioRelease.VERSION_NAME` lives beside them: the About row currently spells
       `"0.1.0"` inline, where nothing makes it follow `versionCode`.
-- [ ] Pure helpers a test can reach: `isSet`, `displayHost` (what the Settings row
+- [x] Pure helpers a test can reach: `isSet`, `displayHost` (what the Settings row
       shows on the right), and `unset()` (the names still blank, so the checklist and
       a test agree on the list).
-- [ ] Settings grows a **Privacy** row in About. Tappable and opening the browser
+- [x] Settings grows a **Privacy** row in About. Tappable and opening the browser
       when a policy URL has been filled in; a plain, honest statement when it has
       not. Same for a Website row.
-- [ ] Tests (JUnit 4 — `assertTrue(message, condition)`): every non-blank link is
+- [x] Tests (JUnit 4 — `assertTrue(message, condition)`): every non-blank link is
       `https://` or `mailto:`; `SUPPORT` is unchanged; `displayHost` strips scheme,
       `www.` and path; `unset()` names exactly the blanks; and `VERSION_NAME` equals
       the `versionName` actually declared in `app/build.gradle.kts`.
@@ -110,17 +110,17 @@ refuses to carry what it reads.
 
 **Files:** `docs/privacy-policy.md` (create), `docs/play-data-safety.md` (create)
 
-- [ ] The policy states what Folio collects (nothing), what it stores and where
+- [x] The policy states what Folio collects (nothing), what it stores and where
       (this device, app-private storage), and lists **every** permission in the
       merged manifest with why it is there — including the four WorkManager ones,
       which look alarming in a list and are not.
-- [ ] It names the two moments data can move: the reader tapping Share, and the
+- [x] It names the two moments data can move: the reader tapping Share, and the
       reader tapping the support link, both of which hand off to an app they chose.
-- [ ] It says Folio declares no `INTERNET` permission and that a test enforces it,
+- [x] It says Folio declares no `INTERNET` permission and that a test enforces it,
       because that is a stronger claim than a promise and Folio can actually make it.
-- [ ] `docs/play-data-safety.md` answers the Data Safety form question by question,
+- [x] `docs/play-data-safety.md` answers the Data Safety form question by question,
       in the Console's own order, with the exact radio button to pick.
-- [ ] Both record that Play requires the policy at a **public URL**, and that the
+- [x] Both record that Play requires the policy at a **public URL**, and that the
       same URL goes in three places: the store listing, the Data Safety section, and
       `FolioLinks.PRIVACY_POLICY`.
 
@@ -131,14 +131,14 @@ refuses to carry what it reads.
 `fastlane/metadata/android/en-US/images/phoneScreenshots/README.md`,
 `scripts/check-listing.sh` (create)
 
-- [ ] Title ≤ 30, short description ≤ 80, full description ≤ 4000. Copy written for
+- [x] Title ≤ 30, short description ≤ 80, full description ≤ 4000. Copy written for
       a quiet, private, offline reader — the pitch is that the books never leave the
       device, and every feature named is one that exists.
-- [ ] `changelogs/1.txt` matches `versionCode` 1.
-- [ ] The screenshots directory carries a README saying how many, what size, which
+- [x] `changelogs/1.txt` matches `versionCode` 1.
+- [x] The screenshots directory carries a README saying how many, what size, which
       screens, and in what order — Play needs a running app for these and this
       session must not touch the emulator.
-- [ ] `scripts/check-listing.sh` asserts the three length limits and the two graphic
+- [x] `scripts/check-listing.sh` asserts the three length limits and the two graphic
       dimensions. A 31-character title is rejected at upload, after the build.
 
 ### Task 6: The two graphics Play requires, generated not drawn
@@ -148,32 +148,32 @@ refuses to carry what it reads.
 `fastlane/metadata/android/en-US/images/icon.png`,
 `fastlane/metadata/android/en-US/images/featureGraphic.png`
 
-- [ ] A 512×512 listing icon and a 1024×500 feature graphic, rendered with Java2D
+- [x] A 512×512 listing icon and a 1024×500 feature graphic, rendered with Java2D
       from the same curves as `ic_launcher_foreground.xml` and the same two colours
       as `ic_launcher_colors.xml` (`#214F7C` ground, `#FDF9F6` page).
-- [ ] The mark is scaled up relative to the adaptive icon, deliberately: a launcher
+- [x] The mark is scaled up relative to the adaptive icon, deliberately: a launcher
       masks the 108dp canvas down to a circle and the 66dp safe zone exists for that
       mask. The Play icon is an unmasked square, so reusing the adaptive scale would
       leave the mark looking marooned. The new factor is a named constant with the
       arithmetic written next to it.
-- [ ] The feature graphic sets the wordmark in the repo's own Source Serif, loaded
+- [x] The feature graphic sets the wordmark in the repo's own Source Serif, loaded
       from `app/src/main/res/font/`, so the same command produces the same image on
       any machine instead of silently substituting a system font.
-- [ ] Both PNGs are committed, and regenerating them is one command.
+- [x] Both PNGs are committed, and regenerating them is one command.
 
 ### Task 7: The checklist
 
 **Files:** `docs/release.md` (create), `PROGRESS.md`
 
-- [ ] Clean checkout to published, in order, with exact commands: keystore creation,
+- [x] Clean checkout to published, in order, with exact commands: keystore creation,
       `keystore.properties`, version bump, `./scripts/check.sh`, `bundleRelease`,
       where the artifact lands, what to upload.
-- [ ] The fill-in table: every value a human must supply, and every file or Console
+- [x] The fill-in table: every value a human must supply, and every file or Console
       field it goes into.
-- [ ] Play Console sections in the order the Console asks for them — App access, Ads,
+- [x] Play Console sections in the order the Console asks for them — App access, Ads,
       Content rating (with the questionnaire answers Folio's features imply), Target
       audience, Data safety, Government apps, Financial features.
-- [ ] The R8 decision and how to revisit it, the target-API position, and the review
+- [x] The R8 decision and how to revisit it, the target-API position, and the review
       risks that are specific to this app: the external donation link against Play's
       Payments policy, the "Folio" name, and the permanence of the application ID.
-- [ ] `PROGRESS.md` gets a log entry, appended, never rewritten.
+- [x] `PROGRESS.md` gets a log entry, appended, never rewritten.

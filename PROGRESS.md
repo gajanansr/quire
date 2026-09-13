@@ -16,11 +16,17 @@ The app installs, runs, imports real books, and reads them.
 | **Screenshot** | `./scripts/shot.sh <name>` — writes `/tmp/folio-<name>.png` |
 | **Logs** | `./scripts/logs.sh` (follow) or `--dump` (what already happened) |
 | Screenshots | `docs/screenshots/` |
+| **Release** | `docs/release.md` — clean checkout to published |
+| Store listing | `fastlane/metadata/android/en-US/` · check with `./scripts/check-listing.sh` |
+| Privacy | `docs/privacy-policy.md` · `docs/play-data-safety.md` |
 | Spec | `docs/superpowers/specs/2026-09-11-folio-android-design.md` |
 | Plans | `docs/superpowers/plans/` |
 
-**Working end to end:** import (EPUB, TXT, text PDF, scanned PDF via real on-device
-ML Kit OCR) → reflow and chapter detection → Library → Book Details → Reader with
+**Working end to end:** import (EPUB, TXT, text PDF, and scanned PDF shown as its
+original printed pages — *corrected 2026-09-13: this line used to say "via real
+on-device ML Kit OCR". OCR was removed; see `PageRasterizer` and `PdfPipeline.process`.
+The store listing was written against the code, not against this paragraph*)
+→ reflow and chapter detection → Library → Book Details → Reader with
 measured pagination, page turns, typography, table of contents, four themes,
 bookmarks, and a PDF fallback for books that could not be reflowed. Reading position
 persists and resumes exactly, including across a type-size change.
@@ -1210,3 +1216,84 @@ falling back to whatever was there, because a poor snippet still beats an empty 
 
 **Still open**, unchanged: a book keeps whatever extraction it was imported with, and
 there is no way to delete a book from the library.
+
+## 2026-09-13 — Ready to submit, except for the five things only a human has
+
+One plan (`2026-09-13-folio-play-release.md`), seven tasks, all ticked. 568 tests,
+0 failures. Nothing about the app's behaviour changed except one new Settings row.
+
+**The build can sign a release, and the debug build still needs nothing.** Credentials
+come from a gitignored `keystore.properties` or from four environment variables; if
+any is missing the release signing config is *not created* and only `assembleRelease`
+and `bundleRelease` fail, with the four names in the message. No debug-key fallback —
+Play pins an application id's signing identity forever, and a debug-signed artifact
+that reaches a tester track cannot be replaced by a properly signed one later.
+
+Verified end to end with a throwaway keystore made outside the repo and deleted after:
+`bundleRelease` refuses without credentials, signs with them, `jarsigner` reports
+verified. 17 MB unminified against the 67 MB debug APK, because the bundle splits per
+device.
+
+**R8 stays off, deliberately.** It was tried: it builds clean and takes the bundle to
+11 MB. What could not be tried is whether a shrunk Folio still imports a book, and
+PdfBox-Android is exactly the library where that is not rhetorical — it resolves
+fonts, CMaps and codecs by class name out of its own assets, and a wrongly shrunk
+PdfBox does not crash, it returns an empty text layer. A PDF then imports
+"successfully" as a book with no words in it. Six megabytes is not worth shipping that
+untested on a free app with no ads. `app/proguard-rules.pro` is written and committed
+with every keep rule Room, kotlinx.serialization, WorkManager and PdfBox need, so
+turning it on is `-PfolioMinify=true` plus the seven-step device test in
+`docs/release.md` §9.
+
+**The listing lives in the repo**, in fastlane's layout, so it can be diffed rather
+than living only in a web form. Title 27/30, short 73/80, full 3542/4000, changelog
+470/500 — counted in characters, because the em dash in the title is one character and
+three bytes and `wc -c` would have passed a title Play rejects.
+
+**The copy claims only what the code does.** Worth recording, because "Where things
+stand" at the top of this file is now out of date: **Folio does no OCR.** That pipeline
+was removed and a scan is shown as its printed pages — `PageRasterizer`'s own comment
+records it, and `PdfPipeline.process` says why. The listing says the same. It also
+carries a "What Folio does not do" section naming the absence of sync, a bookstore,
+DRM support, text-to-speech and a dictionary, because that is cheaper than the review
+that says it for you.
+
+**The two graphics are generated, not drawn.** `scripts/generate-play-graphics.sh`
+renders the 512×512 icon and the 1024×500 feature graphic with Java2D on the JDK 21 the
+build already requires — no ImageMagick, no imaging library. The curves are
+transcribed from `ic_launcher_foreground.xml` and the colours come from
+`ic_launcher_colors.xml`, so the store icon regenerates with the brand rather than
+being the one copy still showing the old blue in two years. The mark is scaled to 58%
+of the icon's width rather than the adaptive icon's 46%: that number exists for the
+launcher's circular mask, and Play's square is never masked.
+
+**A privacy policy that is checkable rather than promised.** It lists all five
+permissions the release manifest actually merges — `WAKE_LOCK`, `FOREGROUND_SERVICE`,
+`RECEIVE_BOOT_COMPLETED`, `ACCESS_NETWORK_STATE` and Android's own
+`DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` — with why each is there, and explains why
+a *missing* `INTERNET` permission is a stronger claim than a promise. That makes
+`NoNetworkPermissionTest` load-bearing in a new way: the listing now states it
+publicly, so the day it is weakened the store listing becomes a false claim rather
+than merely an outdated one.
+
+**Links are in one file.** `share/Links.kt`, beside `SupportLink`. The privacy policy,
+website, source and contact addresses are all blank and marked FILL IN, because there
+is no website yet and an app that opens the browser onto a 404 is worse than one with
+no link. Settings offers a row only once a link is set and shows the short truth about
+privacy until then. `FolioRelease.VERSION_NAME` moved out of the inline `"0.1.0"` in
+the About row, and `LinksTest` reads `app/build.gradle.kts` back so the two cannot
+drift at the first update — mutation-checked, it does fail when they do.
+
+**Two things found while doing this, neither one Play's problem.**
+`java_pid90925.hprof`, a 322 MB JVM heap dump, was committed at HEAD. It is removed
+from the tree and `*.hprof` is ignored; purging it from history is a separate,
+destructive decision and was left alone.
+
+**Still needed, and none of it could be produced here:** an upload keystore, a public
+URL for the privacy policy, a contact email, at least two phone screenshots (six are
+specified, screen by screen, in the README under `images/phoneScreenshots/`), and the
+Play Console questionnaires. `docs/release.md` is the ordered list.
+
+**One risk worth reading before submitting**, in `docs/release.md` §11: the Settings
+donation link is an external payment page, and Play's Payments policy has repeatedly
+been the thing that catches apps out there. It is a decision, not a fix.
