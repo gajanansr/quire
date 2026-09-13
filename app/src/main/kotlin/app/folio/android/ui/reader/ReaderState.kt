@@ -125,6 +125,34 @@ data class ReaderState(
         }
 
     /**
+     * Every word the current page shows.
+     *
+     * Not the same thing as [currentPageSnippet], and the difference is a real bug:
+     * sharing a page reused the snippet, which is deliberately a single block, so a
+     * reader who shared the page they were on got its first paragraph and nothing
+     * else — looking, on the card, exactly like a complete quotation.
+     *
+     * A bookmark row wants one recognisable line. A share wants the page. Two
+     * properties, because they are two questions.
+     */
+    val currentPageText: String
+        get() = drawnBlocks().joinToString("\n\n") { it.trim() }
+
+    /** The text of each block this page draws, already cut to the page's own slices. */
+    private fun drawnBlocks(): List<String> {
+        val ch = chapter ?: return emptyList()
+        val page = currentPage ?: return emptyList()
+        return page.slices.mapNotNull { slice ->
+            val text = ch.blockTexts.getOrNull(slice.blockIndex) ?: return@mapNotNull null
+            if (text.isEmpty() || slice.length == 0) null
+            else text.substring(
+                slice.startChar.coerceIn(0, text.length),
+                slice.endChar.coerceIn(0, text.length),
+            )
+        }.filter { it.isNotBlank() }
+    }
+
+    /**
      * The text the current page opens with, for a bookmark's snippet.
      *
      * Taken from the page rather than the whole chapter so the saved words are the
@@ -138,21 +166,7 @@ data class ReaderState(
      */
     val currentPageSnippet: String
         get() {
-            val ch = chapter ?: return ""
-            val page = currentPage ?: return ""
-            val drawn = page.slices.asSequence()
-                .mapNotNull { slice ->
-                    val text = ch.blockTexts.getOrNull(slice.blockIndex)
-                        ?: return@mapNotNull null
-                    if (text.isEmpty() || slice.length == 0) null
-                    else text.substring(
-                        slice.startChar.coerceIn(0, text.length),
-                        slice.endChar.coerceIn(0, text.length),
-                    )
-                }
-                .filter { it.isNotBlank() }
-                .toList()
-
+            val drawn = drawnBlocks()
             return (drawn.firstOrNull { it.any(Char::isLetter) } ?: drawn.firstOrNull())
                 .orEmpty()
                 .trim()

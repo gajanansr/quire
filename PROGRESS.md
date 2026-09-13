@@ -1348,3 +1348,31 @@ Play Console questionnaires. `docs/release.md` is the ordered list.
 **One risk worth reading before submitting**, in `docs/release.md` §11: the Settings
 donation link is an external payment page, and Play's Payments policy has repeatedly
 been the thing that catches apps out there. It is a decision, not a fix.
+
+## 2026-09-13 — A shared passage arrives whole
+
+Reported from a real phone: "when I select and share, or just share the page, it shares
+just one line — the first line — and clips out everything else." Two separate causes,
+both of which made a truncated passage look like a complete one.
+
+**Sharing a page sent one paragraph.** It reused `currentPageSnippet`, which is
+deliberately a single block: a bookmark row wants one recognisable line, not a wall of
+text. Sharing wants the page. They are two questions, and now they are two properties —
+`currentPageText` joins every block the page draws.
+
+**The card cut at 180 characters and then closed the quotation mark.** That is the worse
+of the two: a reader who chose three paragraphs got the first sentence, punctuated as
+though that were the whole quotation, with nothing to say otherwise. `QuoteFit` now
+steps the type down through four tiers as the passage grows, and only past 700
+characters does anything get cut — at a word boundary, with the ellipsis *inside* the
+quotation marks. Silently dropping somebody's chosen words is the worst failure this
+feature can have, so `QuoteFitTest` states it: a passage inside the cap comes out byte
+for byte, a cut is marked, and a cut never lands mid-word.
+
+Two things found while checking it on the device: once a long passage took the weight,
+`SpaceBetween` had no free space left to distribute and the quote ended up touching the
+title above it (fixed with real padding rather than an arrangement), and a chapter whose
+detected title is its own number rendered as a stray "1" on the card — the detection is
+right, the card just has to say what the number means.
+
+573 tests, 0 failures.

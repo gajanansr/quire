@@ -328,7 +328,7 @@ fun ReaderHost(
             onSharePage = {
                 // No selection: offer the page the reader is looking at. The same
                 // sheet a chosen passage opens, so both routes look alike.
-                onShareQuote(quoteOf(state, state.currentPageSnippet))
+                onShareQuote(quoteOf(state, state.currentPageText))
             },
             onFinish = { persist(); onExit() },
             onSelectionStart = { state = ReaderTransitions.selectionStarted(state, it) },
@@ -407,6 +407,10 @@ private fun quoteOf(state: ReaderState, text: String) = ShareCard.Quote(
     bookTitle = state.bookTitle,
     author = state.bookAuthor,
     text = text.trim(),
-    chapterLabel = state.chapterTitle?.takeIf { it.isNotBlank() }
+    // A chapter whose title is just its number reads as a stray digit on a card.
+    // Books number their chapters and Folio detects that title faithfully; it is the
+    // card that has to say what the number means.
+    chapterLabel = state.chapterTitle
+        ?.takeIf { it.isNotBlank() && !it.trim().all { c -> c.isDigit() } }
         ?: "Chapter ${state.chapterIndex + 1}",
 )

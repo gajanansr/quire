@@ -251,4 +251,37 @@ class ReaderStateTest {
         val state = pageOpeningWith("‘Yeah,’ Debu said.", "And that was that.")
         assertEquals("‘Yeah,’ Debu said.", state.currentPageSnippet)
     }
+
+    @Test
+    fun `sharing a page sends the whole page, not its first paragraph`() {
+        // Reported from a real phone: "it shares just one line, that is first line,
+        // and clips out everything else". Share reused currentPageSnippet, which is
+        // deliberately one block — a bookmark row wants one recognisable line. A
+        // share wants the passage the reader is actually looking at.
+        val state = pageOpeningWith(
+            "38",
+            "The 5 p.m. December sun lit up the hotel.",
+            "Palm trees swayed green in the breeze.",
+            "She had not slept.",
+        )
+        val shared = state.currentPageText
+
+        assertTrue("the first paragraph is missing", shared.contains("December sun"))
+        assertTrue("the second paragraph was dropped", shared.contains("Palm trees"))
+        assertTrue("the last paragraph was dropped", shared.contains("not slept"))
+    }
+
+    @Test
+    fun `a shared page reads as paragraphs`() {
+        val state = pageOpeningWith("One paragraph.", "And another.")
+        assertEquals("One paragraph.\n\nAnd another.", state.currentPageText)
+    }
+
+    @Test
+    fun `the bookmark snippet is still one line`() {
+        // The two must stay different. Putting a whole page in a bookmark row would
+        // make the list unreadable, which is why sharing borrowed the wrong one.
+        val state = pageOpeningWith("The 5 p.m. sun lit up the hotel.", "Palm trees swayed.")
+        assertEquals("The 5 p.m. sun lit up the hotel.", state.currentPageSnippet)
+    }
 }

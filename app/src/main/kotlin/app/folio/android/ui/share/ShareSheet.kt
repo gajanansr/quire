@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.annotation.DrawableRes
 import app.folio.android.ui.theme.Folio
 import app.folio.android.ui.theme.FolioIcon
@@ -376,14 +377,26 @@ private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
                 }
             }
 
+            // Sized to the passage rather than cut to a fixed 180 characters. The
+            // old version closed the quotation mark after cutting, so a truncated
+            // passage looked complete — a reader who chose three paragraphs shared
+            // one sentence and had no way to tell.
+            val fit = QuoteFit.of(card.text)
             Text(
-                text = "“${card.text.take(180)}”",
+                text = "“${fit.text}”",
                 color = palette.ink,
                 fontFamily = SourceSerif,
                 fontStyle = FontStyle.Italic,
-                maxLines = 8,
+                fontSize = fit.fontSizeSp.sp,
+                lineHeight = (fit.fontSizeSp * 1.35f).sp,
+                maxLines = fit.maxLines,
                 overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyLarge,
+                // Breathing room, not SpaceBetween's. Once a long passage takes the
+                // weight there is no free space left for the arrangement to
+                // distribute, and the quote ends up touching the title above it.
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .padding(vertical = 16.dp),
             )
 
             Column {
