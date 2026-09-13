@@ -1857,3 +1857,43 @@ a real home screen followed a theme change instantly — which is the one-line r
 fix proving itself — and the live site renders correctly in a phone browser.
 
 Screenshots for the site and the Play listing are in `docs/screenshots/`.
+
+## 2026-09-14 — Folio is now Quire
+
+Folio is a crowded name — a book-streaming app already holds *Octavo* on Play, three
+separate apps hold *Dogear* (one pitched as "private book tracking, no ads, no social
+feeds, no algorithms", which is this app's positioning word for word), and *Lectern* is
+taken by "a calm ebook & audiobook reader for Android". Verso and Quarto both belong to
+real publishers, which is the one industry where a trademark actually bites.
+
+**A quire is a gathering of folded sheets** — nested, stitched at the fold, the unit a
+book is physically built from. It is the direct sibling of *folio*, which is one such
+sheet, so **the mark did not have to change at all**: the icon already draws the fold.
+The comments explaining it did change, because the story behind a logo should match the
+name above it.
+
+**The timing was the whole point.** An `applicationId` can never change after a first
+publish. Nothing had shipped, so this was the last moment the name was free to move.
+
+Renamed: the application id and every package, every `Folio*` type and the files that
+held them, the app label, the wordmark, the site, the Play listing, the repository, and
+the Gradle properties. **Deliberately left alone:** the five comments that use *folio*
+to mean a folded sheet. That is the correct word for what they describe, and a quire is
+made of them — a blind find-and-replace would have turned accurate typography into
+nonsense. Capitalisation separated the two cleanly: the brand was always `Folio`, the
+term always `folio`.
+
+**Two things the rename caught.**
+
+`sed -E` on macOS does not understand `\b`, so the pass that renamed every `Folio*`
+type silently did nothing and reported success. Only grepping for what should no longer
+exist revealed it. BSD sed is not GNU sed, and a substitution that matches nothing
+exits 0.
+
+And the cached EPUB fixture still said "Folio Test Press" after the generator said
+"Quire" — the staleness trap already recorded in this log, caught this time by the
+gate rather than by a confusing afternoon. `FIXTURE_VERSION` is 6.
+
+**793 tests, 0 failures.** Site live at https://gajanansr.github.io/quire/, repository
+at https://github.com/gajanansr/quire (GitHub redirects the old URLs). Verified on the
+device: installs as a fresh package, onboards from scratch, icon and label correct.
