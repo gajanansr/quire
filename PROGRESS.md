@@ -93,6 +93,7 @@ Append to the log; never rewrite history.
 - [x] Plan 3 — design system + Library/Details UI **COMPLETE** (287 JVM + 15 device)
 - [x] Plan 4 — reader + pagination + bookmarks **COMPLETE** (337 JVM + 15 device)
 - [x] Plan 5 — habits, settings, share sheets **COMPLETE** (387 JVM + 15 device)
+- [x] Reading reminders **COMPLETE** (651 JVM) · `docs/superpowers/plans/2026-09-13-folio-notifications.md`
 
 When a plan's tasks are all ticked, write the next plan from the spec using the same
 structure, commit it, then continue. Later plans should incorporate what was actually
@@ -1210,3 +1211,90 @@ falling back to whatever was there, because a poor snippet still beats an empty 
 
 **Still open**, unchanged: a book keeps whatever extraction it was imported with, and
 there is no way to delete a book from the library.
+
+## 2026-09-13 — Reminders that stay quiet on the days it matters
+
+Plan: `docs/superpowers/plans/2026-09-13-folio-notifications.md`, branch
+`agent/notifications`. All eight tasks ticked. **651 JVM tests, 0 failures.**
+
+One notification a day, at a time the reader picks, in words taken from the book they
+are actually mid-way through — and none at all on a day they have already read.
+
+**The whole feature is a negative, and that decided the architecture.** Almost every
+requirement here is a notification that must *not* appear: not on a day with reading
+in it, not twice in one day, not at two in the morning, not after the switch was
+turned off. A negative is invisible on a device — nothing happening looks exactly
+like nothing happening for the wrong reason — so the entire product question lands in
+`Reminders.decide(facts)`, a pure function with no Android imports, and 21 tests say
+what silence means and why. The worker around it gathers facts, asks, and posts.
+
+The rule that matters most is `minutesToday > 0`, not `goalMet`. Four minutes of a
+ten-minute goal is still a day the reader read, and the only notification that fits a
+partly-read day is one pointing out the shortfall — which is the nagging the feature
+exists to avoid.
+
+**Eleven hand-written lines**, four registers, rotated by epoch day. Three properties
+are tested rather than reviewed, because copy decays the moment nobody re-reads it:
+
+- **No invented numbers.** Every variant is rendered against facts whose title and
+  chapter carry no digits, those two strings are stripped, and every remaining
+  integer must be the goal, the percentage or the streak. A separate test proves
+  `1984` and `Catch-22` survive intact — the ban is on numbers Folio made up, not on
+  numbers the author wrote.
+- **No guilt.** A word list, asserted: `broke`, `broken`, `lost`, `fail`, `missed`,
+  `don't`, `should`, `last chance`, `hurry`, `at risk`, `behind`, and no `!`.
+- **Always the reader's own book.** Every with-book line must contain the title.
+
+**Two traps found by tests rather than by reading.**
+
+`"1 days" in text` is true of `"11 days running"`. The first plural test failed at
+streak 11 and the assertion, not the copy, was wrong — it now matches `(\d+)\s+days\b`
+and asserts the captured number *is* the streak, which is the thing that was meant.
+
+And the first "off means off" test passed for the wrong reason. The worker correctly
+said nothing after the switch was flipped, but the job enqueued by the previous run
+was still pending — silence, with something of Folio's still waking the device on a
+schedule the reader had cancelled. The worker now cancels its own unique work when it
+finds reminders off, so a stale job takes itself out rather than waiting to be
+cancelled again. Two locks: the UI cancels immediately, the decision refuses anyway.
+
+**The scheduling risk worth recording.** Each run enqueues the next with `REPLACE`,
+under the same unique work name it is itself running under. If replacing a running
+job dropped its replacement, reminders would stop dead after the first one — silently,
+on a real device, a day later. That is now driven for real under
+`WorkManagerTestInitHelper` rather than assumed, because a worker built by hand never
+collides with its own name and would have proved nothing.
+
+No exact alarms: `SCHEDULE_EXACT_ALARM` is special-access and an offline reading app
+has no business asking for it. The price is that delivery is approximate, and it is
+paid deliberately — a three-hour window, clamped to the end of the day, outside which
+the reminder is dropped rather than delivered stale. A phone that dozes all evening
+and wakes at 02:00 says nothing, and does not record the day as reminded either, so
+the evening the reader is actually awake for is still available.
+
+**Permission is asked once, after the first session that recorded real minutes** —
+never on first launch, where the question arrives before there is anything for it to
+be about and gets the refusal it deserves. A refusal is permanent: Android stops
+showing its dialog after the second decline and every later request returns "denied"
+with nothing on screen, so after that the only route offered is Folio's own page in
+system settings. Backing out of the offer counts as declining, and is recorded as
+one.
+
+`POST_NOTIFICATIONS` joins the reviewed allowlist in `NoNetworkPermissionTest`, with
+a new test in the other direction: a runtime permission asked for but never declared
+is refused instantly and silently, and the symptom is a feature that simply never
+works with nothing in any log to say why. `INTERNET` is still removed.
+
+Database at **version 6**. `MIGRATION_5_6` adds seven columns, and the one that
+matters is `remindersEnabled DEFAULT 0`: an update that starts buzzing someone who
+never asked is the worst possible introduction to this feature.
+
+**Left out on purpose**: snooze (turns one notification into two), an import-finished
+notification (the import is already on screen), per-book reminders, and a weekly
+summary (a second notification whose job is to mention the first).
+
+**Not verified on a device.** Everything above is JVM and Robolectric; the emulator
+was in use. What still needs a real phone: the notification's appearance and the
+`ic_book` small icon at status-bar size, the system permission dialog, the deep link
+to notification settings, and — the one that cannot be simulated — whether Doze
+actually delivers inside the three-hour window on a phone left alone overnight.
