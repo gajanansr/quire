@@ -146,40 +146,40 @@ daily, which is as much variation as one-a-day needs.
 
 **Files:** `notify/Reminders.kt`, `test/notify/ReminderCopyTest.kt` (create)
 
-- [ ] Daily, book in progress (4):
+- [x] Daily, book in progress (4):
       - "Still on the nightstand" / "{book} is open at {chapter}. {goal} quiet minutes?"
       - "Where you left off" / "You're {pct}% through {book}. Pick it up whenever."
       - "{chapter} is waiting" / "{book}, exactly where you stopped."
       - "A few pages?" / "{goal} minutes of {book} — whenever suits."
-- [ ] Daily, no book (2):
+- [x] Daily, no book (2):
       - "Your reading time" / "Nothing open yet — {goal} minutes is a good place to start."
       - "A quiet {goal} minutes" / "Folio is here whenever you'd like to begin."
-- [ ] Streak, book in progress (3):
+- [x] Streak, book in progress (3):
       - "{n} days running" / "{chapter} is next in {book}."
       - "{n} days, one after another" / "No rush — {book} will keep."
       - "You've read {n} days in a row" / "{book} is open at {chapter} whenever you are."
-- [ ] Streak, no book (2):
+- [x] Streak, no book (2):
       - "{n} days running" / "{goal} minutes whenever you'd like."
       - "{n} days, one after another" / "Folio is here when you are."
-- [ ] Long titles are trimmed to `MAX_TITLE` (48) on a word boundary with an ellipsis,
+- [x] Long titles are trimmed to `MAX_TITLE` (48) on a word boundary with an ellipsis,
       so a notification is a sentence rather than a wall.
-- [ ] Test — **no invented numbers**: render every variant against facts whose title
+- [x] Test — **no invented numbers**: render every variant against facts whose title
       and chapter label carry no digits, strip the substituted title and chapter
       label from the result, and assert every remaining integer is one of
       `{goalMinutes, percentRead, currentStreak}`. This is the honesty rule as an
       assertion.
-- [ ] Test — a numeric title survives verbatim ("1984", "Catch-22"): the rule bans
+- [x] Test — a numeric title survives verbatim ("1984", "Catch-22"): the rule bans
       numbers Folio made up, not numbers the author wrote.
-- [ ] Test — **no guilt**: no line contains any of `broke`, `broken`, `lost`, `fail`,
+- [x] Test — **no guilt**: no line contains any of `broke`, `broken`, `lost`, `fail`,
       `missed`, `don't`, `should`, `last chance`, `hurry`, `streak is at risk`, and no
       line contains `!`.
-- [ ] Test — never a false plural: `STREAK_MIN` is 3, so no streak line can read
+- [x] Test — never a false plural: `STREAK_MIN` is 3, so no streak line can read
       "1 days". Assert across the whole reachable range rather than trusting the
       constant.
-- [ ] Test — every variant is non-blank, the title fits a notification's first line
+- [x] Test — every variant is non-blank, the title fits a notification's first line
       (≤ 48 chars after substitution with a realistic title), and consecutive days
       produce different lines.
-- [ ] Test — a book with no detected chapter title still gets a true label
+- [x] Test — a book with no detected chapter title still gets a true label
       ("Chapter 7" from the index), never an empty quote or a null leaking through.
 
 ### Task 4: When — the delay arithmetic
