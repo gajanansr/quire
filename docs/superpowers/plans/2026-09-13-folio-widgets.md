@@ -184,21 +184,22 @@ draw anything, and writing it twice and extracting it afterwards would be worse.
 **Files:** `widget/FolioWidgets.kt`, `MainActivity.kt`, `ui/nav/FolioRoot.kt`,
 `test/widget/WidgetIntentTest.kt` (create)
 
-- [ ] `FolioWidgets.openIntent(context, habitScreen: HabitScreen?)` returns an
-      `Intent` for `MainActivity` and nothing else, so it can be asserted without a
-      device — the same shape as `ShareIntents`.
-- [ ] The habit widget deep-links to the streak screen; the stats widget opens the
-      Library. `FolioRoot` gains an `initialHabitScreen` parameter and `MainActivity`
-      reads the extra, including in `onNewIntent`: the activity is usually already
-      alive, and without `onNewIntent` a widget tap would bring the app forward on
-      whatever screen it was left on and silently drop the destination.
-- [ ] `FLAG_ACTIVITY_SINGLE_TOP` on the `PendingIntent` rather than a manifest
+- [x] `FolioWidget` names the two widgets and what each one opens, and
+      `FolioWidgets.openIntent(context, widget)` returns an `Intent` for
+      `MainActivity` and nothing else — so which widget opens what is data a test can
+      read, the same shape as `ShareIntents`.
+- [x] The habit widget deep-links to the streak screen; the stats widget opens the
+      Library. `FolioRoot` gains a `pendingHabitScreen` it takes once and hands back,
+      and `MainActivity` reads the extra in `onNewIntent` as well as `onCreate`: the
+      activity is usually already alive, and a destination treated as a fixed
+      starting point would work exactly once per process.
+- [x] `FLAG_ACTIVITY_SINGLE_TOP` on the `PendingIntent` rather than a manifest
       `launchMode` change, so the existing task is reused and `onNewIntent` is what
       delivers the extra.
-- [ ] Test: the intent targets `MainActivity`, carries the streak extra for the habit
-      widget and no extra for stats, and `FolioWidgets.habitScreenOf(intent)` reads
-      back what `openIntent` wrote — a round trip, because a mistyped extra key is
-      invisible until someone taps a widget.
+- [x] Test: the intent targets `MainActivity`, carries the streak extra for the habit
+      widget and no extra for stats, `habitScreenOf` reads back what `openIntent`
+      wrote, and a name Folio no longer has is ignored rather than thrown — a widget
+      pinned by an older version keeps its intent for as long as it sits there.
 
 ### Task 7: Refreshing when reading data changes, not on a timer
 

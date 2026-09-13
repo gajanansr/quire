@@ -55,9 +55,7 @@ fun habitViews(context: Context, state: HabitWidgetState): RemoteViews {
 
     views.setOnClickPendingIntent(
         R.id.widget_habit_root,
-        FolioWidgets.pendingOpen(
-            context, FolioWidgets.REQUEST_HABIT, FolioWidgets.openIntent(context),
-        ),
+        FolioWidgets.pendingOpen(context, FolioWidget.HABIT),
     )
     return views
 }
@@ -113,9 +111,7 @@ fun statsViews(context: Context, state: StatsWidgetState): RemoteViews {
 
     views.setOnClickPendingIntent(
         R.id.widget_stats_root,
-        FolioWidgets.pendingOpen(
-            context, FolioWidgets.REQUEST_STATS, FolioWidgets.openIntent(context),
-        ),
+        FolioWidgets.pendingOpen(context, FolioWidget.STATS),
     )
     return views
 }
