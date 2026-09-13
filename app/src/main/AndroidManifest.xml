@@ -74,6 +74,18 @@
                 android:resource="@xml/widget_habit_info" />
         </receiver>
 
+        <receiver
+            android:name=".widget.StatsWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_stats_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_stats_info" />
+        </receiver>
+
         <!--
           Folio provides its own WorkManager configuration so ImportWorker can be
           constructed with its dependencies. The default initializer must be removed

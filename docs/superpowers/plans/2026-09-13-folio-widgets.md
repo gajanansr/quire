@@ -166,17 +166,17 @@ draw anything, and writing it twice and extracting it afterwards would be worse.
 `widget/StatsWidgetProvider.kt`, `AndroidManifest.xml`, `res/values/strings.xml`,
 `test/widget/StatsWidgetTest.kt` (create)
 
-- [ ] Test first, the same shape as Task 4: declaration, sizing metadata, and a
+- [x] Test first, the same shape as Task 4: declaration, sizing metadata, and a
       `RemoteViews` built from a known `StatsWidgetState` carrying three tiles, the
       current book's title and its percentage — and, for an empty library, the
       invitation with the tiles hidden rather than three zeroes.
-- [ ] Three stat tiles across the top, a hairline, then the current book: title on
+- [x] Three stat tiles across the top, a hairline, then the current book: title on
       one line, a `ProgressBar` (`setProgressBar`, the only way a `RemoteViews` can
       draw one) and the percentage.
-- [ ] `updatePeriodMillis` 0. Nothing on this widget changes while the app is closed
+- [x] `updatePeriodMillis` 0. Nothing on this widget changes while the app is closed
       — a book is not finished by the clock — so a periodic wake-up would cost
       battery to redraw identical numbers. Task 7 is its only refresh, deliberately.
-- [ ] Sizes: `targetCellWidth` 4, `targetCellHeight` 2, `minWidth` 250dp,
+- [x] Sizes: `targetCellWidth` 4, `targetCellHeight` 2, `minWidth` 250dp,
       `minHeight` 110dp, resizable both ways down to 180×110dp and up to 360×250dp.
 
 ### Task 6: A tap that lands somewhere

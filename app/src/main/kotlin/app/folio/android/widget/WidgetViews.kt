@@ -1,6 +1,7 @@
 package app.folio.android.widget
 
 import android.content.Context
+import android.view.View
 import android.widget.RemoteViews
 import app.folio.android.R
 
@@ -64,3 +65,60 @@ fun habitViews(context: Context, state: HabitWidgetState): RemoteViews {
 /** Reflected by name at apply() time, so a typo here is a silent no-op. */
 private const val SET_COLOR_FILTER = "setColorFilter"
 private const val SET_IMAGE_ALPHA = "setImageAlpha"
+
+/** The three stat tiles, paired value and label. */
+object StatsWidgetIds {
+    val VALUES = intArrayOf(
+        R.id.widget_stat_value_0, R.id.widget_stat_value_1, R.id.widget_stat_value_2,
+    )
+    val LABELS = intArrayOf(
+        R.id.widget_stat_label_0, R.id.widget_stat_label_1, R.id.widget_stat_label_2,
+    )
+}
+
+fun statsViews(context: Context, state: StatsWidgetState): RemoteViews {
+    val views = RemoteViews(context.packageName, R.layout.widget_stats)
+
+    // A RemoteViews cannot add or remove a child, so every state is in the layout
+    // and exactly one combination of them is left visible. The alternative — a blank
+    // book row with a progress bar at zero — reads as a bug rather than as a state.
+    views.show(R.id.widget_stats_empty, state.empty != null)
+    views.show(R.id.widget_stats_tiles, state.empty == null)
+    views.show(R.id.widget_stats_current, state.current != null)
+    views.show(R.id.widget_stats_prompt, state.prompt != null)
+
+    state.empty?.let { empty ->
+        views.setTextViewText(R.id.widget_stats_empty_title, empty.title)
+        views.setTextViewText(R.id.widget_stats_empty_detail, empty.detail)
+    }
+
+    StatsWidgetIds.VALUES.zip(state.tiles).forEach { (id, tile) ->
+        views.setTextViewText(id, tile.value)
+    }
+    StatsWidgetIds.LABELS.zip(state.tiles).forEach { (id, tile) ->
+        views.setTextViewText(id, tile.label)
+    }
+
+    state.current?.let { current ->
+        views.setTextViewText(R.id.widget_stats_title, current.title)
+        views.setTextViewText(R.id.widget_stats_percent, current.detail)
+        views.setProgressBar(R.id.widget_stats_progress, 100, current.percent, false)
+        // The bar is the same fact as the text beside it, so it is not announced
+        // twice; the title and the percentage carry it.
+        views.setContentDescription(
+            R.id.widget_stats_current, "${current.title}, ${current.detail}",
+        )
+    }
+    state.prompt?.let { views.setTextViewText(R.id.widget_stats_prompt, it) }
+
+    views.setOnClickPendingIntent(
+        R.id.widget_stats_root,
+        FolioWidgets.pendingOpen(
+            context, FolioWidgets.REQUEST_STATS, FolioWidgets.openIntent(context),
+        ),
+    )
+    return views
+}
+
+private fun RemoteViews.show(viewId: Int, visible: Boolean) =
+    setViewVisibility(viewId, if (visible) View.VISIBLE else View.GONE)

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Both sizing vocabularies, as for the habit widget: the dip measurements API 26 to
+  30 reads, and API 31's cell grid.
+
+  updatePeriodMillis is 0 on purpose. Nothing on this widget can change while Folio
+  is closed — a book is not finished by the passage of time — so a periodic wake-up
+  would spend battery redrawing numbers that cannot have moved. FolioWidgets.refresh,
+  fired when the app actually writes, is its only refresh.
+
+  It resizes taller than the habit widget because the current book's title is the one
+  thing here that benefits from room.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:description="@string/widget_stats_description"
+    android:initialLayout="@layout/widget_stats"
+    android:maxResizeHeight="250dp"
+    android:maxResizeWidth="360dp"
+    android:minHeight="110dp"
+    android:minResizeHeight="110dp"
+    android:minResizeWidth="180dp"
+    android:minWidth="250dp"
+    android:previewImage="@mipmap/ic_launcher"
+    android:previewLayout="@layout/widget_stats_preview"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    tools:targetApi="31" />

@@ -12,4 +12,6 @@
 <resources>
     <string name="widget_habit_label">Reading Streak</string>
     <string name="widget_habit_description">Your streak, the minutes you have read today, and the week so far.</string>
+    <string name="widget_stats_label">Reading Stats</string>
+    <string name="widget_stats_description">Books and chapters finished, time read, and the book you have open.</string>
 </resources>

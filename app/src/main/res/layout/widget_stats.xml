@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The stats widget: what has been finished, and what is open now.
+
+  Three blocks, exactly one of which is hidden at any time — the tiles plus a book
+  row, the tiles plus a prompt, or the invitation on its own. The provider sets the
+  visibilities; a RemoteViews cannot add or remove children, so every state has to be
+  present in the layout and switched off.
+
+  Deliberately compact. At the default four-by-two this has roughly 80dp of content
+  height to work in, and anything taller is clipped by the launcher rather than
+  scrolled.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_stats_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_card"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:id="@+id/widget_stats_tiles"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_stat_value_0"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/source_serif_regular"
+                android:maxLines="1"
+                android:textColor="@color/widget_ink"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/widget_stat_label_0"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/work_sans_regular"
+                android:maxLines="1"
+                android:textColor="@color/widget_muted"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_stat_value_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/source_serif_regular"
+                android:maxLines="1"
+                android:textColor="@color/widget_ink"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/widget_stat_label_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/work_sans_regular"
+                android:maxLines="1"
+                android:textColor="@color/widget_muted"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_stat_value_2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/source_serif_regular"
+                android:maxLines="1"
+                android:textColor="@color/widget_ink"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/widget_stat_label_2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/work_sans_regular"
+                android:maxLines="1"
+                android:textColor="@color/widget_muted"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_stats_current"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_stats_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:fontFamily="@font/source_serif_regular"
+            android:maxLines="1"
+            android:textColor="@color/widget_ink"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!--
+              The explicit platform style, not ?android:attr — a widget is inflated
+              against the launcher's theme, and a theme attribute would resolve to
+              whatever that launcher happens to define. Without a horizontal style a
+              bare ProgressBar is an indeterminate spinner.
+            -->
+            <ProgressBar
+                android:id="@+id/widget_stats_progress"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="0dp"
+                android:layout_height="5dp"
+                android:layout_weight="1"
+                android:max="100"
+                android:progressDrawable="@drawable/widget_progress" />
+
+            <TextView
+                android:id="@+id/widget_stats_percent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:fontFamily="@font/work_sans_regular"
+                android:maxLines="1"
+                android:textColor="@color/widget_muted"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_stats_prompt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/work_sans_regular"
+        android:maxLines="1"
+        android:textColor="@color/widget_muted"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/widget_stats_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/widget_panel"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="14dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_stats_empty_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/source_serif_regular"
+            android:maxLines="1"
+            android:textColor="@color/widget_ink"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/widget_stats_empty_detail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:fontFamily="@font/work_sans_regular"
+            android:maxLines="1"
+            android:textColor="@color/widget_muted"
+            android:textSize="12sp" />
+    </LinearLayout>
+</LinearLayout>
