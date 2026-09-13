@@ -1086,3 +1086,50 @@ the old file in place and the new test failed against the previous book — that
 time twice, and the cache path now carries a version to bump. And the device gate
 uninstalls both APKs when it finishes, which left the phone with no Folio on it
 mid-session; `check-device.sh` reinstalls afterwards.
+
+## 2026-09-13 — One bad width, a whole book in fragments
+
+The reader was indenting every line and pushing text to the next page. It looked
+like a typography bug, and it was not: the paragraphs themselves were wrong.
+
+`Dehyphenator.merge` joined a word split across a line break and set the merged
+lines
+
+## 2026-09-13 — One bad width, a whole book in fragments
+
+The reader was indenting every line and pushing text to the next page. It looked
+like a typography bug, and it was not: the paragraphs themselves were wrong.
+
+`Dehyphenator.merge` joined a word split across a line break and set the merged
+line's width to `prev.width + next.width` — 788pt on a 612pt page. Nothing caught
+it, because a `Line`'s width is never read where it is written. It is read much
+later by `ParagraphAssembler`, which took `body.maxOf { it.width }` as the measure
+of the page. One hyphenated break was therefore enough to push the threshold above
+every real line on that page, and a line that stops short of the measure ends a
+paragraph. Affected pages came out one line per paragraph. The first-line indent
+added the day before is what finally made it visible.
+
+Both halves are fixed. A merged line now ends where its continuation ends, which is
+the only right edge worth keeping — the head reached the margin by definition, or it
+would not have been hyphenated. And the measure is the 90th percentile of line
+widths rather than the maximum, so no single line can speak for a page again.
+
+**What found it.** Not reading the code. I first concluded from a JVM diagnostic
+that extraction was correct and the device data was stale, and that was wrong — the
+instrumented probe reproduced the fragmentation exactly. Then, chasing an impossible
+788pt width, I checked whether any *run* overflowed the page: none did, which meant
+the width was manufactured downstream and left exactly one stage to look at.
+Printing the numbers beat reasoning about them, again.
+
+**One trap worth recording.** An instrumented test runs `:core` out of the
+*installed app APK*, not the test APK. Reinstalling only `androidTest` after a
+`:core` change silently tests the old code — which is what made the first
+verification run look like the fix had done nothing.
+
+**Measured on the real book.** 5655 blocks to 5055; mean paragraph 80 to 89
+characters; 2% of blocks ending without terminal punctuation, and those are title-page
+lines. Chapter 8 went from 121 one-line blocks to 99 paragraphs. 512 tests, 0 failures.
+
+**Still open.** A book keeps whatever extraction it was imported with, so this fix did
+not reach the copy already on the device; it had to be re-imported by hand. And there
+is no way to delete a book from the library at all.
