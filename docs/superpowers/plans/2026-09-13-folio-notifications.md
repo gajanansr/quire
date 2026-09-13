@@ -259,20 +259,20 @@ recorded minutes — the first moment there is evidence they want to come back.
 `MainActivity.kt`, `ui/FolioStrings.kt`,
 `test/notify/ReminderPermissionTest.kt` (create)
 
-- [ ] `ReminderPermission.shouldInvite(settings, creditedMinutes)` — onboarded, never
+- [x] `ReminderPermission.shouldInvite(settings, creditedMinutes)` — onboarded, never
       asked before, and minutes were just recorded. Pure.
-- [ ] `shouldRequestSystemPrompt(...)` — only on API 33+, only when not granted, and
+- [x] `shouldRequestSystemPrompt(...)` — only on API 33+, only when not granted, and
       only when the reader has not already denied. **Never twice.**
-- [ ] `shouldOpenSystemSettings(...)` — once denied, or below 33 with notifications
+- [x] `shouldOpenSystemSettings(...)` — once denied, or below 33 with notifications
       switched off, the only honest route is the system screen. Folio asks once and
       then gets out of the way.
-- [ ] `ReminderInviteScreen`: the offer in the app's own voice, two buttons — "Yes,
+- [x] `ReminderInviteScreen`: the offer in the app's own voice, two buttons — "Yes,
       remind me" and "No thanks". Either answer sets `remindersAsked`, so the offer
       never appears again whichever way it went.
-- [ ] `MainActivity` holds the permission launcher; a denial writes
+- [x] `MainActivity` holds the permission launcher; a denial writes
       `reminderPermissionDenied` and turns `remindersEnabled` back off, because a
       toggle that reads "on" while the OS refuses to deliver is a lie.
-- [ ] Test: not offered before onboarding, not offered on a session that recorded
+- [x] Test: not offered before onboarding, not offered on a session that recorded
       nothing, not offered twice; the prompt is never raised after a denial; below
       API 33 the prompt is never raised at all; after a denial the deep link is what
       is offered instead.

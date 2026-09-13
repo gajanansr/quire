@@ -156,6 +156,30 @@ object Reminders {
         return if (ahead > 0) ahead else ahead + MINUTES_PER_DAY
     }
 
+    /**
+     * A time of day, written the way the reader's phone writes times.
+     *
+     * [use24Hour] comes from the system setting rather than from a locale guess, so
+     * someone whose phone shows 20:00 is not shown 8:00 pm by the one screen in
+     * Folio that talks about clock time.
+     *
+     * Midnight and noon are the whole reason this is a function and not a format
+     * string: both are hour zero modulo twelve, and the obvious conversion writes
+     * them as "0:00 am" and "0:00 pm".
+     */
+    fun formatTime(minuteOfDay: Int, use24Hour: Boolean): String {
+        val hour = (minuteOfDay / 60).coerceIn(0, 23)
+        val minute = (minuteOfDay % 60).coerceIn(0, 59)
+        val paddedMinute = minute.toString().padStart(2, '0')
+        if (use24Hour) return "${hour.toString().padStart(2, '0')}:$paddedMinute"
+        val suffix = if (hour < 12) "am" else "pm"
+        val twelve = when (hour % 12) {
+            0 -> 12
+            else -> hour % 12
+        }
+        return "$twelve:$paddedMinute $suffix"
+    }
+
     /** Null when the reader has switched off every kind that applies today. */
     private fun kindFor(facts: ReminderFacts): ReminderKind? = when {
         facts.streakEnabled && facts.currentStreak >= STREAK_MIN -> ReminderKind.STREAK

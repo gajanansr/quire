@@ -73,6 +73,25 @@ object FolioStrings {
     const val REMINDER_CHANNEL_EXPLAINER =
         "One gentle reminder a day, and none at all on a day you've already read."
 
+    // The offer, made once, after a reading session that recorded real minutes.
+    // It states the two things a reader needs to decide: how often, and that a day
+    // they have already read is a day Folio says nothing.
+    const val REMINDER_INVITE_TITLE = "Want a nudge at reading time?"
+    const val REMINDER_INVITE_BODY =
+        "One quiet reminder a day, at a time you pick. Never on a day you've " +
+            "already read, and you can turn it off whenever you like."
+    const val REMINDER_INVITE_YES = "Yes, remind me"
+    const val REMINDER_INVITE_NO = "No thanks"
+
+    // Settings.
+    const val REMINDERS = "Reading reminders"
+    const val REMINDER_TIME = "Remind me at"
+    const val REMINDER_DAILY = "Daily reminder"
+    const val REMINDER_STREAK = "Streak nudges"
+    const val REMINDERS_BLOCKED = "Turned off in system settings"
+    const val REMINDERS_ON = "On"
+    const val REMINDERS_OFF = "Off"
+
     // Navigation
     const val NAV_LIBRARY = "Library"
     const val NAV_BOOKMARKS = "Bookmarks"

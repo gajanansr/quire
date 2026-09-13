@@ -57,6 +57,40 @@ class ReminderScheduleTest {
         }
     }
 
+    // ------------------------------------------------------ saying the time
+
+    @Test
+    fun `noon and midnight are where a twelve-hour clock always goes wrong`() {
+        // Both are hour 0 modulo 12, and the naive conversion writes them as "0:00".
+        assertEquals("12:00 am", Reminders.formatTime(0, use24Hour = false))
+        assertEquals("12:00 pm", Reminders.formatTime(12 * 60, use24Hour = false))
+        assertEquals("12:30 am", Reminders.formatTime(30, use24Hour = false))
+        assertEquals("12:30 pm", Reminders.formatTime(12 * 60 + 30, use24Hour = false))
+    }
+
+    @Test
+    fun `the ordinary times read the way a person would write them`() {
+        assertEquals("8:00 pm", Reminders.formatTime(20 * 60, use24Hour = false))
+        assertEquals("7:05 am", Reminders.formatTime(7 * 60 + 5, use24Hour = false))
+        assertEquals("11:59 pm", Reminders.formatTime(day - 1, use24Hour = false))
+        assertEquals("20:00", Reminders.formatTime(20 * 60, use24Hour = true))
+        assertEquals("07:05", Reminders.formatTime(7 * 60 + 5, use24Hour = true))
+        assertEquals("00:00", Reminders.formatTime(0, use24Hour = true))
+    }
+
+    @Test
+    fun `every minute of the day can be said out loud`() {
+        (0 until day).forEach { minute ->
+            val twelve = Reminders.formatTime(minute, use24Hour = false)
+            val twentyFour = Reminders.formatTime(minute, use24Hour = true)
+            assertTrue("minute $minute has no 12-hour form", twelve.isNotBlank())
+            assertTrue("minute $minute has no 24-hour form", twentyFour.isNotBlank())
+            val hour = twelve.substringBefore(':').toInt()
+            assertTrue("a 12-hour clock showing $hour at minute $minute", hour in 1..12)
+            assertEquals("minute $minute lost its padding: $twentyFour", 5, twentyFour.length)
+        }
+    }
+
     @Test
     fun `the wait is never nothing and never more than a day`() {
         // Zero would enqueue work that runs immediately, which turns a scheduled
