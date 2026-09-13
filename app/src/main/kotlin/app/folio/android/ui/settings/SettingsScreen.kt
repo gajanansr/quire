@@ -19,9 +19,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.folio.android.data.AppSettingsEntity
 import app.folio.android.data.HabitRepository
+import app.folio.android.share.SupportLink
 import app.folio.android.ui.theme.Folio
 import app.folio.android.ui.theme.FolioIcon
 import app.folio.android.ui.theme.FolioIcons
@@ -44,6 +46,7 @@ fun SettingsScreen(
     onCycleTheme: () -> Unit,
     onGoalChange: (Int) -> Unit,
     onOpenLicences: () -> Unit,
+    onShowSupport: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = Folio.colors
@@ -114,6 +117,28 @@ fun SettingsScreen(
                 onClick = null,
             )
         }
+
+        Spacer(Modifier.height(22.dp))
+        GroupLabel("Support")
+        Group {
+            ValueRow(
+                label = "Show your support",
+                // Opened in the reader's browser. Folio holds no payment details and
+                // declares no INTERNET permission — handing the URL to the system is
+                // the whole of what happens here.
+                value = "razorpay.me",
+                onClick = onShowSupport,
+            )
+        }
+
+        Spacer(Modifier.height(28.dp))
+        Text(
+            "Made with love by ${SupportLink.AUTHOR}.",
+            color = colors.muted,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

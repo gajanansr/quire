@@ -161,8 +161,8 @@ is neutral grey, which is what keeps that theme black and white.
 **Files:** `ui/settings/SettingsScreen.kt`, `ui/nav/FolioRoot.kt`,
 `ui/FolioStrings.kt`
 
-- [ ] An About row: **Show your support** → `https://razorpay.me/@gajanansr` via
+- [x] An About row: **Show your support** → `https://razorpay.me/@gajanansr` via
       `ShareIntents.view`, opened in the browser.
-- [ ] A footer line under the last group: *Made with love by Gajanan.*
-- [ ] Test: the settings screen's support url is exactly that string — a donation
+- [x] A footer line under the last group: *Made with love by Gajanan.*
+- [x] Test: the settings screen's support url is exactly that string — a donation
       link typed wrong sends money to a stranger.

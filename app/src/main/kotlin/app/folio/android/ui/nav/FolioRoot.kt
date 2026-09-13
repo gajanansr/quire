@@ -41,6 +41,9 @@ import app.folio.android.ui.habit.GoalScreen
 import app.folio.android.ui.habit.OnboardingScreen
 import app.folio.android.ui.habit.StreakScreen
 import app.folio.android.ui.settings.SettingsScreen
+import app.folio.android.share.ShareIntents
+import app.folio.android.share.Sharing
+import app.folio.android.share.SupportLink
 import app.folio.android.ui.share.ShareCard
 import app.folio.android.ui.share.ShareSheet
 import app.folio.android.data.AppSettingsEntity
@@ -112,6 +115,7 @@ fun FolioRoot(
 
     var confirmExit by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     // One Back rule for the whole app, and it lives in [back] where a test can read
     // it. Every screen below is a `when` branch over these same variables, so Back
@@ -301,6 +305,9 @@ fun FolioRoot(
                     },
                     onGoalChange = { scope.launch { habitRepository.setDailyGoal(it) } },
                     onOpenLicences = { /* the licence text ships in res/raw */ },
+                    onShowSupport = {
+                        Sharing.start(context, ShareIntents.view(SupportLink.URL))
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
