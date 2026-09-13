@@ -178,11 +178,11 @@ content bottom in every state the device test's fixed XML visibilities never rea
 **Files:** `widget/WidgetState.kt` (edit), `widget/WidgetData.kt` (edit),
 `test/widget/WidgetDataTest.kt` (edit)
 
-- [ ] Test first: a snapshot loaded after `habits.setTheme("SEPIA")` carries
+- [x] Test first: a snapshot loaded after `habits.setTheme("SEPIA")` carries
       `FolioThemeName.SEPIA`; a fresh install carries `PAPER`; a row holding one of
       the retired names — `"DARK"` — carries `NIGHT`, because `themeNamed` is the one
       place that mapping lives and the widget must not reset a reader's theme.
-- [ ] `WidgetSnapshot` gains `theme: FolioThemeName = PAPER`. `WidgetData.load`
+- [x] `WidgetSnapshot` gains `theme: FolioThemeName = PAPER`. `WidgetData.load`
       fills it from the settings row it already reads — no second query.
 
 ### Task 3: The Folio mark, in one colour
