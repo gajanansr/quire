@@ -27,9 +27,20 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Folio">
 
+        <!--
+          singleTask because Folio is opened from outside itself — a widget today, a
+          reminder next. FLAG_ACTIVITY_SINGLE_TOP on the intent is not enough: it only
+          reuses the activity when it is already the top of the target task, and a
+          launcher starting one with NEW_TASK usually is not in that state. Without a
+          launchMode the default is `standard`, which allows unlimited copies, and
+          tapping the widget three times built three MainActivity instances stacked on
+          each other — the app appeared to relaunch and Back peeled the copies off one
+          by one. Measured, not assumed: WidgetLaunchTest holds it.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.Folio"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
