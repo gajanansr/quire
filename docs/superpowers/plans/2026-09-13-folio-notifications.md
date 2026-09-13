@@ -48,16 +48,20 @@ notifications — this plan is new ground and says so).
 
 ## The shape of it
 
+As built. Two departures from the first draft of this table are marked, both because
+a piece turned out to belong where it is used rather than where it was planned.
+
 | Piece | What it is | Where |
 |---|---|---|
-| `Reminders.decide` | pure: facts in, `Silent(reason)` or `Notify(kind, copy)` out | `notify/Reminders.kt` |
-| `ReminderCopy` | pure: the hand-written lines, chosen by kind and day | `notify/Reminders.kt` |
-| `ReminderSchedule` | pure: delay to the next occurrence, and the delivery window | `notify/Reminders.kt` |
+| `Reminders.decide` | pure: facts in, `Silent(reason)` or `Notify(kind)` out | `notify/Reminders.kt` |
+| `Reminders.inWindow` / `.minutesUntil` / `.formatTime` | pure: the clock arithmetic *(planned as a separate `ReminderSchedule`)* | `notify/Reminders.kt` |
+| `ReminderWords.pick` | pure: the hand-written lines, chosen by kind and day | `notify/ReminderWords.kt` |
 | `ReminderScheduler` | WorkManager enqueue / cancel | `notify/ReminderScheduler.kt` |
 | `ReminderWorker` | gathers facts, calls `decide`, posts, reschedules | `notify/ReminderWorker.kt` |
 | `FolioNotifier` | the channel, the notification, the tap target | `notify/FolioNotifier.kt` |
 | `NotificationAccess` | whether Folio may post at all, right now | `notify/FolioNotifier.kt` |
 | `ReminderPermission` | pure: when to ask, when to stop asking, when to deep-link | `notify/ReminderPermission.kt` |
+| `invitationVisible` | pure: whether the offer is on screen, so Back agrees with the renderer *(added after review)* | `ui/nav/FolioBack.kt` |
 
 ### The two kinds, and why only two
 
