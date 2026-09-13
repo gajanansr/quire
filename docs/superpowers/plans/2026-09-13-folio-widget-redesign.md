@@ -187,23 +187,23 @@ content bottom in every state the device test's fixed XML visibilities never rea
 
 ### Task 3: The Folio mark, in one colour
 
-**Files:** `res/drawable/ic_folio_mark.xml` (create),
+**Files:** `res/drawable/folio_mark.xml` (create),
 `test/widget/FolioMarkTest.kt` (create)
 
-- [ ] The same folio the launcher draws — one sheet folded once, two leaves meeting
+- [x] The same folio the launcher draws — one sheet folded once, two leaves meeting
       at a fold — redrawn on a 24dp grid for widget scale: the launcher's version
       spends most of its 108dp viewport on the adaptive-icon safe circle, which at
       14dp on a home screen leaves a mark half the size it looks.
-- [ ] **One colour, not the launcher's two.** The launcher's shadowed leaf is an
+- [x] **One colour, not the launcher's two.** The launcher's shadowed leaf is an
       0.8-alpha page on a fixed navy ground. A widget has five grounds, and on Black
       that leaf is mud. A single flat fill reads on all five, and is how every other
       icon in Folio is treated — `ic_flame` carries a placeholder colour and is
       tinted at the use site.
-- [ ] The fold is widened relative to the launcher's — 3.2 units of 24 at the head
+- [x] The fold is widened relative to the launcher's — 3.2 units of 24 at the head
       and tail, tapering to about 2.1 at mid-height rather than to 0.6. The taper is
       what makes it one creased sheet instead of two rectangles, and at 14dp the
       launcher's taper closes the fold up entirely.
-- [ ] Test: the drawable inflates, is 24×24 with a 24×24 viewport, and every path
+- [x] Test: the drawable inflates, is 24×24 with a 24×24 viewport, and every path
       coordinate lies inside the viewport.
 
 ### Task 4: The streak widget, redrawn
