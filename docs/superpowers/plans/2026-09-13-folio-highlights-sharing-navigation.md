@@ -53,10 +53,10 @@ circular buttons in the header go to the same two places.
 
 **Files:** `ui/library/LibraryScreen.kt`, `ui/nav/FolioRoot.kt`
 
-- [ ] Remove both `IconButtonBox` calls, the `IconButtonBox` composable, and the
+- [x] Remove both `IconButtonBox` calls, the `IconButtonBox` composable, and the
       `onOpenBookmarks` / `onOpenSettings` parameters from `LibraryScreen`.
-- [ ] Drop the now-dead arguments at the call site in `FolioRoot`.
-- [ ] The header keeps the greeting and the subtitle, which is all it was for.
+- [x] Drop the now-dead arguments at the call site in `FolioRoot`.
+- [x] The header keeps the greeting and the subtitle, which is all it was for.
 
 ### Task 3: Back goes back, and only the Library asks to leave
 

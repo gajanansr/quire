@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +31,6 @@ import app.folio.android.data.HabitSummary
 import app.folio.android.data.LibraryBook
 import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.common.EmptyState
-import androidx.annotation.DrawableRes
 import app.folio.android.ui.theme.Folio
 import app.folio.android.ui.theme.FolioIcon
 import app.folio.android.ui.theme.FolioIcons
@@ -54,8 +52,6 @@ fun LibraryScreen(
     onOpenBook: (String) -> Unit,
     onAddBook: () -> Unit,
     onOpenStreak: () -> Unit,
-    onOpenBookmarks: () -> Unit,
-    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = Folio.colors
@@ -70,7 +66,7 @@ fun LibraryScreen(
                 .background(colors.bg)
                 .padding(horizontal = 20.dp),
         ) {
-            LibraryHeader(hourOfDay, state, habits, onOpenBookmarks, onOpenSettings)
+            LibraryHeader(hourOfDay, state, habits)
             EmptyState(
                 title = FolioStrings.LIBRARY_EMPTY,
                 hint = FolioStrings.LIBRARY_EMPTY_HINT,
@@ -94,7 +90,7 @@ fun LibraryScreen(
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
-                LibraryHeader(hourOfDay, state, habits, onOpenBookmarks, onOpenSettings)
+                LibraryHeader(hourOfDay, state, habits)
                 HabitCard(habits = habits, onClick = onOpenStreak)
                 state.continueReading?.let { book ->
                     Spacer(Modifier.height(20.dp))
@@ -123,8 +119,6 @@ private fun LibraryHeader(
     hourOfDay: Int,
     state: LibraryState,
     habits: HabitSummary,
-    onOpenBookmarks: () -> Unit,
-    onOpenSettings: () -> Unit,
 ) {
     val colors = Folio.colors
     Row(
@@ -143,17 +137,6 @@ private fun LibraryHeader(
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        IconButtonBox(
-            onClick = onOpenBookmarks,
-            icon = FolioIcons.Bookmarks,
-            description = FolioStrings.NAV_BOOKMARKS,
-        )
-        Spacer(Modifier.size(8.dp))
-        IconButtonBox(
-            onClick = onOpenSettings,
-            icon = FolioIcons.Settings,
-            description = FolioStrings.NAV_SETTINGS,
-        )
     }
 }
 
@@ -180,25 +163,6 @@ private fun subtitleFor(state: LibraryState, habits: HabitSummary): String {
         0 -> ""
         1 -> "1 book in your library"
         else -> "${state.books.size} books in your library"
-    }
-}
-
-@Composable
-private fun IconButtonBox(
-    onClick: () -> Unit,
-    @DrawableRes icon: Int,
-    description: String,
-) {
-    val colors = Folio.colors
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(colors.bgAlt)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        FolioIcon(icon, contentDescription = description, tint = colors.ink)
     }
 }
 

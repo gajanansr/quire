@@ -228,8 +228,6 @@ fun FolioRoot(
                     onOpenBook = { openBookId = it },
                     onAddBook = { showAddSheet = true },
                     onOpenStreak = { habitScreen = HabitScreen.STREAK },
-                    onOpenBookmarks = { destination = FolioDestination.BOOKMARKS },
-                    onOpenSettings = { destination = FolioDestination.SETTINGS },
                 )
 
                 destination == FolioDestination.BOOKMARKS -> BookmarksScreen(
