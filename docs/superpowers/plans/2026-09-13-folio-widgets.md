@@ -86,25 +86,28 @@ The whole of both widgets' copy and geometry, decided where JUnit can reach it.
 
 **Files:** `widget/WidgetState.kt` (create), `test/widget/WidgetStateTest.kt` (create)
 
-- [ ] `WidgetSnapshot(habits: HabitSummary, booksFinished, chaptersFinished,
-      totalMinutes, libraryCount, currentBook: CurrentBook?)` — the input, a plain
-      data class with no Android types in it.
-- [ ] `habitWidget(snapshot): HabitWidgetState(headline, detail, week: List<DayBar>,
-      lit: Boolean, empty: Boolean)`, where `DayBar(filled: Boolean, alpha: Int)`
-      mirrors `HabitCard`'s `0.3f + 0.7f * ratio` ramp and `lit` is whether the flame
-      is drawn in the accent colour or the border colour — the same rule
-      `StreakScreen` uses, so a reader is not congratulated on day zero.
-- [ ] `statsWidget(snapshot): StatsWidgetState(tiles: List<Tile>, current: Current?,
-      empty: Boolean, emptyTitle, emptyDetail)`, with `Tile(value, label)`.
-- [ ] Tests, all of them naming a real reader: a fresh install (no days, no books)
+- [x] `WidgetSnapshot(habits: HabitSummary, booksFinished, chaptersFinished,
+      libraryCount, currentBook: CurrentBook?)` — the input, a plain data class with
+      no Android types in it. `totalMinutes` is derived from the recorded days rather
+      than carried beside them, so there is one source of truth for it.
+- [x] `habitWidget(snapshot): HabitWidgetState(headline, detail, week: List<DayBar>,
+      lit: Boolean)`, where `DayBar(filled: Boolean, alpha: Int)` mirrors
+      `HabitCard`'s `0.3f + 0.7f * ratio` ramp and `lit` is whether the flame is
+      drawn in the accent colour or the border colour — the same rule `StreakScreen`
+      uses, so a reader is not congratulated on day zero.
+- [x] `statsWidget(snapshot): StatsWidgetState(tiles, current, prompt, empty)`, with
+      `Tile(value, label)` and a `prompt` standing in for the current book when the
+      library has nothing open.
+- [x] Tests, all of them naming a real reader: a fresh install (no days, no books)
       gets the invitation and seven empty bars, not a streak; a broken streak reads
       as an invitation to start again and not as a zero; a met goal says so rather
       than reciting minutes; **"1 day" and "2 days", "1 book" and "2 books",
-      "1 chapter" and "2 chapters"**; a goal of zero does not divide by it; a day
-      over the goal does not push a bar past full; time reads "45 min" under an hour
-      and "3h 20m" over it; a library with books but nothing finished shows real
-      zeroes rather than the empty state; the week is always seven bars, oldest
-      first, including days with nothing in them.
+      "1 chapter" and "2 chapters", "1 book waiting"**; a goal of zero does not
+      divide by it; a day over the goal does not push a bar past full; time reads
+      "45m" under an hour, "3h 20m" over it and "2h" rather than "2h 0m"; a library
+      with books but nothing finished shows real zeroes rather than the empty state;
+      the week is always seven bars, oldest first, including days with nothing in
+      them. 23 tests.
 
 ### Task 3: The habit widget
 
