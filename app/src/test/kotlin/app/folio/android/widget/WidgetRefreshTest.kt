@@ -179,4 +179,15 @@ class WidgetRefreshTest {
             )
         }
     }
+
+    @Test
+    fun `a changed theme announces itself`() = runBlocking {
+        // The widgets are painted in the reader's theme, so changing it changes what
+        // they show. Without an announcement the app turns dark and the widget beside
+        // it stays on paper until the next write or the half-hour tick — which reads
+        // as a bug rather than as a delay, on the one screen where both are visible
+        // at once.
+        habits.setTheme("NIGHT")
+        assertEquals(1, announced)
+    }
 }

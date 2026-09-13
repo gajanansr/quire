@@ -149,6 +149,12 @@ class HabitRepository(
 
     suspend fun setTheme(name: String) {
         db.settings().put(settings().copy(themeName = name))
+        // The widgets are painted in the reader's theme, so a theme change is a
+        // change to what they show. Without this the home screen keeps the old
+        // palette until the next write or the half-hour tick — the app turns dark
+        // and the widget beside it stays on paper, which reads as a bug rather than
+        // as a delay.
+        onDataChanged()
     }
 
     suspend fun setReaderPreferences(font: String, sizeSp: Float, justify: Boolean) {
