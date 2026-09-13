@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
@@ -23,6 +24,9 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import app.folio.android.data.BookRepository
 import app.folio.android.data.HabitRepository
 import app.folio.android.habit.SessionTracker
+import app.folio.android.share.ShareIntents
+import app.folio.android.share.Sharing
+import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.theme.FolioThemeName
 import app.folio.android.ui.theme.ReaderFont
 import app.folio.core.model.Chapter
@@ -34,6 +38,7 @@ import app.folio.core.paginate.Paginator
 import app.folio.core.paginate.Viewport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -265,6 +270,17 @@ fun ReaderHost(
         }
     }
 
+    val context = LocalContext.current
+
+    // Saved highlights for whichever chapter is open. Collected rather than loaded
+    // once, so a passage the reader highlights appears under their finger instead of
+    // on the next visit.
+    LaunchedEffect(bookId, state.chapterIndex) {
+        repository.observeHighlights(bookId, state.chapterIndex).collect { spans ->
+            state = state.copy(highlights = spans)
+        }
+    }
+
     LaunchedEffect(bookId) { contents = repository.chapterIndex(bookId) }
 
     // Typography is a setting, not a session preference: someone who chose Lora at
@@ -301,6 +317,42 @@ fun ReaderHost(
                 }
             },
             onFinish = { persist(); onExit() },
+            onSelectionStart = { state = ReaderTransitions.selectionStarted(state, it) },
+            onSelectionExtend = { state = ReaderTransitions.selectionExtended(state, it) },
+            onSelectionClear = { state = ReaderTransitions.selectionCleared(state) },
+            onHighlight = {
+                val snapshot = state
+                val span = snapshot.selection
+                if (span != null) {
+                    scope.launch {
+                        repository.addHighlight(
+                            bookId = bookId,
+                            chapterIndex = snapshot.chapterIndex,
+                            span = span,
+                            snippet = snapshot.selectedText,
+                        )
+                        // Cleared only after the row is written, so the passage stays
+                        // lit until there is something saved to light it.
+                        state = ReaderTransitions.selectionCleared(state)
+                        bookmarked = true
+                    }
+                }
+            },
+            onShareSelection = {
+                val snapshot = state
+                Sharing.start(
+                    context,
+                    ShareIntents.text(
+                        passageOf(snapshot),
+                        FolioStrings.SHARE,
+                    ),
+                )
+                state = ReaderTransitions.selectionCleared(state)
+            },
+            onCopySelection = {
+                Sharing.copy(context, FolioStrings.SHARE, passageOf(state))
+                state = ReaderTransitions.selectionCleared(state)
+            },
         )
 
         // A brief confirmation, as the handoff shows, rather than a permanent badge.
@@ -334,4 +386,15 @@ fun ReaderHost(
             else -> Unit
         }
     }
+}
+
+/**
+ * A chosen passage, with the book it came from.
+ *
+ * Built here rather than in the share sheet because a passage shared straight from
+ * the reader never passes through one — and it should read the same either way.
+ */
+private fun passageOf(state: ReaderState): String = buildString {
+    append('\u201C').append(state.selectedText.trim()).append('\u201D')
+    if (state.bookTitle.isNotBlank()) append("\n\n\u2014 ").append(state.bookTitle)
 }

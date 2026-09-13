@@ -117,20 +117,20 @@ destinations are generic glyphs that hand off nowhere.
 **Files:** `core/reading/Selection.kt` (create),
 `core/src/test/.../reading/SelectionTest.kt` (create), `ui/reader/ReaderScreen.kt`
 
-- [ ] `TextAnchor(blockIndex, charOffset)`, `TextSpan(start, end)` normalised so
+- [x] `TextAnchor(blockIndex, charOffset)`, `TextSpan(start, end)` normalised so
       `start <= end` however the reader dragged.
-- [ ] `WordBoundary.expand(text, offset): IntRange` — long-press takes the word, not
+- [x] `WordBoundary.expand(text, offset): IntRange` — long-press takes the word, not
       the character, because nobody aims at a character.
-- [ ] `Selection.portionOf(span, blockIndex, sliceStart, sliceEnd): IntRange?` maps a
+- [x] `Selection.portionOf(span, blockIndex, sliceStart, sliceEnd): IntRange?` maps a
       selection onto the slice of a block a page actually draws, returning null when
       they do not overlap. This is the one piece of arithmetic that has to be right:
       a page draws part of a block, and a selection spans whole ones.
-- [ ] `Selection.textOf(blockTexts, span): String` rebuilds the selected text across
+- [x] `Selection.textOf(blockTexts, span): String` rebuilds the selected text across
       blocks, joined the way paragraphs join.
-- [ ] Reader: long-press starts a selection, drag extends it, release shows an action
+- [x] Reader: long-press starts a selection, drag extends it, release shows an action
       bar. Page-turn gestures are disabled while a selection is live, so a drag
       extends the selection instead of turning the page.
-- [ ] Test: a span inside one block, a span across three, a span whose block is only
+- [x] Test: a span inside one block, a span across three, a span whose block is only
       half-drawn on this page, and a span that misses the page entirely.
 
 ### Task 7: Highlight it, and keep it
@@ -142,15 +142,15 @@ is neutral grey, which is what keeps that theme black and white.
 `ui/reader/ReaderTypography.kt`, `ui/reader/ReaderScreen.kt`,
 `test/data/MigrationTest.kt`, `test/ui/reader/MeasureMatchesRenderTest.kt`
 
-- [ ] `BookmarkEntity` gains `endBlockIndex` and `endCharOffset`. A plain position
+- [x] `BookmarkEntity` gains `endBlockIndex` and `endCharOffset`. A plain position
       bookmark has them equal to its start, so one table holds both and a bookmark is
       simply a highlight of no width.
-- [ ] `MIGRATION_4_5` adds the columns, seeded from the existing start values.
-- [ ] `readerText(text, style, marks: List<IntRange> = emptyList())` adds a
+- [x] `MIGRATION_4_5` adds the columns, seeded from the existing start values.
+- [x] `readerText(text, style, marks: List<IntRange> = emptyList())` adds a
       background `SpanStyle` per mark. Defaulted so `ComposeTextMeasurer` keeps
       passing none — and it must, because the measurer has no highlights to know
       about.
-- [ ] Test: **a highlighted paragraph measures identically to the same paragraph
+- [x] Test: **a highlighted paragraph measures identically to the same paragraph
       unhighlighted.** A background span cannot move a line break; this is the test
       that proves it stays that way, and it belongs next to the drift it prevents.
 - [ ] Test: a saved highlight reappears on the page it was made on, and the bookmark

@@ -8,6 +8,9 @@ import app.folio.core.paginate.Page
 import app.folio.core.paginate.TypographySettings
 import app.folio.core.paginate.pageContaining
 import app.folio.core.paginate.startPosition
+import app.folio.core.reading.Selection
+import app.folio.core.reading.TextAnchor
+import app.folio.core.reading.TextSpan
 
 /** Which overlay, if any, is covering the page. */
 enum class ReaderOverlay { NONE, CONTENTS, TYPOGRAPHY, BOOKMARK }
@@ -49,6 +52,18 @@ data class ReaderState(
     val overlay: ReaderOverlay = ReaderOverlay.NONE,
     val preferences: ReaderPreferences = ReaderPreferences(),
     val bookTotalChars: Int = 0,
+    /**
+     * The passage the reader is choosing, if any.
+     *
+     * Held here rather than in the page because a selection survives a redraw and a
+     * page turn does not survive a selection — while one is live the page-turn
+     * gestures step aside, or a drag to extend it would turn the page instead.
+     */
+    val selection: TextSpan? = null,
+    /** Where the long press landed; the drag moves the other end. */
+    val selectionAnchor: TextAnchor? = null,
+    /** Saved highlights for the open chapter, drawn on whichever page shows them. */
+    val highlights: List<TextSpan> = emptyList(),
 ) {
     val pageCount: Int get() = pages.size
 
@@ -95,6 +110,16 @@ data class ReaderState(
             val heading = ch.blockTexts.firstOrNull()?.trim().orEmpty()
             val title = chapterTitle?.trim().orEmpty()
             return !heading.equals(title, ignoreCase = true)
+        }
+
+    val hasSelection: Boolean get() = selection != null && selection.isEmpty.not()
+
+    /** The words the reader has chosen, ready to highlight, copy or share. */
+    val selectedText: String
+        get() {
+            val span = selection ?: return ""
+            val ch = chapter ?: return ""
+            return Selection.textOf(ch.blockTexts, span)
         }
 
     /**
@@ -187,6 +212,37 @@ object ReaderTransitions {
     fun tapped(state: ReaderState): ReaderState =
         if (!state.tapTogglesChrome) state
         else state.copy(chromeVisible = !state.chromeVisible)
+
+    /**
+     * A long press: take the word under the finger.
+     *
+     * The word, not the character — a fingertip covers several characters, and a
+     * selection that starts as one letter reads as a misfire rather than a start.
+     */
+    fun selectionStarted(state: ReaderState, at: TextAnchor): ReaderState {
+        val text = state.chapter?.blockTexts?.getOrNull(at.blockIndex) ?: return state
+        val word = app.folio.core.reading.WordBoundary.expand(text, at.charOffset)
+        if (word.isEmpty()) return state
+
+        val start = TextAnchor(at.blockIndex, word.first)
+        val end = TextAnchor(at.blockIndex, word.last + 1)
+        return state.copy(
+            selection = TextSpan.of(start, end),
+            selectionAnchor = start,
+            // Chrome would cover the passage being chosen.
+            chromeVisible = false,
+        )
+    }
+
+    /** A drag after the press: the fixed end stays, the other follows the finger. */
+    fun selectionExtended(state: ReaderState, to: TextAnchor): ReaderState {
+        val from = state.selectionAnchor ?: return state
+        return state.copy(selection = TextSpan.of(from, to))
+    }
+
+    fun selectionCleared(state: ReaderState): ReaderState =
+        if (state.selection == null && state.selectionAnchor == null) state
+        else state.copy(selection = null, selectionAnchor = null)
 
     fun withOverlay(state: ReaderState, overlay: ReaderOverlay): ReaderState =
         state.copy(overlay = overlay, chromeVisible = overlay != ReaderOverlay.NONE || state.chromeVisible)

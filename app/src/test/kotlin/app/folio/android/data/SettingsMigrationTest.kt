@@ -95,4 +95,39 @@ class SettingsMigrationTest {
     fun `a default settings row is justified`() {
         assertEquals(true, AppSettingsEntity().readerJustify)
     }
+
+    @Test
+    fun `an existing bookmark becomes a highlight of no width`() {
+        // Nothing is reinterpreted by giving bookmarks an end. Every row already in
+        // the table marked a place, and a place is a highlight that covers no words.
+        val db = versionThree(justify = 0)
+        db.execSQL(
+            """
+            CREATE TABLE bookmarks (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                bookId TEXT NOT NULL,
+                chapterIndex INTEGER NOT NULL,
+                blockIndex INTEGER NOT NULL,
+                charOffset INTEGER NOT NULL,
+                snippet TEXT NOT NULL,
+                createdAt INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "INSERT INTO bookmarks (bookId, chapterIndex, blockIndex, charOffset, snippet, createdAt) " +
+                "VALUES ('b1', 7, 4, 213, 'A saved place', 100)"
+        )
+
+        FolioDatabase.MIGRATION_4_5.migrate(db)
+
+        db.query("SELECT blockIndex, charOffset, endBlockIndex, endCharOffset FROM bookmarks").use {
+            it.moveToFirst()
+            assertEquals(4, it.getInt(0))
+            assertEquals(213, it.getInt(1))
+            assertEquals("the end did not follow the start", 4, it.getInt(2))
+            assertEquals("the end did not follow the start", 213, it.getInt(3))
+        }
+        db.close()
+    }
 }

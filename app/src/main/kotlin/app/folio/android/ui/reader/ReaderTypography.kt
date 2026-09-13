@@ -6,6 +6,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
@@ -65,20 +66,42 @@ fun readerTextStyle(
  * is not the one on screen — the same failure, from the same cause, as every other
  * time these two descriptions were allowed to differ.
  */
-fun readerText(text: String, style: BlockStyle): AnnotatedString {
-    if (!style.openingInitial || text.isEmpty()) return AnnotatedString(text)
-    // A letter, not a quotation mark: books raise the first letter of the first
-    // word, and a chapter that opens on dialogue should raise the W of "What",
-    // not the mark in front of it.
-    val at = text.indexOfFirst { it.isLetterOrDigit() }
-    if (at < 0) return AnnotatedString(text)
+fun readerText(
+    text: String,
+    style: BlockStyle,
+    /**
+     * Ranges to paint behind, in this string's own indices — a live selection or a
+     * saved highlight, already cut to the slice this page draws.
+     *
+     * Defaulted empty so [ComposeTextMeasurer] keeps passing none, and it must: the
+     * measurer paginates a chapter without knowing which parts of it are marked. That
+     * is only safe because a background is the one span style that cannot move a line
+     * break — it changes no metric. `MeasureMatchesRenderTest` holds that line, since
+     * the day it stops being true is the day pages start losing their last line again.
+     */
+    marks: List<Pair<IntRange, Color>> = emptyList(),
+): AnnotatedString {
+    val initialAt =
+        if (style.openingInitial && text.isNotEmpty()) text.indexOfFirst { it.isLetterOrDigit() }
+        else -1
+    if (initialAt < 0 && marks.isEmpty()) return AnnotatedString(text)
 
     return buildAnnotatedString {
         append(text)
-        addStyle(
-            SpanStyle(fontSize = style.fontSizeSp.sp * ChapterOpening.INITIAL_SCALE),
-            start = at,
-            end = at + 1,
-        )
+        // A letter, not a quotation mark: books raise the first letter of the first
+        // word, and a chapter that opens on dialogue should raise the W of "What",
+        // not the mark in front of it.
+        if (initialAt >= 0) {
+            addStyle(
+                SpanStyle(fontSize = style.fontSizeSp.sp * ChapterOpening.INITIAL_SCALE),
+                start = initialAt,
+                end = initialAt + 1,
+            )
+        }
+        marks.forEach { (range, colour) ->
+            val from = range.first.coerceIn(0, text.length)
+            val to = (range.last + 1).coerceIn(from, text.length)
+            if (from < to) addStyle(SpanStyle(background = colour), start = from, end = to)
+        }
     }
 }

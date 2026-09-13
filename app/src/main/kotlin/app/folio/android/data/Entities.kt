@@ -50,10 +50,24 @@ data class BookmarkEntity(
     val chapterIndex: Int,
     val blockIndex: Int,
     val charOffset: Int,
+    /**
+     * Where the marked passage ends.
+     *
+     * A plain bookmark ends where it starts — one table holds both, because a
+     * bookmark is simply a highlight of no width, and splitting them would mean two
+     * lists, two queries and two places to forget one of them.
+     */
+    val endBlockIndex: Int = blockIndex,
+    val endCharOffset: Int = charOffset,
     /** Snapshot of the text, so a bookmark survives reprocessing. */
     val snippet: String,
     val createdAt: Long,
-)
+) {
+    /** True when the reader chose words, rather than marking a place. */
+    val isHighlight: Boolean
+        get() = endBlockIndex > blockIndex ||
+            (endBlockIndex == blockIndex && endCharOffset > charOffset)
+}
 
 /**
  * One day's reading total, keyed by local epoch-day.

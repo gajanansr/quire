@@ -5,6 +5,8 @@ import app.folio.core.model.Chapter
 import app.folio.core.model.ChapterRef
 import kotlinx.coroutines.flow.combine
 import app.folio.core.model.ReadingPosition
+import app.folio.core.reading.TextAnchor
+import app.folio.core.reading.TextSpan
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -131,6 +133,43 @@ class BookRepository(
             createdAt = now(),
         )
     )
+
+    /**
+     * Saves a passage the reader chose.
+     *
+     * The same row as a bookmark, with an end. The snippet is the selected words
+     * themselves rather than the top of the page, which is what makes the Bookmarks
+     * list read as a commonplace book instead of a list of places.
+     */
+    suspend fun addHighlight(
+        bookId: String,
+        chapterIndex: Int,
+        span: TextSpan,
+        snippet: String,
+    ): Long = db.bookmarks().add(
+        BookmarkEntity(
+            bookId = bookId,
+            chapterIndex = chapterIndex,
+            blockIndex = span.start.blockIndex,
+            charOffset = span.start.charOffset,
+            endBlockIndex = span.end.blockIndex,
+            endCharOffset = span.end.charOffset,
+            snippet = snippet.take(MAX_SNIPPET).trim(),
+            createdAt = now(),
+        )
+    )
+
+    /** The highlights in one chapter, as spans the reader can paint. */
+    fun observeHighlights(bookId: String, chapterIndex: Int): Flow<List<TextSpan>> =
+        db.bookmarks().observeFor(bookId).map { marks ->
+            marks.filter { it.chapterIndex == chapterIndex && it.isHighlight }
+                .map {
+                    TextSpan(
+                        TextAnchor(it.blockIndex, it.charOffset),
+                        TextAnchor(it.endBlockIndex, it.endCharOffset),
+                    )
+                }
+        }
 
     fun observeBookmarks(bookId: String): Flow<List<BookmarkEntity>> =
         db.bookmarks().observeFor(bookId)

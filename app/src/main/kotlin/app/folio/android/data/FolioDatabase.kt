@@ -128,7 +128,7 @@ interface SettingsDao {
         BookEntity::class, ReadingProgressEntity::class, BookmarkEntity::class,
         ReadingDayEntity::class, AppSettingsEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class FolioDatabase : RoomDatabase() {
@@ -148,6 +148,21 @@ abstract class FolioDatabase : RoomDatabase() {
          * schema change, and it is far too easy to leave in place until it does
          * exactly that to someone.
          */
+        /**
+         * Gives a bookmark an end, so it can be a highlight.
+         *
+         * Seeded from the start, which makes every existing bookmark a mark of no
+         * width — exactly what it already was. Nothing is reinterpreted, and the
+         * list keeps showing the same snippets it showed yesterday.
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE bookmarks ADD COLUMN endBlockIndex INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE bookmarks ADD COLUMN endCharOffset INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE bookmarks SET endBlockIndex = blockIndex, endCharOffset = charOffset")
+            }
+        }
+
         /**
          * Turns justification on for a reader who has one.
          *

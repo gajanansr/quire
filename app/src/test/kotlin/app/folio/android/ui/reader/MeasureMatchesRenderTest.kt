@@ -133,4 +133,59 @@ class MeasureMatchesRenderTest {
             size += ReaderPreferences.STEP
         }
     }
+
+    /**
+     * A highlight cannot move a line break.
+     *
+     * This is the assumption the whole highlight feature rests on. The paginator has
+     * no idea which passages are marked — it measures a chapter, not a reader — so
+     * the drawn page carries background spans the measured one never saw. That is
+     * only safe because a background changes no metric. The day someone reaches for
+     * a bolder highlight, or an underline, or a little padding, this test fails
+     * instead of pages quietly losing their last line again.
+     */
+    @Test
+    fun `a highlighted paragraph breaks exactly where the unhighlighted one does`() {
+        val block = ContentBlock.Paragraph(listOf(InlineSpan(prose)))
+        val width = 900f
+        val style = BlockStyles.of(block, settings(justify = true))
+        val constraints = Constraints(maxWidth = (width - style.indentPx).toInt())
+        val textStyle = readerTextStyle(style, ReaderFont.SERIF.family(), density)
+
+        val plain = measurer.measure(
+            text = readerText(prose, style),
+            style = textStyle,
+            constraints = constraints,
+        )
+        val marked = measurer.measure(
+            // A mark spanning a line break, which is where a metric change would show.
+            text = readerText(
+                prose,
+                style,
+                marks = listOf(40..120 to androidx.compose.ui.graphics.Color.Yellow),
+            ),
+            style = textStyle,
+            constraints = constraints,
+        )
+
+        assertEquals("a highlight changed the line count", plain.lineCount, marked.lineCount)
+        assertEquals("a highlight changed the block's height", plain.size.height, marked.size.height)
+        repeat(plain.lineCount) { line ->
+            assertEquals(
+                "a highlight moved the break on line $line",
+                plain.getLineEnd(line),
+                marked.getLineEnd(line),
+            )
+        }
+    }
+
+    @Test
+    fun `the measurer is given no marks, because it has none to give`() {
+        // The default that makes the above safe by construction: ComposeTextMeasurer
+        // calls readerText with one argument, and a chapter it paginates has no
+        // reader attached to it.
+        val block = ContentBlock.Paragraph(listOf(InlineSpan(prose)))
+        val style = BlockStyles.of(block, settings(justify = true))
+        assertEquals(readerText(prose, style).spanStyles, emptyList<Any>())
+    }
 }

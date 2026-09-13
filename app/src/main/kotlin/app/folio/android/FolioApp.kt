@@ -58,6 +58,7 @@ class FolioGraph(context: Context) {
                 FolioDatabase.MIGRATION_1_2,
                 FolioDatabase.MIGRATION_2_3,
                 FolioDatabase.MIGRATION_3_4,
+                FolioDatabase.MIGRATION_4_5,
             )
             .build()
     }

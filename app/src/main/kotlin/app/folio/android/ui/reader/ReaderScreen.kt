@@ -7,6 +7,9 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,7 +28,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import app.folio.core.reading.Selection
+import app.folio.core.reading.TextAnchor
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.style.TextAlign
@@ -69,19 +85,49 @@ fun ReaderScreen(
     onOpenTypography: () -> Unit,
     onBookmark: () -> Unit,
     onFinish: () -> Unit,
+    onSelectionStart: (TextAnchor) -> Unit = {},
+    onSelectionExtend: (TextAnchor) -> Unit = {},
+    onSelectionClear: () -> Unit = {},
+    onHighlight: () -> Unit = {},
+    onShareSelection: () -> Unit = {},
+    onCopySelection: () -> Unit = {},
     /** Reports the size of the text column, which is what pagination must measure. */
     onContentSize: (IntSize) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = Folio.colors
 
+    // Where every drawn word is, rebuilt for each page. Keyed on the page so a stale
+    // entry can never resolve a touch to a character that has moved.
+    val textMap = remember(state.chapterIndex, state.pageIndex) { PageTextMap() }
+    val selecting = state.hasSelection
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(colors.readerBg)
-            .pointerInput(state.tapTogglesChrome) {
+            // First in the chain, and the only gesture that survives a live
+            // selection: a drag while selecting has to extend the passage, not turn
+            // the page out from under it.
+            .pointerInput(state.chapterIndex, state.pageIndex) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { offset ->
+                        textMap.anchorAt(offset)?.let(onSelectionStart)
+                    },
+                    onDrag = { change, _ ->
+                        textMap.anchorAt(change.position)?.let(onSelectionExtend)
+                    },
+                )
+            }
+            .pointerInput(state.tapTogglesChrome, selecting) {
                 detectTapGestures(
                     onTap = { offset ->
+                        // A tap dismisses a selection rather than turning the page:
+                        // tapping away is how every other Android app cancels one.
+                        if (selecting) {
+                            onSelectionClear()
+                            return@detectTapGestures
+                        }
                         // Thirds: the outer columns turn pages, the middle toggles
                         // chrome. Turning by tap matters more than it sounds — it is
                         // the gesture a thumb can make without shifting grip.
@@ -93,7 +139,8 @@ fun ReaderScreen(
                     },
                 )
             }
-            .pointerInput(Unit) {
+            .pointerInput(selecting) {
+                if (selecting) return@pointerInput
                 var dragged = 0f
                 detectHorizontalDragGestures(
                     onDragEnd = {
@@ -106,12 +153,22 @@ fun ReaderScreen(
     ) {
         PageContent(
             state = state,
+            textMap = textMap,
             onContentSize = onContentSize,
             modifier = Modifier.fillMaxSize(),
         )
 
+        if (selecting) {
+            SelectionActions(
+                onHighlight = onHighlight,
+                onShare = onShareSelection,
+                onCopy = onCopySelection,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+
         AnimatedVisibility(
-            visible = state.chromeVisible,
+            visible = state.chromeVisible && !selecting,
             enter = fadeIn() + slideInVertically { -it },
             exit = fadeOut() + slideOutVertically { -it },
             modifier = Modifier.align(Alignment.TopCenter),
@@ -120,7 +177,7 @@ fun ReaderScreen(
         }
 
         AnimatedVisibility(
-            visible = state.chromeVisible,
+            visible = state.chromeVisible && !selecting,
             enter = fadeIn() + slideInVertically { it },
             exit = fadeOut() + slideOutVertically { it },
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -141,6 +198,7 @@ private const val SWIPE_THRESHOLD = 80f
 @Composable
 private fun PageContent(
     state: ReaderState,
+    textMap: PageTextMap,
     onContentSize: (IntSize) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -250,6 +308,13 @@ private fun PageContent(
                 opensChapter = ChapterOpening.isChapterOpening(
                     chapter.blocks, slice.blockIndex, slice.startChar,
                 ),
+                // Marks are cut to this slice here, where both the span and the
+                // slice are in hand. A highlight stated in chapter coordinates and
+                // drawn against a page's own indices lands on the wrong words.
+                marks = marksFor(state, slice.blockIndex, slice.startChar, slice.endChar),
+                textMap = textMap,
+                blockIndex = slice.blockIndex,
+                sliceStart = slice.startChar,
             )
 
             val below = trailingSpacingPx(block, settings)
@@ -266,6 +331,10 @@ private fun BlockText(
     state: ReaderState,
     indented: Boolean,
     opensChapter: Boolean,
+    marks: List<Pair<IntRange, Color>>,
+    textMap: PageTextMap,
+    blockIndex: Int,
+    sliceStart: Int,
 ) {
     val colors = Folio.colors
     val density = LocalDensity.current
@@ -285,15 +354,119 @@ private fun BlockText(
         }
     val style = readerTextStyle(blockStyle, prefs.font.family(), density)
 
+    // Compose's own layout of this block, kept so a touch can be resolved to a
+    // character. Nothing else can answer that question, and re-deriving it from font
+    // metrics would be a second description of a line that already exists.
+    var layout by remember(text, style) { mutableStateOf<TextLayoutResult?>(null) }
+    var topLeft by remember { mutableStateOf(Offset.Zero) }
+    var size by remember { mutableStateOf(IntSize.Zero) }
+
+    fun register() {
+        val result = layout ?: return
+        textMap.put(
+            PageTextMap.Entry(
+                blockIndex = blockIndex,
+                sliceStart = sliceStart,
+                topLeft = topLeft,
+                size = size,
+                layout = result,
+            ),
+        )
+    }
+
     Text(
-        // The same annotated text the paginator measured, initial and all.
-        text = readerText(text, blockStyle),
+        // The same annotated text the paginator measured, initial and all. The marks
+        // are backgrounds, which change no metric and so cannot move a line break —
+        // MeasureMatchesRenderTest is what keeps that true.
+        text = readerText(text, blockStyle, marks),
         color = if (block is ContentBlock.BlockQuote) colors.muted else colors.ink,
         style = style,
-        modifier = Modifier.padding(
-            start = with(density) { blockStyle.indentPx.toDp() },
-        ),
+        onTextLayout = { layout = it; register() },
+        modifier = Modifier
+            .padding(start = with(density) { blockStyle.indentPx.toDp() })
+            .onGloballyPositioned { coordinates ->
+                topLeft = coordinates.positionInRoot()
+                size = coordinates.size
+                register()
+            },
     )
+}
+
+/**
+ * The marks to paint behind one slice of one block: saved highlights first, the live
+ * selection over them.
+ *
+ * Saved highlights and a selection are the same shape — both are [TextSpan]s in
+ * chapter coordinates — so both go through the same arithmetic and neither can drift
+ * from the other.
+ */
+@Composable
+private fun marksFor(
+    state: ReaderState,
+    blockIndex: Int,
+    sliceStart: Int,
+    sliceEnd: Int,
+): List<Pair<IntRange, Color>> {
+    val colors = Folio.colors
+    val saved = state.highlights.mapNotNull { span ->
+        Selection.portionOf(span, blockIndex, sliceStart, sliceEnd)?.let { it to colors.highlight }
+    }
+    val live = state.selection
+        ?.let { Selection.portionOf(it, blockIndex, sliceStart, sliceEnd) }
+        ?.let { it to colors.accentSoft }
+    return if (live == null) saved else saved + live
+}
+
+/**
+ * What a reader can do with the passage they have chosen.
+ *
+ * Sits where the bottom chrome would, and replaces it: both at once would cover the
+ * page, and the reader is looking at the words, not at the controls.
+ */
+@Composable
+private fun SelectionActions(
+    onHighlight: () -> Unit,
+    onShare: () -> Unit,
+    onCopy: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = Folio.colors
+    Row(
+        modifier = modifier
+            .navigationBarsPadding()
+            .padding(bottom = 22.dp)
+            .clip(FolioShapes.pill)
+            .background(colors.bgAlt)
+            .border(1.dp, colors.border, FolioShapes.pill)
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SelectionAction(FolioIcons.Highlight, FolioStrings.HIGHLIGHT, onHighlight)
+        SelectionAction(FolioIcons.Share, FolioStrings.SHARE, onShare)
+        SelectionAction(FolioIcons.Copy, FolioStrings.COPY, onCopy)
+    }
+}
+
+@Composable
+private fun SelectionAction(
+    @DrawableRes icon: Int,
+    label: String,
+    onClick: () -> Unit,
+) {
+    val colors = Folio.colors
+    Row(
+        modifier = Modifier
+            .clip(FolioShapes.pill)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 11.dp)
+            .semantics { contentDescription = label },
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FolioIcon(icon, contentDescription = null, tint = colors.ink)
+        Text(label, color = colors.ink, style = MaterialTheme.typography.labelLarge)
+    }
 }
 
 @Composable
