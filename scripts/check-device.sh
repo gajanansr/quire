@@ -8,7 +8,7 @@ source scripts/env.sh
 ./gradlew :app:connectedDebugAndroidTest "$@"
 
 # connectedAndroidTest uninstalls both APKs when it finishes, which leaves the
-# device with no Folio on it — surprising in the middle of a session where someone
+# device with no Quire on it — surprising in the middle of a session where someone
 # is looking at the app. Put it back.
-echo "reinstalling Folio (the test run uninstalls it)"
+echo "reinstalling Quire (the test run uninstalls it)"
 ./scripts/dev.sh

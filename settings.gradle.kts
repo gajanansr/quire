@@ -6,7 +6,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = "folio"
+rootProject.name = "quire"
 include(":core")
 include(":app")
 

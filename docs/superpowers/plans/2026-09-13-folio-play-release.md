@@ -87,13 +87,13 @@ refuses to carry what it reads.
 
 **Files:** `app/src/main/kotlin/app/folio/android/share/Links.kt` (create),
 `app/src/main/kotlin/app/folio/android/ui/settings/SettingsScreen.kt`,
-`app/src/main/kotlin/app/folio/android/ui/nav/FolioRoot.kt`,
+`app/src/main/kotlin/app/folio/android/ui/nav/QuireRoot.kt`,
 `app/src/test/kotlin/app/folio/android/share/LinksTest.kt` (create)
 
-- [x] `FolioLinks` holds `PRIVACY_POLICY`, `WEBSITE`, `SOURCE`, `CONTACT_EMAIL` — all
+- [x] `QuireLinks` holds `PRIVACY_POLICY`, `WEBSITE`, `SOURCE`, `CONTACT_EMAIL` — all
       blank, each marked `FILL IN` with what it is for — plus `SUPPORT`, which is
       `SupportLink.URL` and stays exactly as it is.
-- [x] `FolioRelease.VERSION_NAME` lives beside them: the About row currently spells
+- [x] `QuireRelease.VERSION_NAME` lives beside them: the About row currently spells
       `"0.1.0"` inline, where nothing makes it follow `versionCode`.
 - [x] Pure helpers a test can reach: `isSet`, `displayHost` (what the Settings row
       shows on the right), and `unset()` (the names still blank, so the checklist and
@@ -122,7 +122,7 @@ refuses to carry what it reads.
       in the Console's own order, with the exact radio button to pick.
 - [x] Both record that Play requires the policy at a **public URL**, and that the
       same URL goes in three places: the store listing, the Data Safety section, and
-      `FolioLinks.PRIVACY_POLICY`.
+      `QuireLinks.PRIVACY_POLICY`.
 
 ### Task 5: Listing copy, in fastlane's layout
 

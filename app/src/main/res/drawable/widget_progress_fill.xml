@@ -6,7 +6,7 @@
   that this one lives in an ImageView, where `setImageLevel` is remotable and a
   colour filter can reach it. `setProgressTintList` needs a ColorStateList and
   therefore API 31, so a real ProgressBar could not be themed at all on the devices
-  Folio still supports.
+  Quire still supports.
 
   Level runs 0..10000. **It starts at 0, which draws nothing** — so the provider must
   set it on every update, and `StatsWidgetTest` asserts the level that arrives rather

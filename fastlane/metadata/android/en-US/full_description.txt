@@ -1,16 +1,16 @@
-Folio is a reading app that does one thing: it gets out of the way of the book.
+Quire is a reading app that does one thing: it gets out of the way of the book.
 
 No account. No feed. No recommendations. No notifications asking you to come back. You add a file, and you read it.
 
 YOUR BOOKS STAY ON YOUR PHONE
 
-Folio does not have permission to use the internet. Not restricted, not "only when you allow it" — the permission is absent from the app, so Android itself refuses the connection. There is no server to send anything to, and no account that could identify you if there were.
+Quire does not have permission to use the internet. Not restricted, not "only when you allow it" — the permission is absent from the app, so Android itself refuses the connection. There is no server to send anything to, and no account that could identify you if there were.
 
 Nothing you read, highlight or finish is measured by anyone but you. It works in airplane mode, on a plane, and on a phone that has never had a SIM.
 
 READS WHAT YOU ALREADY OWN
 
-Add an EPUB, a PDF or a plain text file through your phone's own file picker. Folio copies it into the app, works out where the chapters are, and lays it out as pages.
+Add an EPUB, a PDF or a plain text file through your phone's own file picker. Quire copies it into the app, works out where the chapters are, and lays it out as pages.
 
 A PDF that is a scan — photographs of pages rather than text — is shown exactly as it was printed, page by page, rather than mangled into something it isn't.
 
@@ -32,17 +32,17 @@ Every one of them clears WCAG AA contrast for body text.
 
 KEEPS YOUR PLACE, EXACTLY
 
-Folio remembers where you stopped, down to the character — so changing the text size, closing the app or restarting your phone puts you back on the same sentence, not the same approximate page.
+Quire remembers where you stopped, down to the character — so changing the text size, closing the app or restarting your phone puts you back on the same sentence, not the same approximate page.
 
 PASSAGES WORTH KEEPING
 
 Press and hold a word to select it, drag across paragraphs to extend, and highlight it. Bookmarks and highlights live in one list you can jump back into.
 
-Share a passage as plain text, or as a quiet typeset card you can save to your photos or send anywhere — Folio hands it to whatever app you choose, with nothing attached about you.
+Share a passage as plain text, or as a quiet typeset card you can save to your photos or send anywhere — Quire hands it to whatever app you choose, with nothing attached about you.
 
 A READING HABIT, IF YOU WANT ONE
 
-Set a daily goal in minutes. Folio counts the time you actually spend reading, keeps a streak, and marks the milestones. It lives on one screen and never sends you a notification about it.
+Set a daily goal in minutes. Quire counts the time you actually spend reading, keeps a streak, and marks the milestones. It lives on one screen and never sends you a notification about it.
 
 WHAT FOLIO DOES NOT DO
 
@@ -50,12 +50,12 @@ Worth saying plainly, so nothing here is a surprise:
 
 - No bookstore. Bring your own files.
 - No cloud sync or backup. Your library lives on this device only, and uninstalling removes it — keep your original files.
-- No DRM. Books protected by Adobe DRM, or bought inside another reading app, cannot be opened by Folio or by any app but that one.
+- No DRM. Books protected by Adobe DRM, or bought inside another reading app, cannot be opened by Quire or by any app but that one.
 - No text to speech, no dictionary, no translation.
 - No ads, no tracking, no analytics, no crash reporting.
 
 FREE, AND HONEST ABOUT ITS INGREDIENTS
 
-Folio is free and has no paid tier. It sets your books in Source Serif, Lora and Work Sans under the SIL Open Font License, and uses Lucide icons under the ISC licence; both notices ship inside the app.
+Quire is free and has no paid tier. It sets your books in Source Serif, Lora and Work Sans under the SIL Open Font License, and uses Lucide icons under the ISC licence; both notices ship inside the app.
 
-If it becomes part of your day, there is a support link in Settings. It opens your browser. Folio never sees a payment.
+If it becomes part of your day, there is a support link in Settings. It opens your browser. Quire never sees a payment.

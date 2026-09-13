@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-      A bare platform theme. Folio's own colours come from FolioTheme in Compose;
+      A bare platform theme. Quire's own colours come from QuireTheme in Compose;
       this exists only so the window has sane defaults before composition starts.
     -->
-    <style name="Theme.Folio" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.Quire" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@android:color/transparent</item>
     </style>
 </resources>

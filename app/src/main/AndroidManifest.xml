@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!--
-      Folio makes no network calls. It does not declare INTERNET either, and
+      Quire makes no network calls. It does not declare INTERNET either, and
       that is not the same thing: ML Kit's bundled text recogniser runs wholly
       on-device but its dependency graph pulls in Google's datatransport
       logging backend, which declares INTERNET for itself and schedules its own
@@ -20,7 +20,7 @@
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
 
     <!--
-      Reading reminders. Local only: it lets Folio put a line of its own text in
+      Reading reminders. Local only: it lets Quire put a line of its own text in
       the reader's own shade, and it cannot move a byte anywhere. Asked for at
       runtime on Android 13+, and only after the reader has said yes inside the
       app first — see notify/ReminderPermission.kt.
@@ -28,15 +28,15 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:name=".FolioApp"
-        android:label="Folio"
+        android:name=".QuireApp"
+        android:label="Quire"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Folio">
+        android:theme="@style/Theme.Quire">
 
         <!--
-          singleTask because Folio is opened from outside itself — a widget today, a
+          singleTask because Quire is opened from outside itself — a widget today, a
           reminder next. FLAG_ACTIVITY_SINGLE_TOP on the intent is not enough: it only
           reuses the activity when it is already the top of the target task, and a
           launcher starting one with NEW_TASK usually is not in that state. Without a
@@ -49,7 +49,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.Folio"
+            android:theme="@style/Theme.Quire"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -74,7 +74,7 @@
         </provider>
 
         <!--
-          Home-screen widgets. Exported because the system, not Folio, delivers
+          Home-screen widgets. Exported because the system, not Quire, delivers
           APPWIDGET_UPDATE to them — an unexported provider is simply never drawn,
           and nothing in the app looks wrong while that is true.
 
@@ -106,7 +106,7 @@
         </receiver>
 
         <!--
-          Folio provides its own WorkManager configuration so ImportWorker can be
+          Quire provides its own WorkManager configuration so ImportWorker can be
           constructed with its dependencies. The default initializer must be removed
           or it wins the race and the custom factory is never used.
         -->

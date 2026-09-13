@@ -57,13 +57,13 @@ There is already a helper in the repo:
 ```bash
 source scripts/env.sh
 ./scripts/dev.sh                 # builds, installs and launches
-./scripts/shot.sh library        # writes /tmp/folio-library.png
+./scripts/shot.sh library        # writes /tmp/quire-library.png
 ```
 
 Then copy each one in with its numbered name:
 
 ```bash
-cp /tmp/folio-library.png fastlane/metadata/android/en-US/images/phoneScreenshots/1_en-US_library.png
+cp /tmp/quire-library.png fastlane/metadata/android/en-US/images/phoneScreenshots/1_en-US_library.png
 ```
 
 Check them before uploading:

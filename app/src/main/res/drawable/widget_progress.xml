@@ -3,7 +3,7 @@
   The progress bar on the stats widget.
 
   Border for the track and accent for the fill, which is the same pair the week strip
-  uses: in Folio, "not yet" is the border colour and "done" is the accent. A
+  uses: in Quire, "not yet" is the border colour and "done" is the accent. A
   ProgressBar is the only bar a RemoteViews can draw, so the progress drawable is
   where the whole appearance has to live.
 -->

@@ -1,0 +1,159 @@
+package app.quire.android.share
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.ContentValues
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
+import androidx.core.content.FileProvider
+import java.io.File
+
+/**
+ * Where "Show your support" goes.
+ *
+ * A constant rather than a literal at the call site, because it is the one string in
+ * this app whose being wrong is silent and expensive: a mistyped donation link sends
+ * a reader's money to whoever owns the handle they actually reached.
+ */
+object SupportLink {
+    const val URL = "https://razorpay.me/@gajanansr"
+    const val AUTHOR = "Gajanan"
+}
+
+/**
+ * The intents Quire hands to the system, and nothing else.
+ *
+ * Separated from the sheet that triggers them so they can be asserted without a
+ * device: an `Intent` is a value, and the interesting questions — is this the right
+ * action, does the image carry a read grant, is the donation URL the one the author
+ * actually typed — are all answerable by looking at it.
+ *
+ * Every one of these is started by a tap. Quire declares no `INTERNET` permission
+ * and makes no request of its own; handing a URL or a piece of text to whatever the
+ * reader picks from the chooser is the only way anything leaves this device.
+ */
+object ShareIntents {
+
+    /** A passage, a streak, a book: plain text, wrapped in the system chooser. */
+    fun text(body: String, chooserTitle: String): Intent =
+        Intent.createChooser(
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, body)
+            },
+            chooserTitle,
+        )
+
+    /**
+     * A rendered card, with its caption.
+     *
+     * [Intent.FLAG_GRANT_READ_URI_PERMISSION] is what makes the receiving app able
+     * to open the file at all: the image lives in Quire's own cache directory, which
+     * nothing else can read without being granted it for this one uri.
+     */
+    fun image(uri: Uri, caption: String, chooserTitle: String): Intent =
+        Intent.createChooser(
+            Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                if (caption.isNotBlank()) putExtra(Intent.EXTRA_TEXT, caption)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            },
+            chooserTitle,
+        ).apply { addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+
+    /** Opens a URL in whatever browser the reader uses. */
+    fun view(url: String): Intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+}
+
+/**
+ * Putting a card somewhere the system can reach it.
+ *
+ * Sharing an image means handing another app a uri it can open, and an in-memory
+ * bitmap is not one. These write the PNG somewhere first — the cache for a share,
+ * the picture library for a save — and neither needs a permission Quire would have
+ * to ask for.
+ */
+object Sharing {
+
+    /** Where cached share images live, under the app's own cache directory. */
+    private const val SHARE_DIR = "shares"
+
+    /** Matches the `<cache-path>` in `res/xml/file_paths.xml`. */
+    private const val AUTHORITY_SUFFIX = ".shares"
+
+    /**
+     * The provider authority, which must equal the one declared in the manifest.
+     *
+     * Two places have to agree on this string and neither can see the other. When
+     * they disagree the failure is a crash at the moment a reader taps Share, so
+     * `SharingTest` reads the manifest back and compares.
+     */
+    fun authority(context: Context): String = context.packageName + AUTHORITY_SUFFIX
+
+    /**
+     * Writes a card into the share cache.
+     *
+     * The cache, deliberately: a shared image is a copy made for one hand-off, not
+     * something Quire should keep. The directory is emptied on each call so only the
+     * most recent share is ever on disk, and the OS may clear the whole cache
+     * whenever it likes without breaking anything.
+     */
+    fun writeCard(context: Context, bitmap: Bitmap, name: String = "quire-card.png"): File {
+        val dir = File(context.cacheDir, SHARE_DIR).apply {
+            deleteRecursively()
+            mkdirs()
+        }
+        return File(dir, name).also { file ->
+            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+    }
+
+    /** The card, as a uri another app can be granted access to. */
+    fun cacheCard(context: Context, bitmap: Bitmap, name: String = "quire-card.png"): Uri =
+        FileProvider.getUriForFile(context, authority(context), writeCard(context, bitmap, name))
+
+    /**
+     * Saves a card to the reader's pictures.
+     *
+     * Returns null below API 29, where writing outside the app's own storage needs
+     * `WRITE_EXTERNAL_STORAGE`. Quire asks for no permissions, so the caller falls
+     * back to the share chooser there — which reaches the gallery anyway, by way of
+     * the reader choosing it.
+     */
+    fun saveToPictures(context: Context, bitmap: Bitmap, name: String): Uri? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, name)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Quire")
+        }
+        val resolver = context.contentResolver
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            ?: return null
+        resolver.openOutputStream(uri)?.use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        } ?: return null
+        return uri
+    }
+
+    fun copy(context: Context, label: String, body: String) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, body))
+    }
+
+    /**
+     * Starts an intent from a context that may not be an Activity.
+     *
+     * Composables see the base context in some hosts, and starting an activity from
+     * one without [Intent.FLAG_ACTIVITY_NEW_TASK] throws. Adding the flag is
+     * cheaper than proving every call site has an Activity.
+     */
+    fun start(context: Context, intent: Intent) {
+        context.startActivity(intent.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+    }
+}

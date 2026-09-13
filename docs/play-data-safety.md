@@ -94,7 +94,7 @@ submission** — a missing or unreachable policy URL is one of the most common r
 a first submission is rejected.
 
 The same URL also goes in the **Store listing** section, and in
-`FolioLinks.PRIVACY_POLICY` in the app.
+`QuireLinks.PRIVACY_POLICY` in the app.
 
 ---
 

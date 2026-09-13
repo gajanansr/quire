@@ -20,7 +20,7 @@ Every task's requirements implicitly include this section.
 - **JDK 21 toolchain.** `JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home`. Homebrew's default `openjdk` is 26; AGP does not support it.
 - **No network at runtime.** `:core` makes no network calls. Test fixtures are generated locally, never downloaded.
 - **Conservatism rule (spec §6).** Where a heuristic's confidence is low, emit text as extracted rather than as "cleaned". A test that asserts content was removed must also assert the confidence that justified removing it. Losing a paragraph is a worse failure than leaving an artifact.
-- **Tunable constants live in `FolioConstants` only.** Never inline a heuristic threshold as a literal at a call site.
+- **Tunable constants live in `QuireConstants` only.** Never inline a heuristic threshold as a literal at a call site.
 - **Every task ends green.** `./gradlew :core:test` must pass before commit. Never commit red.
 
 ### Pinned versions
@@ -54,7 +54,7 @@ folio/
   core/
     build.gradle.kts
     src/main/kotlin/app/folio/core/
-      FolioConstants.kt                every tunable threshold (spec §13a)
+      QuireConstants.kt                every tunable threshold (spec §13a)
       model/Book.kt                    Book, BookMetadata, SourceFormat, ProcessingStatus
       model/Chapter.kt                 Chapter, ChapterRef
       model/ContentBlock.kt            sealed ContentBlock, InlineSpan, InlineStyle
@@ -196,7 +196,7 @@ tasks.test {
 Create `core/src/test/kotlin/app/folio/core/ToolchainTest.kt`. This asserts the two things most likely to be misconfigured: the JVM target, and that PDFBox 2.x (not 3.x) is on the test classpath.
 
 ```kotlin
-package app.folio.core
+package app.quire.core
 
 import org.junit.jupiter.api.Test
 import org.apache.pdfbox.pdmodel.PDDocument
@@ -276,7 +276,7 @@ Every later task tests against these files. Building them first means reflow is 
 - [x] **Step 1: Write the failing test**
 
 ```kotlin
-package app.folio.core.fixtures
+package app.quire.core.fixtures
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertTrue
@@ -331,7 +331,7 @@ Expected: FAIL — `Fixtures` unresolved.
 Create `core/src/test/kotlin/app/folio/core/fixtures/FixtureBuilder.kt`. Fixtures are generated once and cached on disk; regenerate if absent.
 
 ```kotlin
-package app.folio.core.fixtures
+package app.quire.core.fixtures
 
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
@@ -631,23 +631,23 @@ git commit -m "test: generated fixture corpus for every supported and unsupporte
 ### Task 3: Tunable constants
 
 **Files:**
-- Create: `core/src/main/kotlin/app/folio/core/FolioConstants.kt`
-- Test: `core/src/test/kotlin/app/folio/core/FolioConstantsTest.kt`
+- Create: `core/src/main/kotlin/app/folio/core/QuireConstants.kt`
+- Test: `core/src/test/kotlin/app/folio/core/QuireConstantsTest.kt`
 
 **Interfaces:**
-- Produces: `object FolioConstants` with the fields below. Every later task reads thresholds from here.
+- Produces: `object QuireConstants` with the fields below. Every later task reads thresholds from here.
 
 - [x] **Step 1: Write the failing test**
 
 ```kotlin
-package app.folio.core
+package app.quire.core
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertTrue
 
-class FolioConstantsTest {
+class QuireConstantsTest {
     @Test
-    fun `thresholds are within sane bounds`() = with(FolioConstants) {
+    fun `thresholds are within sane bounds`() = with(QuireConstants) {
         assertTrue(SCANNED_CHARS_PER_PAGE in 10..500)
         assertTrue(MIN_OCR_CONFIDENCE in 0.0..1.0)
         assertTrue(MIN_REFLOW_CONFIDENCE in 0.0..1.0)
@@ -659,12 +659,12 @@ class FolioConstantsTest {
 }
 ```
 
-- [x] **Step 2: Run it, confirm it fails** — `./gradlew :core:test --tests '*FolioConstantsTest*'`, FAIL, unresolved.
+- [x] **Step 2: Run it, confirm it fails** — `./gradlew :core:test --tests '*QuireConstantsTest*'`, FAIL, unresolved.
 
 - [x] **Step 3: Implement**
 
 ```kotlin
-package app.folio.core
+package app.quire.core
 
 /**
  * Heuristic thresholds, gathered here rather than inlined at call sites so that
@@ -672,7 +672,7 @@ package app.folio.core
  * Spec section 13a. These are starting values and are expected to move as the
  * fixture corpus grows.
  */
-object FolioConstants {
+object QuireConstants {
     /** Median chars/page below which a PDF is treated as scanned. */
     const val SCANNED_CHARS_PER_PAGE = 100
 
@@ -729,7 +729,7 @@ object FolioConstants {
 - [x] **Step 1: Write the failing test**
 
 ```kotlin
-package app.folio.core.model
+package app.quire.core.model
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -780,7 +780,7 @@ class ModelTest {
 `ContentBlock.kt`:
 
 ```kotlin
-package app.folio.core.model
+package app.quire.core.model
 
 import kotlinx.serialization.Serializable
 
@@ -814,7 +814,7 @@ val ContentBlock.plainText: String
 `Chapter.kt`:
 
 ```kotlin
-package app.folio.core.model
+package app.quire.core.model
 
 import kotlinx.serialization.Serializable
 
@@ -842,7 +842,7 @@ fun Chapter.toRef() = ChapterRef(index, title, startCharOffset, charCount)
 `Book.kt`:
 
 ```kotlin
-package app.folio.core.model
+package app.quire.core.model
 
 import kotlinx.serialization.Serializable
 
@@ -896,7 +896,7 @@ data class Book(
 `ReadingPosition.kt`:
 
 ```kotlin
-package app.folio.core.model
+package app.quire.core.model
 
 import kotlinx.serialization.Serializable
 
@@ -944,10 +944,10 @@ Simplest complete path through the pipeline — proves the model before harder f
 - [x] **Step 1: Write the failing test**
 
 ```kotlin
-package app.folio.core.txt
+package app.quire.core.txt
 
-import app.folio.core.fixtures.Fixtures
-import app.folio.core.model.*
+import app.quire.core.fixtures.Fixtures
+import app.quire.core.model.*
 import org.junit.jupiter.api.Test
 import java.io.File
 import kotlin.test.assertEquals
@@ -998,9 +998,9 @@ class TxtParserTest {
 - [x] **Step 3: Implement**
 
 ```kotlin
-package app.folio.core.txt
+package app.quire.core.txt
 
-import app.folio.core.model.*
+import app.quire.core.model.*
 import java.io.File
 
 class TxtParser {
@@ -1114,7 +1114,7 @@ y-bands with tolerance from median glyph height, ordered top-to-bottom then left
 **[done] Task 11 — Column detection.** `core/reflow/ColumnDetector.kt`. Produces
 `class ColumnDetector { fun detect(pages: List<List<Line>>): ColumnLayout }` and
 `sealed interface ColumnLayout { data object Single; data class Multi(val boundaries: List<Float>) }`.
-Applies a split only when consistent across `FolioConstants.COLUMN_CONSISTENCY` of pages.
+Applies a split only when consistent across `QuireConstants.COLUMN_CONSISTENCY` of pages.
 
 **[done] Task 12 — Header/footer removal.** `core/reflow/HeaderFooterDetector.kt`. Produces
 `class HeaderFooterDetector { fun strip(pages: List<List<Line>>): StripResult }` with
@@ -1125,7 +1125,7 @@ and **no body line is removed**. Assert body text survives, not merely that some
 **[done] Task 13 — Paragraph assembly.** `core/reflow/ParagraphAssembler.kt`. Produces
 `class ParagraphAssembler { fun assemble(lines: List<Line>): List<ContentBlock> }`,
 breaking on short final lines, indentation shifts, and gaps exceeding
-`FolioConstants.PARAGRAPH_GAP_FACTOR` times median leading.
+`QuireConstants.PARAGRAPH_GAP_FACTOR` times median leading.
 
 **[done] Task 14 — De-hyphenation.** `core/reflow/Dehyphenator.kt`. Produces
 `class Dehyphenator { fun join(lines: List<Line>): List<Line> }`. On
@@ -1135,7 +1135,7 @@ must become `"Distributed systems are a collection of..."`.
 **[done] Task 15 — Reflow pipeline.** `core/reflow/ReflowPipeline.kt`. Produces
 `class ReflowPipeline { fun reflow(source: PdfTextSource): ReflowResult }` with
 `data class ReflowResult(blocks: List<ContentBlock>, confidence: Double, pageBreaks: List<Int>)`.
-Composes Tasks 10–14. Below `FolioConstants.MIN_REFLOW_CONFIDENCE`, returns the raw
+Composes Tasks 10–14. Below `QuireConstants.MIN_REFLOW_CONFIDENCE`, returns the raw
 extracted text as paragraphs with the low confidence attached — it must not return empty.
 
 **[done] Task 16 — Chapter detection.** `core/structure/ChapterDetector.kt` and
@@ -1183,7 +1183,7 @@ pagination, §9 Room persistence, §10 habit tracking, §11 theme system, and al
 **Type consistency.** `ContentBlock`, `InlineSpan`, `Chapter`, `Book`, `ProcessingStatus`,
 `FailureReason`, `ReadingPosition` are defined once in Task 4 and referenced unchanged
 afterwards. `TextRun` and `PdfPage` are defined in Task 9 and consumed by Tasks 10–15.
-`Line` is defined in Task 10 and consumed by Tasks 11–14. `FolioConstants` field names
+`Line` is defined in Task 10 and consumed by Tasks 11–14. `QuireConstants` field names
 match between Task 3 and every consumer.
 
 **Known gap.** `PageRasterizer` is referenced by `PdfPipeline` (Task 19) but has no

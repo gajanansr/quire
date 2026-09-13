@@ -1,7 +1,7 @@
-# Folio's R8 keep rules.
+# Quire's R8 keep rules.
 #
 # Not applied unless the build asks for them: the release build type sets
-# minifyEnabled from -PfolioMinify, which defaults to false. See docs/release.md
+# minifyEnabled from -PquireMinify, which defaults to false. See docs/release.md
 # for why, and for the device test that has to pass before it is turned on.
 #
 # These are written and committed anyway, because the day someone enables
@@ -11,12 +11,12 @@
 # ---------------------------------------------------------------------------
 # Room
 # ---------------------------------------------------------------------------
-# Room generates FolioDatabase_Impl and Room.databaseBuilder finds it by name,
+# Room generates QuireDatabase_Impl and Room.databaseBuilder finds it by name,
 # building the string from the database class. R8 sees no reference to the
 # generated class and deletes it; the app then throws "cannot find implementation
-# for app.folio.android.data.FolioDatabase" at first launch, after the splash.
+# for app.quire.android.data.QuireDatabase" at first launch, after the splash.
 -keep class * extends androidx.room.RoomDatabase { <init>(); }
--keep class app.folio.android.data.**_Impl { *; }
+-keep class app.quire.android.data.**_Impl { *; }
 
 # Entity fields are read back by the generated cursor code, which is kept, but the
 # @Entity classes themselves are also constructed reflectively by Room's testing
@@ -45,13 +45,13 @@
 # The model package is kept whole. It is small, it is the on-disk format of the
 # reader's library, and a subtle shrinker mistake here is unreadable books rather
 # than a crash anyone would notice in testing.
--keep class app.folio.core.model.** { *; }
--keep class app.folio.core.model.**$$serializer { *; }
+-keep class app.quire.core.model.** { *; }
+-keep class app.quire.core.model.**$$serializer { *; }
 
 # ---------------------------------------------------------------------------
 # WorkManager
 # ---------------------------------------------------------------------------
-# ImportWorker is constructed by FolioWorkerFactory, but WorkManager's own
+# ImportWorker is constructed by QuireWorkerFactory, but WorkManager's own
 # fallback path and its internal diagnostics still resolve worker classes by the
 # name stored in the database — including for work enqueued by a previous install
 # and restored after reboot.
@@ -89,7 +89,7 @@
 # ---------------------------------------------------------------------------
 # Crash reports
 # ---------------------------------------------------------------------------
-# Folio sends no crash reports anywhere — it has no INTERNET permission. These
+# Quire sends no crash reports anywhere — it has no INTERNET permission. These
 # are for the line numbers in a stack trace a reader pastes into an email, which
 # is the only crash report this app will ever receive.
 -keepattributes SourceFile, LineNumberTable

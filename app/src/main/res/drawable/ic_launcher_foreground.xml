@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  A folio: one sheet folded once, which is where both the word and the book format
-  come from. Two leaves meeting at a fold is the literal picture of the name, reads
-  as an open book at launcher size, and is not the stack-with-a-spine that every
-  other reading app draws.
+  A quire is a gathering of folded sheets — the unit a book is actually built from,
+  nested one inside another and stitched at the fold. The mark is that fold: one
+  sheet, two leaves. It reads as an open book at launcher size and is not the
+  stack-with-a-spine every other reading app draws.
+
+  (The app was called Folio first, which is the name for a single such sheet. The
+  drawing did not have to change when the name did — a quire is made of folios.)
 
   Three details do the work, and all three are the difference between paper and a
   symbol of paper:

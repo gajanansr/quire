@@ -43,7 +43,7 @@ val generateFixtureAssets by tasks.registering(JavaExec::class) {
     description = "Generates the test book corpus for instrumented tests."
     dependsOn(tasks.named("testFixturesClasses"))
     classpath = sourceSets["testFixtures"].runtimeClasspath
-    mainClass.set("app.folio.core.fixtures.FixtureCli")
+    mainClass.set("app.quire.core.fixtures.FixtureCli")
     argumentProviders.add { listOf(fixtureAssetsDir.absolutePath) }
     outputs.dir(fixtureAssetsDir)
 }

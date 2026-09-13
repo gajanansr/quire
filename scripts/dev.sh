@@ -27,11 +27,11 @@ echo "target: $DEVICE ($NAME)"
 
 if [ "$FRESH" = "1" ]; then
   echo "wiping app data"
-  adb -s "$DEVICE" uninstall app.folio.android >/dev/null 2>&1 || true
+  adb -s "$DEVICE" uninstall app.quire.android >/dev/null 2>&1 || true
 fi
 
 # installDebug builds and installs in one step and is incremental: after the first
 # run only what actually changed is recompiled.
 ANDROID_SERIAL="$DEVICE" ./gradlew :app:installDebug -q
-adb -s "$DEVICE" shell am start -n app.folio.android/.MainActivity >/dev/null
-echo "Folio is running on $DEVICE"
+adb -s "$DEVICE" shell am start -n app.quire.android/.MainActivity >/dev/null
+echo "Quire is running on $DEVICE"

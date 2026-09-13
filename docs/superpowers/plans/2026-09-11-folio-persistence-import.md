@@ -50,9 +50,9 @@ Every task's requirements implicitly include this section.
 
 ```
 app/src/main/kotlin/app/folio/android/
-  FolioApp.kt                     Application, database + repository wiring
+  QuireApp.kt                     Application, database + repository wiring
   data/Entities.kt                Room entities                      [done]
-  data/FolioDatabase.kt           database, BookDao, ProgressDao      [done]
+  data/QuireDatabase.kt           database, BookDao, ProgressDao      [done]
   data/Converters.kt              enum <-> string
   data/BookStore.kt               on-disk chapter/cover/original files
   data/BookRepository.kt          the single door between UI and data
@@ -109,7 +109,7 @@ app/src/main/kotlin/app/folio/android/
 
 **Interfaces:**
 - Produces:
-  - `class BookRepository(db: FolioDatabase, store: BookStore)`
+  - `class BookRepository(db: QuireDatabase, store: BookStore)`
   - `fun observeLibrary(): Flow<List<LibraryBook>>`
   - `data class LibraryBook(id, title, author, coverPath, progress, lastOpenedAt, reflowFailed)`
   - `suspend fun save(book: Book)` — writes the row and the chapter files together
@@ -145,7 +145,7 @@ the same logic against `com.tom_roush.pdfbox`. Package names differ, the API doe
 - [ ] **Step 1: Write the failing test** — same assertions as `:core`'s
   `PdfBoxTextSourceTest`, run under Robolectric. PdfBox-Android needs
   `PDFBoxResourceLoader.init(context)` before use; do it in the test setup and in
-  `FolioApp`.
+  `QuireApp`.
 - [ ] **Step 2–5:** as before.
 
 ---
@@ -211,10 +211,10 @@ process death resumes at its last completed stage rather than restarting.
 
 ---
 
-### [done] Task 7: `FolioApp` wiring
+### [done] Task 7: `QuireApp` wiring
 
 **Files:**
-- Create: `app/src/main/kotlin/app/folio/android/FolioApp.kt`
+- Create: `app/src/main/kotlin/app/folio/android/QuireApp.kt`
 - Modify: `app/src/main/AndroidManifest.xml`
 
 Build the database, store, and repository once. Call `PDFBoxResourceLoader.init`.

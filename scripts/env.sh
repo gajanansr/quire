@@ -6,15 +6,15 @@
 # already have rather than inheriting a macOS Homebrew layout that is not there.
 # Exporting them unconditionally is what made the build machine-specific.
 
-_folio_jdk=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
-_folio_sdk=/opt/homebrew/share/android-commandlinetools
+_quire_jdk=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+_quire_sdk=/opt/homebrew/share/android-commandlinetools
 
-if [ -d "$_folio_jdk" ]; then
-  export JAVA_HOME="$_folio_jdk"
+if [ -d "$_quire_jdk" ]; then
+  export JAVA_HOME="$_quire_jdk"
 fi
 
-if [ -d "$_folio_sdk" ]; then
-  export ANDROID_HOME="$_folio_sdk"
+if [ -d "$_quire_sdk" ]; then
+  export ANDROID_HOME="$_quire_sdk"
 elif [ -n "${ANDROID_SDK_ROOT:-}" ]; then
   export ANDROID_HOME="$ANDROID_SDK_ROOT"
 fi
@@ -28,4 +28,4 @@ if [ -n "${JAVA_HOME:-}" ]; then
   export PATH="$JAVA_HOME/bin:$PATH"
 fi
 
-unset _folio_jdk _folio_sdk
+unset _quire_jdk _quire_sdk

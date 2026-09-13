@@ -16,7 +16,7 @@
 - **No gamification chrome over reading content** (brief §11). XP and streaks belong
   on their own screens and the Library card, never on the page.
 - **Sessions measure reading, not an open screen.** Pause on background and after
-  `FolioConstants.IDLE_TIMEOUT_MINUTES` without a page turn.
+  `QuireConstants.IDLE_TIMEOUT_MINUTES` without a page turn.
 - Goal options are exactly 5 / 10 / 20 / 30 minutes.
 
 ---

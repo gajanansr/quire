@@ -7,7 +7,7 @@ app as a picture the reader has styled rather than a line of plain text.
 
 **Architecture:** the share card is already one composable rendered into a
 `GraphicsLayer` and captured — so making it themeable means giving that one composable
-a palette, not drawing a second version of it. The palettes come from `FolioColors.of`,
+a palette, not drawing a second version of it. The palettes come from `QuireColors.of`,
 the same five the app already ships, so the card cannot drift from the product's own
 colours.
 
@@ -56,9 +56,9 @@ the card — the thing a reader would actually post — is reachable only from t
 bookmark list, which is the wrong end of the journey.
 
 **Files:** `ui/reader/ReaderHost.kt`, `ui/reader/ReaderState.kt`,
-`ui/nav/FolioRoot.kt`
+`ui/nav/QuireRoot.kt`
 
-- [x] `ReaderHost` gains `onShareQuote: (ShareCard.Quote) -> Unit`; `FolioRoot`
+- [x] `ReaderHost` gains `onShareQuote: (ShareCard.Quote) -> Unit`; `QuireRoot`
       supplies it by setting the same `shareCard` state the bookmark list sets.
 - [x] Both the selection's Share and the chrome's Share route through it, so the
       reader gets the same sheet whether they chose words or shared the page.
@@ -71,7 +71,7 @@ bookmark list, which is the wrong end of the journey.
 `test/ui/share/ShareCardStyleTest.kt` (create)
 
 - [x] `ShareCardStyle` — Cover, plus Folio's five palettes. Cover keeps the book's own
-      gradient; the rest resolve through `FolioColors.of`, so the card is never a
+      gradient; the rest resolve through `QuireColors.of`, so the card is never a
       sixth palette invented for one screen.
 - [x] A row of swatches under the card; picking one restyles it, and the capture takes
       whatever is on screen, so the picture and the preview cannot disagree.
@@ -81,7 +81,7 @@ bookmark list, which is the wrong end of the journey.
 
 ### Task 4: The card invites the reader
 
-**Files:** `ui/share/ShareSheet.kt`, `ui/FolioStrings.kt`
+**Files:** `ui/share/ShareSheet.kt`, `ui/QuireStrings.kt`
 
 - [x] The card's footer becomes the wordmark plus a call to action, in one constant so
       it can become a real store link the day there is one to point at.

@@ -1,6 +1,6 @@
-# Contributing to Folio
+# Contributing to Quire
 
-Thanks for looking. Folio is small and opinionated, and the rules below are what keep
+Thanks for looking. Quire is small and opinionated, and the rules below are what keep
 it that way rather than bureaucracy for its own sake.
 
 ## Getting set up
@@ -26,7 +26,7 @@ comment above each says what it caught.
 codebase's real bugs were found by a test written before the fix, and at least one was
 found because the test failed for a *different* reason than expected.
 
-**No new dependencies** without a reason worth writing down. Folio has no analytics,
+**No new dependencies** without a reason worth writing down. Quire has no analytics,
 no crash reporter, no image loader and no navigation library, and each of those is a
 decision rather than an omission.
 

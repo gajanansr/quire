@@ -1,21 +1,24 @@
 <div align="center">
 
-<img src="fastlane/metadata/android/en-US/images/icon.png" width="96" alt="Folio">
+<img src="fastlane/metadata/android/en-US/images/icon.png" width="96" alt="Quire">
 
-# Folio
+# Quire
 
 **A quiet place to read.** Your books never leave your device.
 
-[**gajanansr.github.io/folio**](https://gajanansr.github.io/folio/)
+[**gajanansr.github.io/quire**](https://gajanansr.github.io/quire/)
 
-[![CI](https://github.com/gajanansr/folio/actions/workflows/ci.yml/badge.svg)](https://github.com/gajanansr/folio/actions/workflows/ci.yml)
+[![CI](https://github.com/gajanansr/quire/actions/workflows/ci.yml/badge.svg)](https://github.com/gajanansr/quire/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 </div>
 
-Folio is an Android reading app for EPUB, PDF and plain text. It has no account, no
+> **quire** /ˈkwaɪə/ — a gathering of folded sheets, nested and stitched at the fold.
+> The unit a book is actually built from, and what the mark on the icon is a picture of.
+
+Quire is an Android reading app for EPUB, PDF and plain text. It has no account, no
 sync, no analytics, no ads, and **no `INTERNET` permission at all** — not as a promise,
-but as something the operating system enforces. A book you open in Folio is a file on
+but as something the operating system enforces. A book you open in Quire is a file on
 your phone and stays one.
 
 ## What it does
@@ -38,8 +41,8 @@ your phone and stays one.
 ## Build it
 
 ```bash
-git clone https://github.com/gajanansr/folio.git
-cd folio
+git clone https://github.com/gajanansr/quire.git
+cd quire
 ./scripts/check.sh                       # the gate: JVM tests for :core and :app
 ./gradlew :app:assembleDebug             # an installable APK
 adb install -r app/build/outputs/apk/debug/app-debug.apk
@@ -77,9 +80,9 @@ that survives being written down.
 
 ## Privacy
 
-[The policy](https://gajanansr.github.io/folio/privacy.html), published from
+[The policy](https://gajanansr.github.io/quire/privacy.html), published from
 [docs/privacy-policy.md](docs/privacy-policy.md) by `scripts/build-site.py` so the
-hosted page and the repository cannot drift apart. Folio collects nothing. There is
+hosted page and the repository cannot drift apart. Quire collects nothing. There is
 nowhere for it to send anything to.
 
 ## The site

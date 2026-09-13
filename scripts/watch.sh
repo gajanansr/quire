@@ -53,7 +53,7 @@ while true; do
   echo "── change detected $(date '+%H:%M:%S') ─────────────────────────────"
   if ANDROID_SERIAL="$DEVICE" ./gradlew :app:installDebug -q 2>&1 | tail -20; then
     [ "$RELAUNCH" = "1" ] && \
-      adb -s "$DEVICE" shell am start -n app.folio.android/.MainActivity >/dev/null
+      adb -s "$DEVICE" shell am start -n app.quire.android/.MainActivity >/dev/null
     echo "✓ updated $(date '+%H:%M:%S')"
   else
     echo "✗ build failed — app on device left as it was"

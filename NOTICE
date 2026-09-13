@@ -1,11 +1,11 @@
-Folio bundles third-party work. Their licences travel with the app and are
+Quire bundles third-party work. Their licences travel with the app and are
 shipped inside it, under app/src/main/res/raw/.
 
   Source Serif 4 and Lora — SIL Open Font License 1.1
   Lucide icons          — ISC License
 
-Folio also depends on Apache PDFBox (Apache License 2.0), used at runtime via
+Quire also depends on Apache PDFBox (Apache License 2.0), used at runtime via
 PdfBox-Android and, in tests only, via Apache PDFBox itself.
 
 No part of this repository contains any book. The PDFs and EPUBs used while
-developing Folio are the author's own copies and have never been committed.
+developing Quire are the author's own copies and have never been committed.

@@ -22,7 +22,7 @@ they are. No new dependency, no Glance, `RemoteViews` only.
 ### 1. A widget wears a resource qualifier, and Folio has five themes
 
 The first plan said this plainly: a widget is inflated in the launcher's process, so
-`FolioTheme` does not exist there and a resource qualifier is the only theming it
+`QuireTheme` does not exist there and a resource qualifier is the only theming it
 gets — light or dark, and nothing else. Paper for one, Night for the other; Sepia,
 E-ink and Black stayed inside the app.
 
@@ -57,7 +57,7 @@ inflated view. That is the proof this works on API 26: the annotation check is t
 same one the platform makes, and it has been there since the class existed.
 
 **E-ink stays neutral.** Nothing here introduces a colour; the palette is
-`FolioPalettes.of(theme)`, whose E-ink tokens all have chroma exactly zero, and a
+`QuirePalettes.of(theme)`, whose E-ink tokens all have chroma exactly zero, and a
 test asserts the six colours a widget actually uses are still grey.
 
 ### 2. The progress bar cannot be themed, so it stops being a ProgressBar
@@ -141,7 +141,7 @@ content bottom in every state the device test's fixed XML visibilities never rea
   Nothing here touches `:core`.
 - **The copy does not change.** `WidgetState.kt` gains one field on `WidgetSnapshot`
   and nothing else; `WidgetStateTest` is not edited.
-- **The tap does not change.** `FolioWidgets`, the manifest and `WidgetLaunchTest`
+- **The tap does not change.** `QuireWidgets`, the manifest and `WidgetLaunchTest`
   are untouched.
 - **`updatePeriodMillis` and `onDataChanged` do not change.** 1800000 for the streak,
   0 for the stats.
@@ -163,7 +163,7 @@ content bottom in every state the device test's fixed XML visibilities never rea
 
 - [x] Test first: `widgetPalette(theme)` returns the six colours a widget uses —
       `surface`, `edge`, `ink`, `muted`, `accent`, `mark` — as ARGB ints taken
-      from `FolioPalettes.of(theme)`. For all five themes: ink ≥ 4.5:1 against
+      from `QuirePalettes.of(theme)`. For all five themes: ink ≥ 4.5:1 against
       surface, muted ≥ 3:1, accent ≥ 3:1, mark ≥ 3:1, by the same WCAG arithmetic
       `ShareCardStyleTest` uses. Run it; it fails — the function does not exist.
 - [x] Test: E-ink's six colours are strictly neutral (r == g == b for every one), so
@@ -179,16 +179,16 @@ content bottom in every state the device test's fixed XML visibilities never rea
 `test/widget/WidgetDataTest.kt` (edit)
 
 - [x] Test first: a snapshot loaded after `habits.setTheme("SEPIA")` carries
-      `FolioThemeName.SEPIA`; a fresh install carries `PAPER`; a row holding one of
+      `QuireThemeName.SEPIA`; a fresh install carries `PAPER`; a row holding one of
       the retired names — `"DARK"` — carries `NIGHT`, because `themeNamed` is the one
       place that mapping lives and the widget must not reset a reader's theme.
-- [x] `WidgetSnapshot` gains `theme: FolioThemeName = PAPER`. `WidgetData.load`
+- [x] `WidgetSnapshot` gains `theme: QuireThemeName = PAPER`. `WidgetData.load`
       fills it from the settings row it already reads — no second query.
 
 ### Task 3: The Folio mark, in one colour
 
 **Files:** `res/drawable/folio_mark.xml` (create),
-`test/widget/FolioMarkTest.kt` (create)
+`test/widget/QuireMarkTest.kt` (create)
 
 - [x] The same folio the launcher draws — one sheet folded once, two leaves meeting
       at a fold — redrawn on a 24dp grid for widget scale: the launcher's version

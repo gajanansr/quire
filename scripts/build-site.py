@@ -11,7 +11,7 @@ a public URL, and the repository should carry the document it is actually shippi
 and two hand-maintained copies of a legal text is how a stale privacy policy gets
 published. There is one source; this makes the other.
 
-The Markdown subset is hand-rolled rather than imported. Folio takes no dependencies
+The Markdown subset is hand-rolled rather than imported. Quire takes no dependencies
 it does not need, and this file only has to understand the constructs the policy
 actually uses — headings, paragraphs, lists, block quotes, tables, rules, and inline
 emphasis, code and links. Anything outside that is a reason to simplify the document
@@ -42,8 +42,8 @@ PAGE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{title} — Folio</title>
-<meta name="description" content="Folio collects nothing. It has no account, no analytics and no INTERNET permission.">
+<title>{title} — Quire</title>
+<meta name="description" content="Quire collects nothing. It has no account, no analytics and no INTERNET permission.">
 <link rel="icon" href="assets/icon.png">
 <style>
   :root {{
@@ -102,12 +102,12 @@ PAGE = """<!doctype html>
 <body>
 <div class="wrap">
 <header>
-  <a class="brand" href="./"><img src="assets/icon.png" alt=""><span>Folio</span></a>
+  <a class="brand" href="./"><img src="assets/icon.png" alt=""><span>Quire</span></a>
 </header>
 {body}
 <footer>
-  <a href="./">Back to Folio</a> ·
-  <a href="https://github.com/gajanansr/folio">Source on GitHub</a>
+  <a href="./">Back to Quire</a> ·
+  <a href="https://github.com/gajanansr/quire">Source on GitHub</a>
 </footer>
 </div>
 </body>
@@ -161,7 +161,7 @@ def render(markdown: str) -> tuple[str, str]:
             level = len(stripped) - len(stripped.lstrip("#"))
             text = stripped[level:].strip()
             if level == 1:
-                title = re.sub(r"^Folio\s*[—-]\s*", "", text)
+                title = re.sub(r"^Quire\s*[—-]\s*", "", text)
             out.append(f"<h{level}>{inline(text)}</h{level}>")
             i += 1
 

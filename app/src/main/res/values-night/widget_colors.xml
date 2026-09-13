@@ -11,7 +11,7 @@
   theme that avoids the halation pure white-on-black causes, which is the reason it
   is the app's dark default too.
 
-  Converted from the handoff's OKLCH tokens by the same transform FolioColors uses.
+  Converted from the handoff's OKLCH tokens by the same transform QuireColors uses.
   WidgetColorTest pins these, and asserts they are not the light values — a file in
   the wrong directory would otherwise show up only as a white flash in a dark
   launcher, on someone else's phone.

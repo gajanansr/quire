@@ -2,7 +2,7 @@
 <!--
   The unfilled part of the progress bar.
 
-  Drawn in the border colour, because in Folio "not yet" is the border colour and
+  Drawn in the border colour, because in Quire "not yet" is the border colour and
   "done" is the accent — the same pair the week strip uses, in the app and on the
   home screen alike.
 

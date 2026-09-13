@@ -2,7 +2,7 @@
 <!--
   What the widget picker shows.
 
-  The values here are a sample, and this is the one place in Folio where that is
+  The values here are a sample, and this is the one place in Quire where that is
   true. No home screen ever inflates this layout — it exists so the picker can show
   what the widget is for instead of a bare app icon — and the widget itself, in
   `widget_habit.xml`, is filled only from what is stored. A picker showing an empty
@@ -71,7 +71,7 @@
             android:layout_gravity="center_vertical"
             android:layout_marginStart="8dp"
             android:importantForAccessibility="no"
-            android:src="@drawable/folio_mark"
+            android:src="@drawable/quire_mark"
             android:tint="@color/widget_muted" />
     </LinearLayout>
 

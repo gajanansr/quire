@@ -13,7 +13,7 @@ The app installs, runs, imports real books, and reads them.
 | Sideload | `~/Desktop/Folio-0.1.0.apk` (debug-signed, all four ABIs, 67 MB) |
 | **See it** | `./scripts/dev.sh` — boots a windowed emulator (or uses a plugged-in phone), builds, installs, launches |
 | **Live reload** | `./scripts/watch.sh` — rebuilds and reinstalls on every source change |
-| **Screenshot** | `./scripts/shot.sh <name>` — writes `/tmp/folio-<name>.png` |
+| **Screenshot** | `./scripts/shot.sh <name>` — writes `/tmp/quire-<name>.png` |
 | **Logs** | `./scripts/logs.sh` (follow) or `--dump` (what already happened) |
 | Screenshots | `docs/screenshots/` |
 | **Release** | `docs/release.md` — clean checkout to published |
@@ -127,7 +127,7 @@ Record anything needing a human decision here rather than guessing.
   does not cover. Suggest treating it like `reflowFailed`: import it, and offer
   "Read original PDF".
 
-- **Back does nothing visible on three screens.** `back()` in `ui/nav/FolioBack.kt`
+- **Back does nothing visible on three screens.** `back()` in `ui/nav/QuireBack.kt`
   has no case for `goalJustReached`, `importProgress` or `failure`, so on the goal,
   import-progress and error screens a press pops the stack *underneath* the screen
   the reader is looking at — the screen stays, and the press is spent. Pre-existing,
@@ -173,7 +173,7 @@ Gate: `./scripts/check.sh` → BUILD SUCCESSFUL, 19 tests passed.
   by eyeball: `scanned.pdf` (510K) confirmed to have **no** extractable text layer,
   `single-column.pdf` confirmed to have one, `header-footer.pdf` confirmed to repeat its
   running header on ≥5 pages, `large.pdf` confirmed at 420 pages.
-- **Task 3** `FolioConstants` — the eight tunables in one place.
+- **Task 3** `QuireConstants` — the eight tunables in one place.
 - **Task 4** Normalized model. Character-based `ReadingPosition`; `progressAt` clamps to
   0..1 rather than throwing on a stale position, and returns 0 for an empty book instead
   of dividing by zero.
@@ -251,7 +251,7 @@ Gate: `./gradlew :core:test --rerun-tasks` → 82 tests, 0 failures.
    margins the first body line sits ~9% down, inside a 12% band. Because consecutive
    pages' body lines normalize to the same string once digits are masked, they looked
    like a recurring header and were removed. Now 0.06, and promoted from a private
-   companion into `FolioConstants` with the reasoning attached, plus a test asserting
+   companion into `QuireConstants` with the reasoning attached, plus a test asserting
    it can never again reach the text block.
 
 That third one is the exact failure the conservatism rule exists to prevent, and it
@@ -487,7 +487,7 @@ Gate: `./scripts/check.sh` → 215 tests, 0 failures.
   The importer test drives the **production** `AndroidPdfTextSource`, not a JVM
   stand-in, so it exercises the PDF path the app actually ships.
 
-- **Task 6** `ImportProgressStore`, `ImportWorker`, `FolioWorkerFactory`,
+- **Task 6** `ImportProgressStore`, `ImportWorker`, `QuireWorkerFactory`,
   `ImportCoordinator`. Unique work per book id with `KEEP`, so a double tap cannot
   import the same file twice. Progress is written atomically — temp file then rename —
   because a process killed mid-write would otherwise leave a truncated state file that
@@ -498,14 +498,14 @@ Gate: `./scripts/check.sh` → 215 tests, 0 failures.
   already finished. On a 400-page scan that is the difference between resuming and
   starting over.
 
-Only two things left in Plan 2: `FolioApp` wiring (Task 7) and the instrumented
+Only two things left in Plan 2: `QuireApp` wiring (Task 7) and the instrumented
 import tests (Task 8).
 
 ### 2026-09-11 04:35 — PLAN 2 COMPLETE. 216 JVM tests + 14 device tests, all green
 
 Gates: `./scripts/check.sh` → 216, 0 failures. `./scripts/check-device.sh` → 14, 0 failures.
 
-Tasks 7–8 done: `FolioApp` wires the graph and supplies WorkManager's factory, and
+Tasks 7–8 done: `QuireApp` wires the graph and supplies WorkManager's factory, and
 the instrumented suite runs the whole import path on device with **no fakes below the
 picker** — real `PdfRenderer`, real ML Kit, real Room.
 
@@ -528,8 +528,8 @@ Two independent defects, both real:
    made the header detector look wrong when it was right. `singleColumnPdf` now opens
    each page with its own sentence.
 
-**A third bug came from Task 7 itself.** Registering `FolioApp` in the manifest made
-Robolectric instantiate it, and `FolioGraph` built `MlKitOcrEngine()` eagerly —
+**A third bug came from Task 7 itself.** Registering `QuireApp` in the manifest made
+Robolectric instantiate it, and `QuireGraph` built `MlKitOcrEngine()` eagerly —
 `TextRecognition.getClient` needs ML Kit's context, which does not exist off-device.
 That single line of work-in-a-constructor failed **42 tests at once**, across classes
 with nothing to do with OCR. The graph and the recogniser are now both lazy, so
@@ -592,7 +592,7 @@ The APK installs, launches, and renders. Screenshot: `docs/screenshots/01-librar
 
 - **Task 4** Pill navigation — three destinations, only the active one labelled.
 - **Task 5** Library screen, `LibraryState`, `BookCover`, empty and error states,
-  `FolioStrings`, `MainActivity` with the SAF picker, and `FolioRoot`.
+  `QuireStrings`, `MainActivity` with the SAF picker, and `QuireRoot`.
 
 **Seeing the screen immediately paid for itself.** "Good evening" was clipped against
 the left edge: the populated branch gets its gutters from the grid's `contentPadding`,
@@ -619,11 +619,11 @@ a real screen, not just in assertions.
    streak calculations" the brief forbids, so it shows what is actually known and
    will show the real streak when there is one.
 
-Also deleted a second piece of my own scaffolding: `FolioNav` briefly had a phantom
+Also deleted a second piece of my own scaffolding: `QuireNav` briefly had a phantom
 `Box` and an identity `matchParentSizeSafe()` that existed only to make a dead
 `Modifier` chain look used.
 
-`FolioStrings` now centralises copy with two guards: no `FailureReason` name can
+`QuireStrings` now centralises copy with two guards: no `FailureReason` name can
 reach the screen, and every pipeline stage maps to the handoff's words — asserted,
 because "ocr" appearing in the UI would violate the brief's no-jargon rule.
 
@@ -1062,7 +1062,7 @@ vector path: the same letter, from the same face, as the wordmark inside the app
 
 `NoNetworkPermissionTest` reads the merged manifest back and fails on any
 unreviewed permission, not only INTERNET. `IcLauncherColorTest` pins the icon's
-literals to the OKLCH tokens through the same transform `FolioColors` uses,
+literals to the OKLCH tokens through the same transform `QuireColors` uses,
 because a launcher icon is resolved before any app code runs.
 
 Gates: 399 JVM tests, 15 device tests, 0 failures.
@@ -1173,9 +1173,9 @@ stored `false` was the old default, not an answer.
 **The Library header** loses the two circular buttons that went where the nav pill
 already goes.
 
-**Back** now means "out of this". One reducer, `ui/nav/FolioBack.kt`, describes every
-level, and `FolioRoot` holds the only `BackHandler`. Only the Library asks before
-closing. The reducer is pure, so `FolioBackTest` can walk it from the deepest state and
+**Back** now means "out of this". One reducer, `ui/nav/QuireBack.kt`, describes every
+level, and `QuireRoot` holds the only `BackHandler`. Only the Library asks before
+closing. The reducer is pure, so `QuireBackTest` can walk it from the deepest state and
 assert it unwinds to a bare Library in a bounded number of presses — a rule that popped
 nothing, or two things, shows up there rather than as a stuck screen. Making it the
 single handler meant the Reader could no longer rely on its own back arrow to save the
@@ -1260,7 +1260,7 @@ list, at the far end of the journey from where the passage was chosen. Both rout
 open the same sheet.
 
 The card can be dressed six ways: the book's own cover, and Folio's five palettes,
-resolved through `FolioColors.of` so the card is never a sixth palette invented for one
+resolved through `QuireColors.of` so the card is never a sixth palette invented for one
 screen and a change to Night reaches it without anyone remembering.
 
 `ShareCardStyleTest` checks every style against every cover swatch for WCAG contrast,
@@ -1350,7 +1350,7 @@ than merely an outdated one.
 website, source and contact addresses are all blank and marked FILL IN, because there
 is no website yet and an app that opens the browser onto a 404 is worse than one with
 no link. Settings offers a row only once a link is set and shows the short truth about
-privacy until then. `FolioRelease.VERSION_NAME` moved out of the inline `"0.1.0"` in
+privacy until then. `QuireRelease.VERSION_NAME` moved out of the inline `"0.1.0"` in
 the About row, and `LinksTest` reads `app/build.gradle.kts` back so the two cannot
 drift at the first update — mutation-checked, it does fail when they do.
 
@@ -1423,11 +1423,11 @@ separate tests, because collapsing them would have made the second reader look l
 the first.
 
 **The palette had to be copied, and a copy drifts.** A widget cannot reach
-`FolioTheme` — it is drawn in the launcher's process, and the row holding the
+`QuireTheme` — it is drawn in the launcher's process, and the row holding the
 reader's chosen theme is in a database that process cannot open. A resource qualifier
 is the only theming it gets, and it distinguishes exactly two things, so the widget
 wears Paper in a light launcher and Night in a dark one. `WidgetColorTest` converts
-the same OKLCH tokens through the same transform `FolioColors` uses and asserts the
+the same OKLCH tokens through the same transform `QuireColors` uses and asserts the
 six literals still match, the way `IcLauncherColorTest` already does for the launcher
 icon. It also asserts the dark values are *not* the light ones, because a
 `values-night` file in the wrong directory passes every other assertion and shows up
@@ -1439,8 +1439,8 @@ and can break a streak with nobody touching anything — and the stats widget se
 to zero, because no book is finished by the passage of time. What actually keeps them
 current is `onDataChanged`, a callback both repositories take and neither understands:
 recorded minutes, a changed goal, a finished book or chapter, a saved book, an opened
-one, saved progress, a deletion. `FolioGraph` is the only place that connects that to
-`FolioWidgets.refresh`, and it dispatches off the caller's thread — the Reader
+one, saved progress, a deletion. `QuireGraph` is the only place that connects that to
+`QuireWidgets.refresh`, and it dispatches off the caller's thread — the Reader
 persists from a main-thread coroutine, and asking the AppWidgetManager what is pinned
 is a binder call.
 
@@ -1623,7 +1623,7 @@ chapter two's real title to someone sitting on page two. A range check cannot se
 The guard is now `candidate.reflowFailed` asked *before* the lookup.
 
 That one line is sufficient rather than lucky, and the argument runs from the other
-end: `PagePosition.of` has exactly one call site in main (`FolioRoot`, inside the
+end: `PagePosition.of` has exactly one call site in main (`QuireRoot`, inside the
 `originalPdf != null` branch), that branch is reachable only through
 `onReadOriginal`, and `BookDetailsScreen` offers `onReadOriginal` only under
 `if (state.reflowFailed)`. So every page-unit write to `reading_progress` comes from
@@ -1640,14 +1640,14 @@ mention a chapter anyway, so it passed or failed depending on the date. It now w
 six days, and was confirmed by reinstating the bug and watching it go red. The rule
 holds generally: a test against copy chosen by a rotation has to walk the rotation.
 
-**What a review caught that neither found.** `FolioRoot` holds the app's only
+**What a review caught that neither found.** `QuireRoot` holds the app's only
 `BackHandler`, and the invitation's Back clause was keyed on the offer being *owed*
 rather than *on screen*. Since a session flushes when the app backgrounds — which is
 how most sessions end — the offer is routinely raised while the reader is still in
 the Reader, where the invitation is not drawn. Back was therefore swallowed by a
 screen nobody could see, and the one-shot offer recorded as answered: the reader
 lost a Back press and lost reminders permanently, with nothing on screen to explain
-either. The rule is now `invitationVisible(...)` in `ui/nav/FolioBack.kt`, read by
+either. The rule is now `invitationVisible(...)` in `ui/nav/QuireBack.kt`, read by
 both the screen switch and the Back handler so they cannot disagree, with four tests.
 
 The same review then caught that the first scanned-book fix was only half of one —
@@ -1842,12 +1842,12 @@ nobody re-reads a privacy policy after the first time they host it. This closes 
 the five things only a human could supply; the contact route is now the public issue
 tracker.
 
-**`FolioLinks` is filled in.** `PRIVACY_POLICY`, `WEBSITE` and `SOURCE` are real.
+**`QuireLinks` is filled in.** `PRIVACY_POLICY`, `WEBSITE` and `SOURCE` are real.
 `CONTACT_EMAIL` stays deliberately blank: Play's listing needs a real mailbox and that
 is not something to invent.
 
 **A flash of onboarding on every cold start, found while capturing screenshots.**
-`FolioRoot` collected settings with `initial = AppSettingsEntity()`, whose `onboarded`
+`QuireRoot` collected settings with `initial = AppSettingsEntity()`, whose `onboarded`
 is false — so for the frame or two before the database answered, a reader who had used
 Folio for months was greeted with "A quiet place to read / Get Started". The honest
 state before an answer is "not known yet", and the screen for that is nothing at all.

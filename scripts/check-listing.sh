@@ -6,7 +6,7 @@
 # form with your changelog still unsaved. Same for a feature graphic that is 1024x512
 # because an export preset moved.
 #
-# Character counts, not bytes: Play counts characters, and "Folio — Offline Book
+# Character counts, not bytes: Play counts characters, and "Quire — Offline Book
 # Reader" is 27 characters and 29 bytes. `wc -c` would pass a title Play rejects.
 #
 # Deliberately not part of scripts/check.sh: that gate is the test suite, and it

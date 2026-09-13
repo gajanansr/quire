@@ -4,7 +4,7 @@
 
 **Goal:** Build the design system from the handoff — four themes, three type families, the Pill navigation — and the Library, Book Details, Add Book, and error screens on top of real persisted data.
 
-**Architecture:** A `FolioTheme` composable supplies colour, typography and shape through `CompositionLocal`s taken verbatim from the handoff. Screens are stateless composables fed by ViewModels that read `BookRepository`. No screen touches Room or the filesystem directly.
+**Architecture:** A `QuireTheme` composable supplies colour, typography and shape through `CompositionLocal`s taken verbatim from the handoff. Screens are stateless composables fed by ViewModels that read `BookRepository`. No screen touches Room or the filesystem directly.
 
 **Tech Stack:** Jetpack Compose (BOM 2026.09.00), Material3 for bottom sheets only, `lifecycle-viewmodel-compose`, bundled OFL fonts.
 
@@ -56,12 +56,12 @@ Pale theme tokens are in the handoff table and convert the same way.
 ```
 app/src/main/kotlin/app/folio/android/ui/
   theme/Oklch.kt              OKLCH -> sRGB conversion
-  theme/FolioColors.kt        the four palettes, generated from OKLCH
-  theme/FolioTheme.kt         CompositionLocals, e-ink filter
-  theme/FolioType.kt          Work Sans / Source Serif 4 / Lora
-  theme/FolioShapes.kt        radii from the handoff
-  nav/FolioNav.kt             Pill navigation, three destinations
-  nav/FolioRoot.kt            top-level screen switch
+  theme/QuireColors.kt        the four palettes, generated from OKLCH
+  theme/QuireTheme.kt         CompositionLocals, e-ink filter
+  theme/QuireType.kt          Work Sans / Source Serif 4 / Lora
+  theme/QuireShapes.kt        radii from the handoff
+  nav/QuireNav.kt             Pill navigation, three destinations
+  nav/QuireRoot.kt            top-level screen switch
   library/LibraryScreen.kt    empty + populated
   library/LibraryViewModel.kt
   library/BookCover.kt        gradient swatch, real cover when present
@@ -103,15 +103,15 @@ app/src/main/res/font/        bundled OFL TTFs
 ### [done] Task 2: Palettes and theme
 
 **Files:**
-- Create: `theme/FolioColors.kt`, `theme/FolioTheme.kt`, `theme/FolioShapes.kt`
-- Test: `app/src/test/kotlin/app/folio/android/ui/theme/FolioThemeTest.kt`
+- Create: `theme/QuireColors.kt`, `theme/QuireTheme.kt`, `theme/QuireShapes.kt`
+- Test: `app/src/test/kotlin/app/folio/android/ui/theme/QuireThemeTest.kt`
 
 **Interfaces:**
-- `enum class FolioThemeName { LIGHT, PALE, DARK, EINK }`
-- `data class FolioColors(bg, bgAlt, ink, muted, border, accent, accentSoft, buttonBg, buttonText, readerBg, highlight, errorBg, errorText)`
-- `val LocalFolioColors: ProvidableCompositionLocal<FolioColors>`
-- `@Composable fun FolioTheme(theme: FolioThemeName, content: @Composable () -> Unit)`
-- `object Folio { val colors: FolioColors @Composable get() }`
+- `enum class QuireThemeName { LIGHT, PALE, DARK, EINK }`
+- `data class QuireColors(bg, bgAlt, ink, muted, border, accent, accentSoft, buttonBg, buttonText, readerBg, highlight, errorBg, errorText)`
+- `val LocalQuireColors: ProvidableCompositionLocal<QuireColors>`
+- `@Composable fun QuireTheme(theme: QuireThemeName, content: @Composable () -> Unit)`
+- `object Folio { val colors: QuireColors @Composable get() }`
 
 E-ink resolves to the Light palette and sets a grayscale `ColorMatrix` on the content
 root via `Modifier.graphicsLayer { renderEffect = ... }`, per the handoff's
@@ -125,8 +125,8 @@ instruction to post-process rather than hand-tune a fifth palette.
 ### [done] Task 3: Typography
 
 **Files:**
-- Create: `theme/FolioType.kt`, `app/src/main/res/font/*.ttf`
-- Test: `app/src/test/kotlin/app/folio/android/ui/theme/FolioTypeTest.kt`
+- Create: `theme/QuireType.kt`, `app/src/main/res/font/*.ttf`
+- Test: `app/src/test/kotlin/app/folio/android/ui/theme/QuireTypeTest.kt`
 
 Fonts are bundled, not downloaded. Fetch once at setup from the Fontsource CDN
 (OFL-1.1, redistribution permitted) and commit them:
@@ -144,7 +144,7 @@ Add the OFL licence text to `app/src/main/res/raw/` and surface it in Settings.
 
 - `val WorkSans: FontFamily`, `val SourceSerif: FontFamily`, `val Lora: FontFamily`
 - `enum class ReaderFont { SERIF, LORA, SANS, SYSTEM }` with `fun family(): FontFamily`
-- `val FolioTypography` — UI chrome in Work Sans, headlines and chapter titles in
+- `val QuireTypography` — UI chrome in Work Sans, headlines and chapter titles in
   Source Serif 4, per the handoff.
 
 - [ ] Steps as before. The test asserts each font resource resolves and that
@@ -154,7 +154,7 @@ Add the OFL licence text to `app/src/main/res/raw/` and surface it in Settings.
 
 ### [done] Task 4: Pill navigation
 
-**Files:** `nav/FolioNav.kt`, `nav/FolioRoot.kt`
+**Files:** `nav/QuireNav.kt`, `nav/QuireRoot.kt`
 **Test:** `app/src/androidTest/.../NavigationTest.kt`
 
 The floating glass pill: three destinations (Library, Bookmarks, Settings), the
@@ -249,7 +249,7 @@ Task 8.
 Deferred to Plans 4–5: the Reader, pagination, bookmarks and highlights, habits,
 streaks, XP, milestones, and the share sheets.
 
-**Type consistency.** `LibraryBook` comes from Plan 2 unchanged. `FolioColors` token
+**Type consistency.** `LibraryBook` comes from Plan 2 unchanged. `QuireColors` token
 names match the handoff's table exactly, so a reader can compare them side by side.
 `ImportProgress` from Plan 2 feeds Task 7 without reshaping.
 

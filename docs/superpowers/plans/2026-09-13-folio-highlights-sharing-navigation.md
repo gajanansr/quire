@@ -38,7 +38,7 @@ The reader asked for justification to be the default. Changing the Kotlin defaul
 only reaches new installs; the stored row on an existing install keeps `false`, which
 nobody ever chose — it was the old default.
 
-**Files:** `data/Entities.kt`, `data/FolioDatabase.kt`, `test/data/MigrationTest.kt`
+**Files:** `data/Entities.kt`, `data/QuireDatabase.kt`, `test/data/MigrationTest.kt`
 
 - [x] `AppSettingsEntity.readerJustify` defaults to `true`.
 - [x] `MIGRATION_3_4` sets `readerJustify = 1` on the existing settings row, database
@@ -51,19 +51,19 @@ nobody ever chose — it was the old default.
 Bookmarks and Settings sit in the pill nav at the bottom of the same screen. The two
 circular buttons in the header go to the same two places.
 
-**Files:** `ui/library/LibraryScreen.kt`, `ui/nav/FolioRoot.kt`
+**Files:** `ui/library/LibraryScreen.kt`, `ui/nav/QuireRoot.kt`
 
 - [x] Remove both `IconButtonBox` calls, the `IconButtonBox` composable, and the
       `onOpenBookmarks` / `onOpenSettings` parameters from `LibraryScreen`.
-- [x] Drop the now-dead arguments at the call site in `FolioRoot`.
+- [x] Drop the now-dead arguments at the call site in `QuireRoot`.
 - [x] The header keeps the greeting and the subtitle, which is all it was for.
 
 ### Task 3: Back goes back, and only the Library asks to leave
 
 Back currently closes the app from wherever the reader is standing.
 
-**Files:** `ui/nav/FolioBack.kt` (create), `ui/nav/FolioRoot.kt`,
-`test/ui/nav/FolioBackTest.kt` (create)
+**Files:** `ui/nav/QuireBack.kt` (create), `ui/nav/QuireRoot.kt`,
+`test/ui/nav/QuireBackTest.kt` (create)
 
 - [x] `NavSnapshot(readingBookId, readingOriginal, openBookId, habitScreen,
       destination)` and `fun back(snapshot: NavSnapshot): BackAction`, where
@@ -71,7 +71,7 @@ Back currently closes the app from wherever the reader is standing.
 - [x] Order, deepest first: the original-PDF view, the Reader, Book Details, a habit
       screen (Milestones and Level return to Streak, Streak closes), a non-Library
       destination, then the Library — which is the only `ConfirmExit`.
-- [x] `FolioRoot` holds one `BackHandler` that applies `back(...)`, and an
+- [x] `QuireRoot` holds one `BackHandler` that applies `back(...)`, and an
       `AlertDialog` for the exit confirmation that calls `Activity.finish()`.
 - [x] Test: from every state, back lands where the table says; only the Library asks;
       leaving the Reader keeps `openBookId` so Back returns to Book Details, not past
@@ -103,7 +103,7 @@ destinations are generic glyphs that hand off nowhere.
 ### Task 5: Share where it belongs
 
 **Files:** `ui/reader/ReaderScreen.kt`, `ui/bookmarks/BookmarksScreen.kt`,
-`ui/details/BookDetailsScreen.kt`, `ui/nav/FolioRoot.kt`
+`ui/details/BookDetailsScreen.kt`, `ui/nav/QuireRoot.kt`
 
 - [x] Reader chrome gains a Share action beside Bookmark; it shares the current page,
       or the selection when there is one (Task 6).
@@ -138,7 +138,7 @@ destinations are generic glyphs that hand off nowhere.
 The `highlight` colour token exists in all five themes and is used nowhere. E-ink's
 is neutral grey, which is what keeps that theme black and white.
 
-**Files:** `data/Entities.kt`, `data/FolioDatabase.kt`, `data/BookRepository.kt`,
+**Files:** `data/Entities.kt`, `data/QuireDatabase.kt`, `data/BookRepository.kt`,
 `ui/reader/ReaderTypography.kt`, `ui/reader/ReaderScreen.kt`,
 `test/data/MigrationTest.kt`, `test/ui/reader/MeasureMatchesRenderTest.kt`
 
@@ -158,8 +158,8 @@ is neutral grey, which is what keeps that theme black and white.
 
 ### Task 8: Support Folio
 
-**Files:** `ui/settings/SettingsScreen.kt`, `ui/nav/FolioRoot.kt`,
-`ui/FolioStrings.kt`
+**Files:** `ui/settings/SettingsScreen.kt`, `ui/nav/QuireRoot.kt`,
+`ui/QuireStrings.kt`
 
 - [x] An About row: **Show your support** → `https://razorpay.me/@gajanansr` via
       `ShareIntents.view`, opened in the browser.

@@ -3,9 +3,9 @@
   Both sizing vocabularies, as for the habit widget: the dip measurements API 26 to
   30 reads, and API 31's cell grid.
 
-  updatePeriodMillis is 0 on purpose. Nothing on this widget can change while Folio
+  updatePeriodMillis is 0 on purpose. Nothing on this widget can change while Quire
   is closed — a book is not finished by the passage of time — so a periodic wake-up
-  would spend battery redrawing numbers that cannot have moved. FolioWidgets.refresh,
+  would spend battery redrawing numbers that cannot have moved. QuireWidgets.refresh,
   fired when the app actually writes, is its only refresh.
 
   It resizes taller than the habit widget because the current book's title is the one

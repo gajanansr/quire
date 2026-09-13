@@ -18,11 +18,11 @@ Nothing in this list could be produced without you. Everything else is done.
 | # | What | Where it goes |
 |---|---|---|
 | 1 | **An upload keystore** and its four values | `keystore.properties` at the repo root (gitignored), or the four environment variables. §2 |
-| 2 | **A public URL for the privacy policy** | Play Console × 2, and `FolioLinks.PRIVACY_POLICY`. §5 |
-| 3 | **A contact email** | `docs/privacy-policy.md` (replace `[CONTACT EMAIL]`), the Play store listing, and optionally `FolioLinks.CONTACT_EMAIL` |
+| 2 | **A public URL for the privacy policy** | Play Console × 2, and `QuireLinks.PRIVACY_POLICY`. §5 |
+| 3 | **A contact email** | `docs/privacy-policy.md` (replace `[CONTACT EMAIL]`), the Play store listing, and optionally `QuireLinks.CONTACT_EMAIL` |
 | 4 | **At least 2 phone screenshots**, 4–6 recommended | `fastlane/metadata/android/en-US/images/phoneScreenshots/`. Instructions in the README there |
 | 5 | **Play Console answers**: content rating questionnaire, target audience, app category, tags | Play Console. §7 |
-| 6 | *(optional)* a website and a source URL | `FolioLinks.WEBSITE`, `FolioLinks.SOURCE` |
+| 6 | *(optional)* a website and a source URL | `QuireLinks.WEBSITE`, `QuireLinks.SOURCE` |
 
 Items 1–5 are blocking. Item 6 is not: the app hides those Settings rows when the
 links are blank, on purpose.
@@ -30,10 +30,10 @@ links are blank, on purpose.
 The app itself will tell you what is still missing:
 
 ```kotlin
-FolioLinks.unset()   // ["PRIVACY_POLICY", "WEBSITE", "SOURCE", "CONTACT_EMAIL"]
+QuireLinks.unset()   // ["PRIVACY_POLICY", "WEBSITE", "SOURCE", "CONTACT_EMAIL"]
 ```
 
-All of them live in **one file**: `app/src/main/kotlin/app/folio/android/share/Links.kt`.
+All of them live in **one file**: `app/src/main/kotlin/app/quire/android/share/Links.kt`.
 
 ---
 
@@ -57,7 +57,7 @@ These are once-only and some of them take days, not minutes. Start them first.
 
 ### The application id is permanent
 
-`app.folio.android` can never change. Publishing under it fixes both the id and the
+`app.quire.android` can never change. Publishing under it fixes both the id and the
 signing identity for the lifetime of the listing — a different id is a different app
 with no reviews, no installs and no update path. Be sure before the first upload.
 
@@ -71,9 +71,9 @@ unless you have enrolled in Play App Signing (see below).
 ```bash
 source scripts/env.sh
 keytool -genkeypair -v \
-  -keystore ~/keys/folio-upload.jks \
+  -keystore ~/keys/quire-upload.jks \
   -storetype PKCS12 \
-  -alias folio-upload \
+  -alias quire-upload \
   -keyalg RSA -keysize 2048 -validity 10000 \
   -dname "CN=<your name>, O=<you or your org>, C=<country code>"
 ```
@@ -90,9 +90,9 @@ in the tree.
 Then create `keystore.properties` at the repo root:
 
 ```properties
-storeFile=/Users/you/keys/folio-upload.jks
+storeFile=/Users/you/keys/quire-upload.jks
 storePassword=...
-keyAlias=folio-upload
+keyAlias=quire-upload
 keyPassword=...
 ```
 
@@ -189,7 +189,7 @@ val defaultVersionName = "0.1.0"
   every upload. Play permanently refuses a code it has already seen, even from a
   bundle you deleted.
 - **`versionName`** is what people read. It also has to be edited in one other
-  place — `FolioRelease.VERSION_NAME` in `share/Links.kt`, which is what the About
+  place — `QuireRelease.VERSION_NAME` in `share/Links.kt`, which is what the About
   row in Settings shows. `LinksTest` fails the build if the two drift, so you cannot
   forget; you can only be reminded.
 
@@ -203,7 +203,7 @@ For a one-off build without a commit — a CI run, or a second upload after a re
 one:
 
 ```bash
-./gradlew :app:bundleRelease -PfolioVersionCode=2 -PfolioVersionName=0.1.1
+./gradlew :app:bundleRelease -PquireVersionCode=2 -PquireVersionName=0.1.1
 # or FOLIO_VERSION_CODE / FOLIO_VERSION_NAME in the environment
 ```
 
@@ -277,7 +277,7 @@ The URL goes in **three** places and they must match:
 
 1. Play Console → Store listing → *Privacy policy*
 2. Play Console → App content → Data safety → *Privacy policy URL*
-3. `FolioLinks.PRIVACY_POLICY` in `share/Links.kt` — this is what turns the Settings
+3. `QuireLinks.PRIVACY_POLICY` in `share/Links.kt` — this is what turns the Settings
    row from a plain statement into a tappable link. Rebuild after setting it.
 
 ---
@@ -376,7 +376,7 @@ unzip -l app/build/outputs/bundle/release/app-release.aab | grep '\.so$'
 
 ## 9. R8 / minification — the decision
 
-**R8 is off.** `isMinifyEnabled = false` unless `-PfolioMinify=true` is passed.
+**R8 is off.** `isMinifyEnabled = false` unless `-PquireMinify=true` is passed.
 
 This is a considered choice, not an oversight, and `app/proguard-rules.pro` is
 written and committed so it can be revisited in an afternoon.
@@ -386,7 +386,7 @@ written and committed so it can be revisited in an afternoon.
 | | |
 |---|---|
 | `bundleRelease` | 17 MB, builds clean |
-| `bundleRelease -PfolioMinify=true` | **11 MB**, also builds clean |
+| `bundleRelease -PquireMinify=true` | **11 MB**, also builds clean |
 
 So R8 works and saves about a third. **What was not measured is the only thing that
 matters:** whether a shrunk Folio still imports a book. This session could not use
@@ -404,7 +404,7 @@ trade. An untested `minifyEnabled true` is how an app gets its first one-star re
 
 **To turn it on** — the whole procedure:
 
-1. `./gradlew :app:assembleRelease -PfolioMinify=true`
+1. `./gradlew :app:assembleRelease -PquireMinify=true`
 2. Install that APK on a real device.
 3. Import one of each: an EPUB, a text PDF, a **scanned** PDF, and a TXT file.
 4. Open each one, turn pages, check the chapter list is populated and the text is
@@ -512,7 +512,7 @@ source scripts/env.sh
 # 1. Bump both, in app/build.gradle.kts:
 #      defaultVersionCode  (must increase)
 #      defaultVersionName
-#    and FolioRelease.VERSION_NAME in share/Links.kt to match.
+#    and QuireRelease.VERSION_NAME in share/Links.kt to match.
 
 # 2. Release notes:
 #      fastlane/metadata/android/en-US/changelogs/<versionCode>.txt

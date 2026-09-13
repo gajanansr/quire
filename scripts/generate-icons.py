@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Regenerate Folio's icon drawables from Lucide.
+"""Regenerate Quire's icon drawables from Lucide.
 
 Run from the repo root after editing ICONS or bumping LUCIDE_VERSION:
 
     python3 scripts/generate-icons.py
 
 Fetches each icon from the pinned lucide-static release and writes
-app/src/main/res/drawable/ic_<name>.xml. Only the icons Folio actually uses are
+app/src/main/res/drawable/ic_<name>.xml. Only the icons Quire actually uses are
 bundled; Lucide is not a dependency, so nothing is fetched at build time and
 nothing at runtime.
 
@@ -23,8 +23,8 @@ import xml.etree.ElementTree as ET
 LUCIDE_VERSION = "0.544.0"
 OUT_DIR = "app/src/main/res/drawable"
 
-# Every icon Folio uses, and where. Keep this list and FolioIcons.kt in step;
-# FolioIconsTest fails if they drift apart.
+# Every icon Quire uses, and where. Keep this list and QuireIcons.kt in step;
+# QuireIconsTest fails if they drift apart.
 ICONS = [
     "library",          # nav: Library
     "bookmark",         # nav: Bookmarks, and the bookmark action
@@ -118,7 +118,7 @@ def convert(src, name):
         f'<!-- Lucide "{name}", ISC licensed. Generated from lucide-static\n'
         f'     {LUCIDE_VERSION} by scripts/generate-icons.py. Edit the generator,\n'
         '     not this file. Stroke colour is a placeholder: every use site tints\n'
-        '     it through FolioIcon, so the icon follows the active theme. -->\n'
+        '     it through QuireIcon, so the icon follows the active theme. -->\n'
         '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n'
         '    android:width="24dp"\n'
         '    android:height="24dp"\n'

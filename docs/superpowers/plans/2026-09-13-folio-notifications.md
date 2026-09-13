@@ -10,7 +10,7 @@ silenced in one tap, and asked for only after the reader has shown they want it.
 and in what words?* — lands in one pure function, `Reminders.decide(facts)`, with no
 Android imports at all. Everything around it is plumbing that can be read in one
 sitting: a WorkManager job gathers the facts, calls the function, and posts whatever
-it is handed. This is the same split `ReaderStateTest` and `FolioBackTest` already
+it is handed. This is the same split `ReaderStateTest` and `QuireBackTest` already
 use, and it is the only way to test this feature at all — there is no Compose UI test
 dependency and this plan does not add one.
 
@@ -58,10 +58,10 @@ a piece turned out to belong where it is used rather than where it was planned.
 | `ReminderWords.pick` | pure: the hand-written lines, chosen by kind and day | `notify/ReminderWords.kt` |
 | `ReminderScheduler` | WorkManager enqueue / cancel | `notify/ReminderScheduler.kt` |
 | `ReminderWorker` | gathers facts, calls `decide`, posts, reschedules | `notify/ReminderWorker.kt` |
-| `FolioNotifier` | the channel, the notification, the tap target | `notify/FolioNotifier.kt` |
-| `NotificationAccess` | whether Folio may post at all, right now | `notify/FolioNotifier.kt` |
+| `QuireNotifier` | the channel, the notification, the tap target | `notify/QuireNotifier.kt` |
+| `NotificationAccess` | whether Folio may post at all, right now | `notify/QuireNotifier.kt` |
 | `ReminderPermission` | pure: when to ask, when to stop asking, when to deep-link | `notify/ReminderPermission.kt` |
-| `invitationVisible` | pure: whether the offer is on screen, so Back agrees with the renderer *(added after review)* | `ui/nav/FolioBack.kt` |
+| `invitationVisible` | pure: whether the offer is on screen, so Back agrees with the renderer *(added after review)* | `ui/nav/QuireBack.kt` |
 
 ### The two kinds, and why only two
 
@@ -81,7 +81,7 @@ Seven new columns on the one settings row. Defaults are chosen so that a reader 
 upgrades and never opens Settings is **not** notified: `remindersEnabled` starts at
 0, and Task 7 is the only thing that turns it on, at the reader's own tap.
 
-**Files:** `data/Entities.kt`, `data/FolioDatabase.kt`, `FolioApp.kt`,
+**Files:** `data/Entities.kt`, `data/QuireDatabase.kt`, `QuireApp.kt`,
 `data/HabitRepository.kt`, `test/data/SettingsMigrationTest.kt`
 
 - [x] `AppSettingsEntity` gains `remindersEnabled = false`, `remindersAsked = false`,
@@ -89,7 +89,7 @@ upgrades and never opens Settings is **not** notified: `remindersEnabled` starts
       `streakReminderEnabled = true`, `reminderPermissionDenied = false`,
       `lastReminderDay = -1L`.
 - [x] `MIGRATION_5_6` adds all seven with those defaults; database version 6;
-      registered in `FolioApp`. A real migration, not destructive fallback — the
+      registered in `QuireApp`. A real migration, not destructive fallback — the
       house rule, and a reader's library is not worth a reminder setting.
 - [x] `HabitRepository` gains `setRemindersEnabled`, `setReminderTime`,
       `setReminderKinds`, `markRemindersAsked`, `markPermissionDenied`,
@@ -209,8 +209,8 @@ it enqueues and that class does not exist until then. Both live where they are u
 
 ### Task 5: The notification itself
 
-**Files:** `notify/FolioNotifier.kt` (create), `AndroidManifest.xml`,
-`ui/FolioStrings.kt`, `test/notify/FolioNotifierTest.kt` (create),
+**Files:** `notify/QuireNotifier.kt` (create), `AndroidManifest.xml`,
+`ui/QuireStrings.kt`, `test/notify/QuireNotifierTest.kt` (create),
 `test/NoNetworkPermissionTest.kt`
 
 - [x] One channel, `reading_reminders`, `IMPORTANCE_DEFAULT` — a sound, no heads-up.
@@ -235,8 +235,8 @@ it enqueues and that class does not exist until then. Both live where they are u
 
 ### Task 6: The worker
 
-**Files:** `notify/ReminderWorker.kt` (create), `work/FolioWorkerFactory.kt` or a
-sibling factory, `FolioApp.kt`, `test/notify/ReminderWorkerTest.kt` (create)
+**Files:** `notify/ReminderWorker.kt` (create), `work/QuireWorkerFactory.kt` or a
+sibling factory, `QuireApp.kt`, `test/notify/ReminderWorkerTest.kt` (create)
 
 - [x] `ReminderWorker` reads settings and the habit summary, finds the most recently
       opened book and its chapter, builds `ReminderFacts`, and calls `decide`.
@@ -245,7 +245,7 @@ sibling factory, `FolioApp.kt`, `test/notify/ReminderWorkerTest.kt` (create)
 - [x] Reschedules the next occurrence on every run, except when the decision was
       `REMINDERS_OFF`: off is permanent, and a job that reschedules itself forever
       after the reader said no is the bug this clause exists to prevent.
-- [x] Wired through a factory alongside `FolioWorkerFactory` — via
+- [x] Wired through a factory alongside `QuireWorkerFactory` — via
       `DelegatingWorkerFactory`, so `ImportWorker`'s existing construction and its
       tests are untouched.
 - [x] Test (Robolectric + `TestListenableWorkerBuilder`): a day with reading posts
@@ -259,8 +259,8 @@ Not on first launch. The reader is asked once, after a reading session that actu
 recorded minutes — the first moment there is evidence they want to come back.
 
 **Files:** `notify/ReminderPermission.kt` (create),
-`ui/notify/ReminderInviteScreen.kt` (create), `ui/nav/FolioRoot.kt`,
-`MainActivity.kt`, `ui/FolioStrings.kt`,
+`ui/notify/ReminderInviteScreen.kt` (create), `ui/nav/QuireRoot.kt`,
+`MainActivity.kt`, `ui/QuireStrings.kt`,
 `test/notify/ReminderPermissionTest.kt` (create)
 
 - [x] `ReminderPermission.shouldInvite(settings, creditedMinutes)` — onboarded, never
@@ -284,14 +284,14 @@ recorded minutes — the first moment there is evidence they want to come back.
 ### Task 8: The controls
 
 **Departure from the plan as written:** the start-up re-sync lives in
-`MainActivity.onResume`, not `FolioApp`. It has to run on every *return*, not only on
+`MainActivity.onResume`, not `QuireApp`. It has to run on every *return*, not only on
 process start — the reader can switch notifications off in system settings without
 Folio's process ever dying — and it needs a coroutine scope that ends with the
 screen. The same `onResume` re-reads whether Folio may post, so Settings can never
 show a stale answer.
 
-**Files:** `ui/settings/SettingsScreen.kt`, `ui/FolioStrings.kt`,
-`ui/nav/FolioRoot.kt`, `MainActivity.kt`, `test/ui/FolioStringsTest.kt`,
+**Files:** `ui/settings/SettingsScreen.kt`, `ui/QuireStrings.kt`,
+`ui/nav/QuireRoot.kt`, `MainActivity.kt`, `test/ui/QuireStringsTest.kt`,
 `test/notify/ReminderScheduleTest.kt`
 
 - [x] A **Reminders** group in Settings: a master toggle row; below it, only while it
@@ -305,12 +305,12 @@ show a stale answer.
       not have to trust that something happens later.
 - [x] When Folio cannot post, the group says so plainly and the row opens system
       settings rather than pretending the toggle works.
-- [x] `FolioApp` re-syncs the scheduled job on start with `KEEP`, so a reminder
+- [x] `QuireApp` re-syncs the scheduled job on start with `KEEP`, so a reminder
       survives an app-data quirk without being pushed back a day on every launch.
 - [x] Test: `formatTime` across the whole clock in both 12- and 24-hour form —
       midnight and noon are where this is always wrong; every preset formats to
       something a person would write; no new string leaks an enum name (the existing
-      `FolioStringsTest` rule, extended to the reminder strings).
+      `QuireStringsTest` rule, extended to the reminder strings).
 
 ---
 

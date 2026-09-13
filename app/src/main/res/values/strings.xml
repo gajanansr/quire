@@ -2,7 +2,7 @@
 <!--
   Strings that have to be resources.
 
-  Everything a reader sees inside the app lives in `ui/FolioStrings.kt`, where the
+  Everything a reader sees inside the app lives in `ui/QuireStrings.kt`, where the
   copy can be diffed against the handoff in one place. These cannot: the widget
   picker reads a receiver's label and an appwidget-provider's description out of the
   package manager, long before any Kotlin runs. The sentences the widgets compute at

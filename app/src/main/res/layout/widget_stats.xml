@@ -22,7 +22,7 @@
 
   **Why there is no ProgressBar.** ProgressBar has no remotable method for its
   colours before API 31 — `setProgressTintList` needs a ColorStateList, which means
-  `RemoteViews.setColorStateList`, which is API 31 — so on three of Folio's five
+  `RemoteViews.setColorStateList`, which is API 31 — so on three of Quire's five
   themes the bar would be the wrong colour. Two tinted ImageViews do the same job:
   a track, and a fill whose `<clip>` drawable is cut to the percentage by
   `setImageLevel`. That is also what a ProgressBar's own progress layer is, so it
@@ -66,7 +66,7 @@
         android:layout_gravity="top|end"
         android:layout_margin="12dp"
         android:importantForAccessibility="no"
-        android:src="@drawable/folio_mark"
+        android:src="@drawable/quire_mark"
         android:tint="@color/widget_muted" />
 
     <LinearLayout

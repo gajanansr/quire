@@ -22,11 +22,11 @@ entries, sizing metadata, the tap intent — is asserted under Robolectric, whic
 read resources and inflate a `RemoteViews` even though it cannot render one.
 
 Widgets cannot reach the Compose theme: they are inflated in the launcher's process,
-long before `FolioTheme` exists, and the reader's chosen theme is a row in a database
+long before `QuireTheme` exists, and the reader's chosen theme is a row in a database
 that process cannot open. So the widget wears **Paper in light mode and Night in dark
 mode**, mirrored into `res/values/` and `res/values-night/` as literals — and
 `WidgetColorTest` converts the same OKLCH tokens through the same transform
-`FolioColors` uses and asserts the literals still match, exactly as
+`QuireColors` uses and asserts the literals still match, exactly as
 `IcLauncherColorTest` does for the launcher icon. Literals drift; that test is what
 stops them.
 
@@ -72,8 +72,8 @@ light palette and Night is the dark one — the two the system can distinguish.
 
 - [x] Test first: for each of `widget_bg`, `widget_bg_alt`, `widget_ink`,
       `widget_muted`, `widget_border`, `widget_accent`, the resource equals
-      `FolioPalettes.Paper.<token>.toArgb()` in the default configuration and
-      `FolioPalettes.Night.<token>.toArgb()` under `@Config(qualifiers = "night")`.
+      `QuirePalettes.Paper.<token>.toArgb()` in the default configuration and
+      `QuirePalettes.Night.<token>.toArgb()` under `@Config(qualifiers = "night")`.
       Run it; it fails — the resources do not exist.
 - [x] Add both files, each token's hex carrying the OKLCH token it came from in a
       comment, the way `ic_launcher_colors.xml` does.
@@ -130,7 +130,7 @@ draw anything, and writing it twice and extracting it afterwards would be worse.
 **Files:** `res/layout/widget_habit.xml`, `res/layout/widget_habit_preview.xml`,
 `res/drawable/widget_card.xml`, `res/drawable/widget_day_bar.xml`,
 `res/values/strings.xml` (create), `res/xml/widget_habit_info.xml`,
-`widget/FolioWidgets.kt`, `widget/WidgetViews.kt`, `widget/FolioWidgetProvider.kt`,
+`widget/QuireWidgets.kt`, `widget/WidgetViews.kt`, `widget/QuireWidgetProvider.kt`,
 `widget/HabitWidgetProvider.kt`, `AndroidManifest.xml`,
 `test/widget/AppWidgetInfoAssertions.kt` (create, shared with Task 5),
 `test/widget/HabitWidgetTest.kt` (create)
@@ -143,7 +143,7 @@ draw anything, and writing it twice and extracting it afterwards would be worse.
       `widgetCategory`, `resizeMode` and `updatePeriodMillis`; `RemoteViews` built
       from a known `HabitWidgetState` inflates and carries that state's headline,
       detail and seven day bars.
-- [x] A shared `FolioWidgetProvider` base: `goAsync()`, load on `Dispatchers.IO`,
+- [x] A shared `QuireWidgetProvider` base: `goAsync()`, load on `Dispatchers.IO`,
       apply, and finish the broadcast in a `finally` — a `PendingResult` that is
       never finished is an ANR and then a dropped update.
 - [x] Layout: a rounded `widget_card` ground in `widget_bg`, a flame, the
@@ -181,15 +181,15 @@ draw anything, and writing it twice and extracting it afterwards would be worse.
 
 ### Task 6: A tap that lands somewhere
 
-**Files:** `widget/FolioWidgets.kt`, `MainActivity.kt`, `ui/nav/FolioRoot.kt`,
+**Files:** `widget/QuireWidgets.kt`, `MainActivity.kt`, `ui/nav/QuireRoot.kt`,
 `test/widget/WidgetIntentTest.kt` (create)
 
-- [x] `FolioWidget` names the two widgets and what each one opens, and
-      `FolioWidgets.openIntent(context, widget)` returns an `Intent` for
+- [x] `QuireWidget` names the two widgets and what each one opens, and
+      `QuireWidgets.openIntent(context, widget)` returns an `Intent` for
       `MainActivity` and nothing else — so which widget opens what is data a test can
       read, the same shape as `ShareIntents`.
 - [x] The habit widget deep-links to the streak screen; the stats widget opens the
-      Library. `FolioRoot` gains a `pendingHabitScreen` it takes once and hands back,
+      Library. `QuireRoot` gains a `pendingHabitScreen` it takes once and hands back,
       and `MainActivity` reads the extra in `onNewIntent` as well as `onCreate`: the
       activity is usually already alive, and a destination treated as a fixed
       starting point would work exactly once per process.
@@ -203,8 +203,8 @@ draw anything, and writing it twice and extracting it afterwards would be worse.
 
 ### Task 7: Refreshing when reading data changes, not on a timer
 
-**Files:** `data/HabitRepository.kt`, `data/BookRepository.kt`, `FolioApp.kt`,
-`widget/FolioWidgets.kt`, `test/widget/WidgetRefreshTest.kt` (create)
+**Files:** `data/HabitRepository.kt`, `data/BookRepository.kt`, `QuireApp.kt`,
+`widget/QuireWidgets.kt`, `test/widget/WidgetRefreshTest.kt` (create)
 
 - [x] Test first: recording minutes, changing the daily goal, finishing a book,
       finishing a chapter, saving a book, opening one, saving progress and deleting a
@@ -218,12 +218,12 @@ draw anything, and writing it twice and extracting it afterwards would be worse.
       in both, not after: `BookRepository(db, store) { clock }` passes the clock as a
       trailing lambda, and a `() -> Unit` in the last position would have silently
       swallowed it and left several tests running on the wall clock.
-- [x] `FolioGraph` wires both to `FolioWidgets.refresh(app)`, which broadcasts
+- [x] `QuireGraph` wires both to `QuireWidgets.refresh(app)`, which broadcasts
       `ACTION_APPWIDGET_UPDATE` to both providers with their installed ids. No
       widgets installed means no ids and nothing sent. The graph dispatches it off
       the caller's thread: the Reader persists from a main-thread coroutine, and
       asking the AppWidgetManager what is pinned is a binder call.
-- [x] Test: `FolioWidgets.refresh` with no widgets installed sends nothing and throws
+- [x] Test: `QuireWidgets.refresh` with no widgets installed sends nothing and throws
       nothing — the common case, since most readers will install neither.
 
 ### Task 8: The providers and their renderers, joined
@@ -234,7 +234,7 @@ proves that `HabitWidgetProvider` calls the habit renderer. Swapping the two
 providers' bodies would pass every test in the plan so far and put the wrong widget
 on both home screens.
 
-**Files:** `widget/FolioWidgetProvider.kt`, `test/widget/HabitWidgetTest.kt`,
+**Files:** `widget/QuireWidgetProvider.kt`, `test/widget/HabitWidgetTest.kt`,
 `test/widget/StatsWidgetTest.kt`
 
 - [x] Test first: each provider, given a snapshot, produces a `RemoteViews` carrying

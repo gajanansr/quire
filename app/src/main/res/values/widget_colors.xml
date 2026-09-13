@@ -16,7 +16,7 @@
 
   Light and dark is all a qualifier can distinguish, so Paper is the light one and
   Night the dark one — the same two the app defaults to. Converted from the handoff's
-  OKLCH tokens by the same transform FolioColors uses, and WidgetColorTest pins them
+  OKLCH tokens by the same transform QuireColors uses, and WidgetColorTest pins them
   so the first frame cannot drift away from the theme that replaces it.
 -->
 <resources>

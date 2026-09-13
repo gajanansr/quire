@@ -10,7 +10,7 @@
 
   updatePeriodMillis is 1800000 — the platform's floor — because this is the one
   widget whose content changes with nothing happening: at midnight "minutes today"
-  resets and a streak can break. FolioWidgets.refresh keeps it current the rest of
+  resets and a streak can break. QuireWidgets.refresh keeps it current the rest of
   the time, so this is a backstop and not the mechanism.
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"

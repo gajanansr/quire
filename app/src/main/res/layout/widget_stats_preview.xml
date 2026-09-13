@@ -121,7 +121,7 @@
             android:layout_gravity="top"
             android:layout_marginStart="8dp"
             android:importantForAccessibility="no"
-            android:src="@drawable/folio_mark"
+            android:src="@drawable/quire_mark"
             android:tint="@color/widget_muted" />
     </LinearLayout>
 
