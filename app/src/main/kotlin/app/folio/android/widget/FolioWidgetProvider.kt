@@ -27,8 +27,16 @@ import kotlinx.coroutines.launch
  */
 abstract class FolioWidgetProvider : AppWidgetProvider() {
 
-    /** The one thing each widget does differently. */
-    protected abstract fun views(context: Context, snapshot: WidgetSnapshot): RemoteViews
+    /**
+     * The one thing each widget does differently.
+     *
+     * `internal` rather than `protected` so a test in this module can call it. The
+     * broadcast around it cannot be reached from a JVM test at all, so this is the
+     * last seam where "the habit provider draws the habit widget" can be asserted —
+     * and swapping two providers' bodies would otherwise pass every other test and
+     * put the wrong widget on both home screens.
+     */
+    internal abstract fun views(context: Context, snapshot: WidgetSnapshot): RemoteViews
 
     override fun onUpdate(
         context: Context,
@@ -36,12 +44,13 @@ abstract class FolioWidgetProvider : AppWidgetProvider() {
         appWidgetIds: IntArray,
     ) {
         if (appWidgetIds.isEmpty()) return
-        val graph = (context.applicationContext as? FolioApp)?.graph ?: return
+        val application = context.applicationContext as? FolioApp ?: return
 
         val pending = goAsync()
         val appContext = context.applicationContext
         scope.launch {
             try {
+                val graph = application.graph
                 val snapshot = WidgetData.load(graph.repository, graph.habits)
                 val views = views(appContext, snapshot)
                 appWidgetIds.forEach { appWidgetManager.updateAppWidget(it, views) }

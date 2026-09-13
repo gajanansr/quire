@@ -141,6 +141,17 @@ class HabitWidgetTest {
         PorterDuffColorFilter(app.getColor(colorRes), PorterDuff.Mode.SRC_ATOP)
 
     @Test
+    fun `the habit provider draws the habit widget`() {
+        // Nothing else says so. Every other test here calls the renderer directly,
+        // so swapping the two providers' bodies would pass all of them and put the
+        // stats widget on both home screens.
+        val root = HabitWidgetProvider()
+            .views(app, WidgetSnapshot())
+            .apply(app, FrameLayout(app))
+        assertEquals("Start a reading habit", text(root, R.id.widget_habit_headline))
+    }
+
+    @Test
     fun `the whole widget opens Folio when tapped`() {
         // One click target on the root, not a button: a widget that only responds in
         // the few pixels around its text feels broken.

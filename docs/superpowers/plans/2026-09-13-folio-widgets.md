@@ -226,7 +226,27 @@ draw anything, and writing it twice and extracting it afterwards would be worse.
 - [x] Test: `FolioWidgets.refresh` with no widgets installed sends nothing and throws
       nothing — the common case, since most readers will install neither.
 
-### Task 8: Record it
+### Task 8: The providers and their renderers, joined
+
+Found in review. `WidgetStateTest` proves the wording, `HabitWidgetTest` and
+`StatsWidgetTest` prove each renderer fills the right views, and nothing at all
+proves that `HabitWidgetProvider` calls the habit renderer. Swapping the two
+providers' bodies would pass every test in the plan so far and put the wrong widget
+on both home screens.
+
+**Files:** `widget/FolioWidgetProvider.kt`, `test/widget/HabitWidgetTest.kt`,
+`test/widget/StatsWidgetTest.kt`
+
+- [x] Test first: each provider, given a snapshot, produces a `RemoteViews` carrying
+      that widget's own views — the habit headline for one, the stat tiles for the
+      other.
+- [x] `views` becomes `internal` rather than `protected` so a test in the same module
+      can reach it. The broadcast path around it — `goAsync`, the coroutine, the
+      graph — is still not reachable from a JVM test and stays that way.
+- [x] The graph is read inside the `try`, so an unlikely failure to reach it is a
+      widget that keeps its last content rather than a crash in a receiver.
+
+### Task 9: Record it
 
 **Files:** `PROGRESS.md`, this plan
 

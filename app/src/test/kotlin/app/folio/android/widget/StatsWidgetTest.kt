@@ -138,6 +138,15 @@ class StatsWidgetTest {
     }
 
     @Test
+    fun `the stats provider draws the stats widget`() {
+        val root = StatsWidgetProvider()
+            .views(app, WidgetSnapshot(libraryCount = 2, chaptersFinished = 5))
+            .apply(app, FrameLayout(app))
+        assertEquals("5", text(root, StatsWidgetIds.VALUES[1]))
+        assertEquals("Chapters", text(root, StatsWidgetIds.LABELS[1]))
+    }
+
+    @Test
     fun `the whole widget opens Folio when tapped`() {
         val root = render(WidgetSnapshot(libraryCount = 1))
         assertTrue(
