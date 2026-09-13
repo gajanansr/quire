@@ -93,7 +93,7 @@ Append to the log; never rewrite history.
 - [x] Plan 3 — design system + Library/Details UI **COMPLETE** (287 JVM + 15 device)
 - [x] Plan 4 — reader + pagination + bookmarks **COMPLETE** (337 JVM + 15 device)
 - [x] Plan 5 — habits, settings, share sheets **COMPLETE** (387 JVM + 15 device)
-- [x] Reading reminders **COMPLETE** (656 JVM) · `docs/superpowers/plans/2026-09-13-folio-notifications.md`
+- [x] Reading reminders **COMPLETE** (662 JVM) · `docs/superpowers/plans/2026-09-13-folio-notifications.md`
 
 When a plan's tasks are all ticked, write the next plan from the spec using the same
 structure, commit it, then continue. Later plans should incorporate what was actually
@@ -1215,7 +1215,7 @@ there is no way to delete a book from the library.
 ## 2026-09-13 — Reminders that stay quiet on the days it matters
 
 Plan: `docs/superpowers/plans/2026-09-13-folio-notifications.md`, branch
-`agent/notifications`. All eight tasks ticked. **656 JVM tests, 0 failures.**
+`agent/notifications`. All eight tasks ticked. **662 JVM tests, 0 failures.**
 
 One notification a day, at a time the reader picks, in words taken from the book they
 are actually mid-way through — and none at all on a day they have already read.
@@ -1308,6 +1308,34 @@ never asked is the worst possible introduction to this feature.
 **Left out on purpose**: snooze (turns one notification into two), an import-finished
 notification (the import is already on screen), per-book reminders, and a weekly
 summary (a second notification whose job is to mention the first).
+
+**A second bug of the same shape, found by looking rather than by testing.** A
+scanned PDF is read as rendered pages, and `PagePosition` keeps the page number in
+the *chapter* slot of the same reading-position row a reflowed book uses. Read back
+as a chapter index it produced "Chapter 41" for a reader on page 41 — specific,
+confident, and false about something they can check. `BookInProgress.chapterLabel`
+is now nullable, and when there is no chapter to name the copy falls back to the
+lines that never name one, so the book is still named. The first version of that
+test passed with the bug still in place: it ran one day, and more than half the
+variants never mention a chapter anyway, so it would have passed or failed depending
+on the date. It now walks six days.
+
+**What a review caught that neither found.** `FolioRoot` holds the app's only
+`BackHandler`, and the invitation's Back clause was keyed on the offer being *owed*
+rather than *on screen*. Since a session flushes when the app backgrounds — which is
+how most sessions end — the offer is routinely raised while the reader is still in
+the Reader, where the invitation is not drawn. Back was therefore swallowed by a
+screen nobody could see, and the one-shot offer recorded as answered: the reader
+lost a Back press and lost reminders permanently, with nothing on screen to explain
+either. The rule is now `invitationVisible(...)` in `ui/nav/FolioBack.kt`, read by
+both the screen switch and the Back handler so they cannot disagree, with four tests.
+
+Three more from the same review: the notification's `PendingIntent` had
+`CLEAR_TOP` without `SINGLE_TOP`, which on a `standard` activity destroys and
+recreates it — tapping "open at Chapter 9" would have landed the reader on the
+Library; the worker rescheduled from a settings snapshot taken before it posted, so
+a toggle-off landing mid-run left a job alive; and one notifier test asserted the
+thing its name did not claim.
 
 **Not verified on a device.** Everything above is JVM and Robolectric; the emulator
 was in use. What still needs a real phone: the notification's appearance and the
