@@ -1,6 +1,6 @@
 Quire is a reading app that does one thing: it gets out of the way of the book.
 
-No account. No feed. No recommendations. No notifications asking you to come back. You add a file, and you read it.
+No account. No feed. No recommendations. No algorithm deciding what you read next. You add a file, and you read it.
 
 YOUR BOOKS STAY ON YOUR PHONE
 
@@ -18,7 +18,7 @@ TYPESET, NOT JUST DISPLAYED
 
 Text is measured and broken into real pages you turn, not an endless scroll. Paragraphs are justified with proper hyphenation and first-line indents, and line breaks are chosen for the paragraph as a whole rather than one greedy line at a time — the difference between a page that reads like a book and one that reads like a website.
 
-Three typefaces to read in — Source Serif, Lora and Work Sans. Set the size, and turn justification off if you prefer a ragged right edge.
+Read in Source Serif, Lora or Work Sans, or in your phone's own typeface. Set the size, and turn justification off if you prefer a ragged right edge.
 
 FIVE PAGES TO READ ON
 
@@ -38,13 +38,15 @@ PASSAGES WORTH KEEPING
 
 Press and hold a word to select it, drag across paragraphs to extend, and highlight it. Bookmarks and highlights live in one list you can jump back into.
 
-Share a passage as plain text, or as a quiet typeset card you can save to your photos or send anywhere — Quire hands it to whatever app you choose, with nothing attached about you.
+Share a passage as plain text, or as a quiet typeset card in any of six looks. Quire hands it to whatever app you choose, with nothing attached about you.
 
 A READING HABIT, IF YOU WANT ONE
 
-Set a daily goal in minutes. Quire counts the time you actually spend reading, keeps a streak, and marks the milestones. It lives on one screen and never sends you a notification about it.
+Set a daily goal in minutes. Quire counts the time you actually spend reading, keeps a streak, and marks the milestones. Two home screen widgets show the streak and your progress, in whichever theme you read in.
 
-WHAT FOLIO DOES NOT DO
+Reminders are off until you switch them on. When you do, it is one a day at a time you pick — and none at all on a day you have already read. Turning them off turns them off.
+
+WHAT QUIRE DOES NOT DO
 
 Worth saying plainly, so nothing here is a surprise:
 
@@ -56,6 +58,6 @@ Worth saying plainly, so nothing here is a surprise:
 
 FREE, AND HONEST ABOUT ITS INGREDIENTS
 
-Quire is free and has no paid tier. It sets your books in Source Serif, Lora and Work Sans under the SIL Open Font License, and uses Lucide icons under the ISC licence; both notices ship inside the app.
+Quire is free and has no paid tier. It sets your books in Source Serif, Lora and Work Sans under the SIL Open Font License, and uses Lucide icons under the ISC licence; both notices ship inside the app. The source is public.
 
 If it becomes part of your day, there is a support link in Settings. It opens your browser. Quire never sees a payment.
