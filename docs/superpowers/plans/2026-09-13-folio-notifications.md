@@ -80,21 +80,21 @@ upgrades and never opens Settings is **not** notified: `remindersEnabled` starts
 **Files:** `data/Entities.kt`, `data/FolioDatabase.kt`, `FolioApp.kt`,
 `data/HabitRepository.kt`, `test/data/SettingsMigrationTest.kt`
 
-- [ ] `AppSettingsEntity` gains `remindersEnabled = false`, `remindersAsked = false`,
+- [x] `AppSettingsEntity` gains `remindersEnabled = false`, `remindersAsked = false`,
       `reminderMinuteOfDay = 20 * 60`, `dailyReminderEnabled = true`,
       `streakReminderEnabled = true`, `reminderPermissionDenied = false`,
       `lastReminderDay = -1L`.
-- [ ] `MIGRATION_5_6` adds all seven with those defaults; database version 6;
+- [x] `MIGRATION_5_6` adds all seven with those defaults; database version 6;
       registered in `FolioApp`. A real migration, not destructive fallback — the
       house rule, and a reader's library is not worth a reminder setting.
-- [ ] `HabitRepository` gains `setRemindersEnabled`, `setReminderTime`,
+- [x] `HabitRepository` gains `setRemindersEnabled`, `setReminderTime`,
       `setReminderKinds`, `markRemindersAsked`, `markPermissionDenied`,
       `recordReminderSent(epochDay)`.
-- [ ] Test: a version-5 row survives the migration with every prior field intact and
+- [x] Test: a version-5 row survives the migration with every prior field intact and
       the seven new ones at their defaults — in particular `remindersEnabled = 0`,
       because an upgrade that starts notifying someone who never asked is the worst
       possible first impression of this feature.
-- [ ] Test: `lastReminderDay` defaults to `-1`, which is before every real epoch day,
+- [x] Test: `lastReminderDay` defaults to `-1`, which is before every real epoch day,
       so a fresh install is never treated as "already reminded today".
 
 ### Task 2: The rule — `Reminders.decide`
