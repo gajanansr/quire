@@ -299,12 +299,7 @@ fun FolioRoot(
             }
 
             shareCard?.let { card ->
-                ShareSheet(
-                    card = card,
-                    onShare = { shareCard = null },
-                    onSaveImage = { shareCard = null },
-                    onDismiss = { shareCard = null },
-                )
+                ShareSheet(card = card, onDismiss = { shareCard = null })
             }
 
             if (confirmExit) {

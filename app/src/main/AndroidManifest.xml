@@ -39,6 +39,22 @@
         </activity>
 
         <!--
+          The one door out. A share writes a single PNG into the app cache and grants
+          the receiving app read access to that uri alone, for that hand-off. Not
+          exported: nothing can reach it without being handed the uri by the reader's
+          own tap on Share.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.shares"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!--
           Folio provides its own WorkManager configuration so ImportWorker can be
           constructed with its dependencies. The default initializer must be removed
           or it wins the race and the custom factory is never used.

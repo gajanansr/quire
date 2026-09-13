@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The only thing Folio ever exposes to another app: one PNG, in the app cache,
+  written the moment the reader taps Share and granted per-uri for that hand-off.
+  No books, no library, no reading history.
+-->
+<paths>
+    <cache-path name="shares" path="shares/" />
+</paths>

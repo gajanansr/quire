@@ -76,6 +76,16 @@ object FolioStrings {
     const val CLOSE = "Close"
     const val KEEP_READING = "Stay"
 
+    // Sharing. The destinations name what happens, not which app it happens in —
+    // the system chooser is where an app gets picked. SHARE is declared above, with
+    // the other icon labels.
+    const val SHARE_IMAGE = "Image"
+    const val SHARE_TEXT = "Text"
+    const val COPY = "Copy"
+    const val SAVE = "Save"
+    const val COPIED = "Copied"
+    const val ADD_A_CAPTION = "Add a caption\u2026"
+
     /**
      * Greeting by time of day. The handoff shows "Good evening"; the others follow
      * the same voice.

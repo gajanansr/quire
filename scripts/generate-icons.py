@@ -43,6 +43,9 @@ ICONS = [
     "more-horizontal",  # more share destinations
     "image",            # share to stories
     "send",             # share to a message
+    "copy",             # copy a passage to the clipboard
+    "trash-2",          # remove a bookmark
+    "highlighter",      # highlight a selected passage
 ]
 
 # Icons that point along the reading direction and must flip when the layout does.

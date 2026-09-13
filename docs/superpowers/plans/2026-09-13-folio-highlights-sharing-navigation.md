@@ -86,17 +86,17 @@ destinations are generic glyphs that hand off nowhere.
 `AndroidManifest.xml`, `ui/share/ShareSheet.kt`,
 `test/share/SharingTest.kt` (create)
 
-- [ ] `ShareIntents.text(...)`, `.image(uri, caption)`, `.view(url)` return
+- [x] `ShareIntents.text(...)`, `.image(uri, caption)`, `.view(url)` return
       `Intent`s and nothing else, so they can be asserted without a device.
-- [ ] `Sharing.writeCard(context, bitmap): Uri` writes a PNG under
+- [x] `Sharing.writeCard(context, bitmap): Uri` writes a PNG under
       `cacheDir/shares/` and returns a `FileProvider` uri; authority
       `${applicationId}.shares`, `grantUriPermissions`, not exported.
-- [ ] The card is captured with `rememberGraphicsLayer()` and `toImageBitmap()` —
+- [x] The card is captured with `rememberGraphicsLayer()` and `toImageBitmap()` —
       the composable already on screen, not a second description of it.
-- [ ] Destinations become the four things that happen: **Share image**, **Share
+- [x] Destinations become the four things that happen: **Share image**, **Share
       text**, **Copy**, **Save**. Save uses `MediaStore` on API 29+ and falls back to
       the chooser below it, because `WRITE_EXTERNAL_STORAGE` is not worth asking for.
-- [ ] Test: the text intent is `ACTION_SEND`/`text/plain` and carries the quote, the
+- [x] Test: the text intent is `ACTION_SEND`/`text/plain` and carries the quote, the
       book and no reader identity; the image intent carries `FLAG_GRANT_READ_URI_
       PERMISSION`; `view` produces `ACTION_VIEW` with the exact url.
 

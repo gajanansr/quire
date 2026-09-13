@@ -52,6 +52,9 @@ object FolioIcons {
     @DrawableRes val Message = R.drawable.ic_send
     @DrawableRes val Story = R.drawable.ic_image
     @DrawableRes val More = R.drawable.ic_more_horizontal
+    @DrawableRes val Copy = R.drawable.ic_copy
+    @DrawableRes val Highlight = R.drawable.ic_highlighter
+    @DrawableRes val Remove = R.drawable.ic_trash_2
 
     // Things the app talks about.
     @DrawableRes val Book = R.drawable.ic_book
