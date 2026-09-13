@@ -127,14 +127,19 @@ data class ReaderState(
      *
      * Taken from the page rather than the whole chapter so the saved words are the
      * ones actually on screen when the reader marked it.
+     *
+     * The first block on a page is often the running page number, and a bookmark
+     * list reading "38", "112", "204" tells a reader nothing about what they marked.
+     * So the first block carrying *words* wins — but only as a preference: if the
+     * page really is nothing but a number, that number is still what was there, and
+     * a poor snippet beats an empty one.
      */
     val currentPageSnippet: String
         get() {
             val ch = chapter ?: return ""
             val page = currentPage ?: return ""
-            return page.slices.asSequence()
+            val drawn = page.slices.asSequence()
                 .mapNotNull { slice ->
-                    ch.blocks.getOrNull(slice.blockIndex) ?: return@mapNotNull null
                     val text = ch.blockTexts.getOrNull(slice.blockIndex)
                         ?: return@mapNotNull null
                     if (text.isEmpty() || slice.length == 0) null
@@ -143,7 +148,10 @@ data class ReaderState(
                         slice.endChar.coerceIn(0, text.length),
                     )
                 }
-                .firstOrNull { it.isNotBlank() }
+                .filter { it.isNotBlank() }
+                .toList()
+
+            return (drawn.firstOrNull { it.any(Char::isLetter) } ?: drawn.firstOrNull())
                 .orEmpty()
                 .trim()
         }

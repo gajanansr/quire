@@ -198,4 +198,57 @@ class ReaderStateTest {
         assertEquals(0, opened.pageIndex)
         assertNotNull(opened.chapter)
     }
+
+    // ------------------------------------------------------- bookmark snippets
+
+    /** A page that opens on a running page number, as a real book's pages do. */
+    private fun pageOpeningWith(vararg paragraphs: String): ReaderState {
+        val ch = Chapter(
+            index = 0, title = "Chapter 1",
+            blocks = paragraphs.map { ContentBlock.Paragraph(listOf(InlineSpan(it))) },
+            startCharOffset = 0, charCount = paragraphs.sumOf { it.length },
+        )
+        val prefs = ReaderPreferences()
+        return ReaderState(
+            loading = false, bookId = "b", bookTitle = "A Book", chapter = ch,
+            pages = paginator.paginate(ch, viewport, prefs.toSettings(pixelsPerSp = 1f)),
+            preferences = prefs,
+        )
+    }
+
+    @Test
+    fun `a bookmark is not named after a page number`() {
+        // Seen in the app: a saved bookmark whose whole snippet was "38". The page's
+        // first block was the running folio, and a list of places called "38" and
+        // "112" tells a reader nothing about what they marked.
+        val state = pageOpeningWith("38", "The 5 p.m. December sun lit up the hotel.")
+        assertEquals("The 5 p.m. December sun lit up the hotel.", state.currentPageSnippet)
+    }
+
+    @Test
+    fun `a chapter number heading is skipped the same way`() {
+        val state = pageOpeningWith("5", "Bay-gulls, that is how you pronounce them.")
+        assertEquals("Bay-gulls, that is how you pronounce them.", state.currentPageSnippet)
+    }
+
+    @Test
+    fun `a page of nothing but a number still yields it`() {
+        // Conservatism: a poor snippet beats an empty one. The reader marked
+        // something, and the row has to show whatever was actually there.
+        assertEquals("38", pageOpeningWith("38").currentPageSnippet)
+    }
+
+    @Test
+    fun `a page that opens on prose is unchanged`() {
+        val state = pageOpeningWith("The 5 p.m. December sun lit up the hotel.", "Then it set.")
+        assertEquals("The 5 p.m. December sun lit up the hotel.", state.currentPageSnippet)
+    }
+
+    @Test
+    fun `a short line of real words is not mistaken for furniture`() {
+        // "'Yeah,' Debu said." is four words and a legitimate paragraph. Only things
+        // with no words at all are skipped.
+        val state = pageOpeningWith("‘Yeah,’ Debu said.", "And that was that.")
+        assertEquals("‘Yeah,’ Debu said.", state.currentPageSnippet)
+    }
 }

@@ -332,18 +332,26 @@ fun FolioRoot(
             }
 
             if (confirmExit) {
+                // Painted from the Folio palette, not Material's defaults. A dialog
+                // that inherits the platform's lavender is the one surface in the app
+                // that ignores the theme the reader chose, and it shows.
+                val colors = app.folio.android.ui.theme.Folio.colors
                 AlertDialog(
                     onDismissRequest = { confirmExit = false },
+                    containerColor = colors.bgAlt,
+                    titleContentColor = colors.ink,
+                    textContentColor = colors.muted,
+                    shape = app.folio.android.ui.theme.FolioShapes.card,
                     title = { Text(FolioStrings.CLOSE_FOLIO) },
                     text = { Text(FolioStrings.CLOSE_FOLIO_HINT) },
                     confirmButton = {
                         TextButton(onClick = { activity?.finish() }) {
-                            Text(FolioStrings.CLOSE)
+                            Text(FolioStrings.CLOSE, color = colors.accent)
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { confirmExit = false }) {
-                            Text(FolioStrings.KEEP_READING)
+                            Text(FolioStrings.KEEP_READING, color = colors.muted)
                         }
                     },
                 )
