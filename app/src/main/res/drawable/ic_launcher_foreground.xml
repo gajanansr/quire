@@ -1,26 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The Folio "F", taken from Source Serif Semibold — the same face the app sets its
-  wordmark and chapter titles in. The outline is the font's own glyph rather than a
-  drawn approximation, so the icon and the type inside the app are the same letter.
+  A folio: one sheet folded once, which is where both the word and the book format
+  come from. Two leaves meeting at a fold is the literal picture of the name, reads
+  as an open book at launcher size, and is not the stack-with-a-spine that every
+  other reading app draws.
 
-  108dp viewport with the mark sized to a 46dp cap height: that keeps it inside the
-  66dp safe circle whichever mask a launcher applies.
+  Three details do the work, and all three are the difference between paper and a
+  symbol of paper:
+
+  - The fold is narrowest at mid-height and opens out towards the head and tail. A
+    parallel slot reads as two rectangles set side by side; a taper reads as one
+    sheet creased down the middle.
+  - The head and tail edges wave rather than run straight, because a leaf lying open
+    is never flat.
+  - The left leaf is the same page colour held back a little. That is the gutter
+    shadow — one sheet with light falling across it, not two pieces of card. Alpha
+    rather than a second colour, so the tonal split survives when Android 13+ tints
+    the whole mark one colour for a themed icon.
+
+  108dp viewport. Everything sits inside the 66dp safe circle — centre (54,54),
+  radius 33 — because every launcher masks an adaptive icon differently, and a mark
+  that strays outside has its corner shaved on somebody's phone and nowhere else.
+  LauncherMarkTest holds that line, bounding the curves by their control points.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- The leaf in shadow, on the far side of the fold. -->
     <path
         android:fillColor="@color/ic_launcher_ink"
-        android:pathData="M35.261 77V72.982L44.405 72.428H48.354L58.053 72.982V77ZM41.426 77
-        Q41.495 73.467 41.495 69.968Q41.495 66.47 41.495 62.902Q41.495 59.334 41.495 55.801
-        V52.199Q41.495 48.666 41.495 45.133Q41.495 41.599 41.495 38.066Q41.495 34.533 41.426 31
-        H51.056Q51.056 34.464 51.021 37.997Q50.986 41.53 50.986 45.063
-        Q50.986 48.596 50.986 52.199V55.455Q50.986 59.127 50.986 62.729
-        Q50.986 66.331 51.021 69.899Q51.056 73.467 51.056 77ZM46.206 55.663V51.575H62.764V55.663
-        ZM61.239 61.828 59.992 54.693V52.684L61.239 45.756H65.327V61.828ZM35.261 35.018V31
-        H45.444V35.572H44.405ZM67.89 43.262 65.604 32.663 68.514 35.157H46.414V31H72.255
-        L72.739 43.262Z" />
+        android:fillAlpha="0.8"
+        android:pathData="M51 39.6
+            C 44.6 35.9, 37.4 34.4, 31.4 35.4
+            C 30.1 35.6, 29.2 36.7, 29.2 38
+            L 29.2 66
+            C 29.2 67.5, 30.5 68.6, 31.9 68.3
+            C 37.7 67.2, 44.7 68.5, 51 71.9
+            C 53.2 64.5, 53.2 47, 51 39.6
+            Z" />
+
+    <!-- The leaf catching the light. -->
+    <path
+        android:fillColor="@color/ic_launcher_ink"
+        android:pathData="M57 39.6
+            C 63.4 35.9, 70.6 34.4, 76.6 35.4
+            C 77.9 35.6, 78.8 36.7, 78.8 38
+            L 78.8 66
+            C 78.8 67.5, 77.5 68.6, 76.1 68.3
+            C 70.3 67.2, 63.3 68.5, 57 71.9
+            C 54.8 64.5, 54.8 47, 57 39.6
+            Z" />
 </vector>
