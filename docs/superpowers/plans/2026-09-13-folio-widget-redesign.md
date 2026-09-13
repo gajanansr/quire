@@ -161,17 +161,17 @@ content bottom in every state the device test's fixed XML visibilities never rea
 **Files:** `widget/WidgetPalette.kt` (create),
 `test/widget/WidgetPaletteTest.kt` (create)
 
-- [ ] Test first: `widgetPalette(theme)` returns the six colours a widget uses —
-      `surface`, `hairline`, `ink`, `muted`, `accent`, `mark` — as ARGB ints taken
+- [x] Test first: `widgetPalette(theme)` returns the six colours a widget uses —
+      `surface`, `edge`, `ink`, `muted`, `accent`, `mark` — as ARGB ints taken
       from `FolioPalettes.of(theme)`. For all five themes: ink ≥ 4.5:1 against
       surface, muted ≥ 3:1, accent ≥ 3:1, mark ≥ 3:1, by the same WCAG arithmetic
       `ShareCardStyleTest` uses. Run it; it fails — the function does not exist.
-- [ ] Test: E-ink's six colours are strictly neutral (r == g == b for every one), so
+- [x] Test: E-ink's six colours are strictly neutral (r == g == b for every one), so
       the widget cannot smuggle an accent into the one theme whose defining property
       is that it has none.
-- [ ] Test: no two themes produce the same surface, which is what a `when` with a
+- [x] Test: no two themes produce the same surface, which is what a `when` with a
       copy-pasted branch would otherwise do silently.
-- [ ] Write `WidgetPalette.kt`.
+- [x] Write `WidgetPalette.kt`.
 
 ### Task 2: The reader's theme reaches the widget
 
