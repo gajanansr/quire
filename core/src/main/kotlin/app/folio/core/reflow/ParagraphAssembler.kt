@@ -34,6 +34,10 @@ class ParagraphAssembler {
         const val INDENT_TOLERANCE = 3f
         /** An indent at least this large starts a paragraph. */
         const val MIN_INDENT = 8f
+        /** The share of lines the measure must sit at or below, ignoring outliers. */
+        const val MEASURE_PERCENTILE = 0.9f
+        /** Below this many lines, ranking says nothing and the widest line is used. */
+        const val MIN_LINES_FOR_PERCENTILE = 4
         /** Fewer baseline gaps than this cannot establish a leading. */
         const val MIN_GAPS_FOR_EMPIRICAL = 3
         /** Leading is conventionally a little larger than the type size. */
@@ -57,7 +61,7 @@ class ParagraphAssembler {
 
         val bodySize = medianFontSize(body)
         val leading = estimateLeading(body, bodySize)
-        val measure = body.maxOf { it.width }
+        val measure = measureOf(body)
         val baseIndent = body.map { it.x }.groupingBy { it }.eachCount()
             .maxByOrNull { it.value }?.key ?: body.minOf { it.x }
 
@@ -190,6 +194,28 @@ class ParagraphAssembler {
             .trim()
         val style = if (lines.all { it.bold }) setOf(InlineStyle.STRONG) else emptySet()
         return listOf(InlineSpan(text, style))
+    }
+
+    /**
+     * The width a full line of this page reaches.
+     *
+     * Taking the widest line makes one line the sole authority on the page, and
+     * every rule downstream is then only as sound as the worst width on it. A
+     * dehyphenated line that reported the sum of its two halves was enough to put
+     * the threshold above every real line, and since a line stopping short of the
+     * measure ends a paragraph, the page came out one line per paragraph — a whole
+     * book indented on every line.
+     *
+     * A high percentile says the same thing about a well-behaved page and survives
+     * an outlier on a badly-behaved one, because full lines are the common case and
+     * a freak width is not. Where there are too few lines to rank, the widest is
+     * still the best available answer.
+     */
+    private fun measureOf(body: List<Line>): Float {
+        val widths = body.map { it.width }.sorted()
+        if (widths.size < MIN_LINES_FOR_PERCENTILE) return widths.last()
+        val at = ((widths.size - 1) * MEASURE_PERCENTILE).toInt()
+        return widths[at]
     }
 
     private fun medianFontSize(lines: List<Line>): Float {

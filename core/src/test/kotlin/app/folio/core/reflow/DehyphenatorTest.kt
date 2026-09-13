@@ -102,4 +102,56 @@ class DehyphenatorTest {
             assertTrue(!text.contains("sys- tems"), "hyphen artefact left behind")
         }
     }
+
+    /**
+     * A joined line still has to describe a place on the page.
+     *
+     * Merging summed the two lines widths, which produced a line wider than the
+     * paper it was printed on. Nothing checked that, because width is only ever
+     * read later — by [ParagraphAssembler], which takes the widest line on a page
+     * as the measure. One hyphenated break was therefore enough to make every real
+     * line on that page look like it had stopped short of the margin, and a line
+     * that stops short ends a paragraph. A whole book came out one line per
+     * paragraph, indented on every line.
+     */
+    @Test
+    fun `a joined line is never wider than the page`() {
+        val out = dehyphenator.join(listOf(
+            line("he picked up the doughnut-", 700f, width = 468f),
+            line("shaped bread and ate it", 684f, width = 320f),
+        ))
+        val joined = out.single()
+        assertTrue(
+            joined.width <= 612f,
+            "a merged line reported ${joined.width}pt on a 612pt page",
+        )
+    }
+
+    /**
+     * Which of the two lines the merged geometry should describe.
+     *
+     * The head reached the right margin — that is why it was hyphenated at all —
+     * so the only question the width is ever asked is whether the *continuation*
+     * reached it. Keeping the heads width says every dehyphenated paragraph runs
+     * to the margin, and the paragraph that ends on a short continuation is then
+     * glued to the one after it.
+     */
+    @Test
+    fun `a joined line ends where its continuation ends`() {
+        val out = dehyphenator.join(listOf(
+            line("he picked up the doughnut-", 700f, width = 468f),
+            line("shaped bread and ate it", 684f, width = 320f),
+        ))
+        val joined = out.single()
+        assertEquals(72f + 320f, joined.right, "the merged line does not end where the page does")
+    }
+
+    @Test
+    fun `a joined line that runs to the margin keeps the full measure`() {
+        val out = dehyphenator.join(listOf(
+            line("he picked up the doughnut-", 700f, width = 468f),
+            line("shaped bread and smeared it thickly with", 684f, width = 468f),
+        ))
+        assertEquals(72f + 468f, out.single().right)
+    }
 }

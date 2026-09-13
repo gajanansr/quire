@@ -98,11 +98,20 @@ class Dehyphenator {
         // Uppercase continuation: a proper compound, so keep it.
         val stem = if (b.first().isLowerCase()) a.dropLast(1) else a
 
+        // The joined text starts where the head started and ends where the
+        // continuation ended, so the merged line still describes a place on the page.
+        // Summing the two widths does not: it produced lines wider than the paper,
+        // and [ParagraphAssembler] reads the widest line on a page as the measure —
+        // one hyphenated break was enough to make every other line look short, and a
+        // short line ends a paragraph.
+        //
+        // The continuation's right edge is also the only one worth keeping. The head
+        // reached the margin by definition, or it would not have been hyphenated;
+        // whether the paragraph has ended is a question about the last line of it.
         return prev.copy(
             text = stem + b,
-            width = maxOf(prev.width, prev.width + next.width),
+            width = maxOf(0f, next.right - prev.x),
             runs = prev.runs + next.runs,
-            // Keep the first line's position: the joined text starts where it started.
             bold = prev.bold && next.bold,
         )
     }

@@ -134,4 +134,37 @@ class ParagraphAssemblerTest {
             assertEquals(before, after, "words lost or duplicated on a real page")
         }
     }
+
+    /**
+     * One anomalous line must not decide the measure for the page.
+     *
+     * The measure was the widest line on the page, which makes it a single point of
+     * failure: anything that overstates one width — a merged line, a stray rule, a
+     * run with bad metrics — pushes the threshold above every real line, and every
+     * real line then reads as having stopped short of the margin. A short line ends
+     * a paragraph, so the page comes out one line per paragraph. That is not a
+     * hypothetical: it is what a real book did, from a single hyphenated break.
+     *
+     * The measure is what full lines reach, so a handful of them should outvote one.
+     */
+    @Test
+    fun `a single overlong line does not break every paragraph on the page`() {
+        val lines = listOf(
+            line("Distributed systems are a collection of", 700f),
+            line("independent computers that appear to", 684f),
+            line("their users as one coherent system.", 668f, width = 300f),
+            line("A freak line that claims to be wider", 652f, width = 900f),
+            line("than the page it is printed on should", 636f),
+            line("not be allowed to speak for the page.", 620f),
+        )
+        val blocks = assembler.assemble(lines)
+        assertTrue(
+            blocks.size <= 3,
+            "the page fragmented into ${blocks.size} blocks: ${blocks.map { it.plainText }}",
+        )
+        assertTrue(
+            blocks.first().plainText.startsWith("Distributed systems are a collection of independent"),
+            "full-measure lines were split: ${blocks.first().plainText}",
+        )
+    }
 }
