@@ -75,6 +75,9 @@ fun FolioRoot(
     onThemeChange: (FolioThemeName) -> Unit = {},
     onChooseFile: () -> Unit,
     onDismissImport: () -> Unit,
+    /** A destination a home-screen widget asked for, not yet taken. */
+    pendingHabitScreen: HabitScreen? = null,
+    onHabitScreenOpened: () -> Unit = {},
 ) {
     var destination by remember { mutableStateOf(FolioDestination.LIBRARY) }
     var showAddSheet by remember { mutableStateOf(false) }
@@ -105,6 +108,20 @@ fun FolioRoot(
         .collectAsState(initial = HabitSummary())
 
     var habitScreen by remember { mutableStateOf<HabitScreen?>(null) }
+
+    // A widget tap. Taken once and handed back, rather than treated as a start
+    // destination: the reader can leave the streak screen and tap the widget again,
+    // and a value that never changed would not bring them back the second time.
+    LaunchedEffect(pendingHabitScreen) {
+        pendingHabitScreen?.let {
+            destination = FolioDestination.LIBRARY
+            openBookId = null
+            readingBookId = null
+            habitScreen = it
+            onHabitScreenOpened()
+        }
+    }
+
     var shareCard by remember { mutableStateOf<ShareCard?>(null) }
     var goalJustReached by remember { mutableStateOf(false) }
     var onboardingSeen by remember { mutableStateOf(false) }

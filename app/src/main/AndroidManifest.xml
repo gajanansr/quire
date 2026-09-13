@@ -55,6 +55,38 @@
         </provider>
 
         <!--
+          Home-screen widgets. Exported because the system, not Folio, delivers
+          APPWIDGET_UPDATE to them — an unexported provider is simply never drawn,
+          and nothing in the app looks wrong while that is true.
+
+          They read the same database the app does and write nothing, and they add no
+          permission: NoNetworkPermissionTest is the check that this stays true.
+        -->
+        <receiver
+            android:name=".widget.HabitWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_habit_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_habit_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.StatsWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_stats_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_stats_info" />
+        </receiver>
+
+        <!--
           Folio provides its own WorkManager configuration so ImportWorker can be
           constructed with its dependencies. The default initializer must be removed
           or it wins the race and the custom factory is never used.

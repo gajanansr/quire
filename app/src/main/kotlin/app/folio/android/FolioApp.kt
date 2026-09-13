@@ -13,8 +13,13 @@ import app.folio.android.importer.ContentResolverUriOpener
 import app.folio.android.pdf.AndroidPageRasterizer
 import app.folio.android.pdf.AndroidPdfTextSource
 import app.folio.android.work.FolioWorkerFactory
+import app.folio.android.widget.FolioWidgets
 import app.folio.android.work.ImportProgressStore
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * The object graph.
@@ -65,9 +70,32 @@ class FolioGraph(context: Context) {
 
     val store: BookStore by lazy { BookStore(app.filesDir) }
 
-    val repository: BookRepository by lazy { BookRepository(database, store) }
+    /**
+     * The one place that knows widgets exist.
+     *
+     * Both repositories announce their writes and neither knows what listens; this
+     * is what turns an announcement into a redraw. Without it a pinned widget would
+     * be correct only on the platform's half-hourly update, which is to say it would
+     * be wrong for most of the time a reader is actually looking at it.
+     *
+     * Dispatched off the caller's thread on purpose. The Reader persists its
+     * position from a main-thread coroutine, and asking the AppWidgetManager which
+     * widgets are pinned is a binder call; it is fast, but it is not the main
+     * thread's work, and the scanned-PDF viewer saves on every page turn.
+     */
+    private val widgetScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    val habits: HabitRepository by lazy { HabitRepository(database) }
+    private val refreshWidgets: () -> Unit = {
+        widgetScope.launch { FolioWidgets.refresh(app) }
+    }
+
+    val repository: BookRepository by lazy {
+        BookRepository(database, store, onDataChanged = refreshWidgets)
+    }
+
+    val habits: HabitRepository by lazy {
+        HabitRepository(database, onDataChanged = refreshWidgets)
+    }
 
     val importProgress: ImportProgressStore by lazy { ImportProgressStore(store) }
 

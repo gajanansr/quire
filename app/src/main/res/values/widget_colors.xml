@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Paper palette, for a widget in a light launcher.
+
+  Hard-coded because a widget is inflated in the launcher's process: FolioTheme does
+  not exist there, and the row holding the reader's chosen theme is in a database
+  that process cannot open. A resource qualifier is the only theming a widget gets,
+  and it can tell light from dark and nothing else — so Sepia, E-ink and Black stay
+  inside the app, where the reader chose them.
+
+  Converted from the handoff's OKLCH tokens by the same transform FolioColors uses.
+  WidgetColorTest pins these to the tokens so the widget cannot keep an old accent
+  on someone's home screen while the app moves on.
+-->
+<resources>
+    <!-- Paper.bg      oklch(0.985 0.006 70)  — the page the card is cut from -->
+    <color name="widget_bg">#FFFDF9F6</color>
+    <!-- Paper.bgAlt   oklch(0.955 0.013 65)  — tiles and the progress track -->
+    <color name="widget_bg_alt">#FFF7EFE7</color>
+    <!-- Paper.ink     oklch(0.22 0.03 255) -->
+    <color name="widget_ink">#FF111B28</color>
+    <!-- Paper.muted   oklch(0.55 0.02 255) -->
+    <color name="widget_muted">#FF6A727D</color>
+    <!-- Paper.border  oklch(0.89 0.013 65)  — also an unread day -->
+    <color name="widget_border">#FFE1D9D2</color>
+    <!-- Paper.accent  oklch(0.42 0.09 250)  — a day that was read -->
+    <color name="widget_accent">#FF214F7C</color>
+</resources>

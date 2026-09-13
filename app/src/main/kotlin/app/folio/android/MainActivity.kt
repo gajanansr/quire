@@ -1,5 +1,6 @@
 package app.folio.android
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -12,6 +13,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import app.folio.android.ui.nav.FolioRoot
+import app.folio.android.ui.nav.HabitScreen
+import app.folio.android.widget.FolioWidgets
 import app.folio.android.ui.theme.FolioThemeName
 import app.folio.android.ui.theme.themeNamed
 import androidx.lifecycle.lifecycleScope
@@ -28,6 +31,16 @@ class MainActivity : ComponentActivity() {
     private var activeImportId by mutableStateOf<String?>(null)
 
     /**
+     * Where a widget tap wants to land, until the UI has taken it.
+     *
+     * Held as a pending value rather than a fixed start destination because Folio is
+     * usually already running when a widget is tapped: the intent arrives at
+     * [onNewIntent], not [onCreate], and a reader who tapped the streak widget,
+     * navigated away, and tapped it again must be taken there a second time.
+     */
+    private var pendingHabitScreen by mutableStateOf<HabitScreen?>(null)
+
+    /**
      * The system file picker.
      *
      * Folio reads the file once and copies it, so it asks for read access only and
@@ -42,6 +55,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        pendingHabitScreen = FolioWidgets.habitScreenOf(intent)
         setContent {
             val id = activeImportId
             val progress by remember(id) {
@@ -64,8 +78,24 @@ class MainActivity : ComponentActivity() {
                 },
                 onChooseFile = { pickBook.launch(SUPPORTED_MIME_TYPES) },
                 onDismissImport = { activeImportId = null },
+                pendingHabitScreen = pendingHabitScreen,
+                onHabitScreenOpened = { pendingHabitScreen = null },
             )
         }
+    }
+
+    /**
+     * A widget tap on an already-running Folio.
+     *
+     * `setIntent` matters as much as reading it: without it `getIntent()` keeps
+     * returning the one this activity was created with, and anything later that
+     * re-reads it — a configuration change rebuilding the activity, for one — would
+     * act on a destination the reader chose an hour ago.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingHabitScreen = FolioWidgets.habitScreenOf(intent)
     }
 
     private companion object {
