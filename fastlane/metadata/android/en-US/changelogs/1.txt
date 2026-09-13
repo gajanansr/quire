@@ -1,0 +1,7 @@
+The first release.
+
+Read EPUB, PDF and TXT files on a phone that has no permission to use the internet — your books, your place in them and your highlights never leave the device.
+
+Real paginated pages with proper justification and hyphenation, three typefaces, five reading themes from warm paper to true black, bookmarks and highlights you can share as text or as a card, and a daily reading goal with a streak.
+
+Scanned PDFs are shown as their original printed pages.
