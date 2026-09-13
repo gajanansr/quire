@@ -174,12 +174,17 @@ class FolioNotifierTest {
         // Android throws a SecurityException for a post without POST_NOTIFICATIONS.
         // Inside a background worker that is an uncaught crash in a job nobody is
         // watching, so the failure has to come back as a value the caller can act
-        // on — the worker uses it to avoid marking the day as reminded.
+        // on — ReminderWorker uses it to decline to mark the day as reminded, which
+        // is what stops one refused notification from silencing tomorrow as well.
         shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
-        shadowOf(manager).setNotificationsEnabled(false)
+        val reported = try {
+            FolioNotifier.post(app, copy)
+        } catch (e: Exception) {
+            throw AssertionError("post threw instead of reporting failure", e)
+        }
         assertFalse(
             "a reminder was reported as delivered when it could not be",
-            NotificationAccess.granted(app),
+            reported && shadowOf(manager).allNotifications.isEmpty(),
         )
     }
 }

@@ -23,8 +23,10 @@ import app.folio.android.ui.theme.FolioThemeName
 import app.folio.android.ui.theme.themeNamed
 import androidx.lifecycle.lifecycleScope
 import app.folio.android.work.ImportCoordinator
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -175,7 +177,13 @@ class MainActivity : ComponentActivity() {
      */
     private fun disableReminders() {
         lifecycleScope.launch {
-            graph.habits.setRemindersEnabled(false)
+            // NonCancellable because this particular write must not be lost. A
+            // rotation in the moment between the tap and the write would cancel
+            // lifecycleScope, leaving the stored flag on — and `onResume` would then
+            // dutifully reschedule the reminders the reader had just switched off.
+            withContext(NonCancellable) {
+                graph.habits.setRemindersEnabled(false)
+            }
             ReminderScheduler.cancel(this@MainActivity)
         }
     }

@@ -137,11 +137,22 @@ fun FolioRoot(
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Whether the invitation is the screen in front of the reader, rather than
+    // merely pending. The rule is in [invitationVisible] where a test can read it,
+    // and it is used by both the screen switch below and the Back handler.
+    val invitePending = invitationVisible(
+        offered = offerReminders,
+        readingBookId = readingBookId,
+        readingOriginal = originalPdf != null,
+        importing = importProgress != null,
+        goalJustReached = goalJustReached,
+    )
+
     // One Back rule for the whole app, and it lives in [back] where a test can read
     // it. Every screen below is a `when` branch over these same variables, so Back
     // is that `when` in reverse rather than a second opinion about it.
     BackHandler(enabled = !confirmExit) {
-        if (offerReminders) {
+        if (invitePending) {
             // Backing out of the offer is a "no thanks" like any other, and it is
             // recorded as one. Leaving the flag unset would bring the question back
             // the next time a session recorded minutes, which is the definition of
@@ -254,7 +265,7 @@ fun FolioRoot(
                 // app goes to the background, so a reader who locks their phone
                 // mid-chapter would otherwise come back to this question instead of
                 // to their book. Here it waits until they have actually left.
-                offerReminders -> ReminderInviteScreen(
+                invitePending -> ReminderInviteScreen(
                     time = Reminders.formatTime(
                         settings.reminderMinuteOfDay,
                         use24Hour = DateFormat.is24HourFormat(context),
@@ -392,7 +403,7 @@ fun FolioRoot(
             // while a book's own page is open.
             if (importProgress == null && openBookId == null && readingBookId == null &&
                 habitScreen == null && settings.onboarded && !goalJustReached &&
-                !offerReminders
+                !invitePending
             ) {
                 FolioPillNav(
                     current = destination,

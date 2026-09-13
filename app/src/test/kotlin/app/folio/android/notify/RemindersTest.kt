@@ -293,7 +293,7 @@ class RemindersTest {
     }
 
     @Test
-    fun `every minute of the day is inside exactly one reminder's window`() {
+    fun `whatever time a reader picks, its window is never empty`() {
         // Sanity on the arithmetic itself rather than on a handful of examples: the
         // window must never be empty, whatever time the reader picks.
         (0 until 24 * 60).forEach { target ->

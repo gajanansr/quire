@@ -17,6 +17,32 @@ data class NavSnapshot(
     val destination: FolioDestination = FolioDestination.LIBRARY,
 )
 
+/**
+ * Whether the reminder invitation is the screen actually in front of the reader.
+ *
+ * "The reader has earned the offer" and "the offer is on screen" are not the same
+ * thing, and conflating them cost a real bug. A reading session is flushed when the
+ * app goes to the background, so the offer can be raised while the reader is still
+ * inside the Reader — and every screen above it keeps rendering. Back would then be
+ * swallowed by a screen nobody could see, and the one-shot offer marked as answered
+ * without ever having been shown: the reader loses a Back press *and* loses
+ * reminders for good, with nothing on screen to explain either.
+ *
+ * Stated once, here, and read by both the screen switch and the Back handler, so the
+ * two cannot drift into disagreeing about what is visible.
+ */
+fun invitationVisible(
+    offered: Boolean,
+    readingBookId: String?,
+    readingOriginal: Boolean,
+    importing: Boolean,
+    goalJustReached: Boolean,
+): Boolean = offered &&
+    readingBookId == null &&
+    !readingOriginal &&
+    !importing &&
+    !goalJustReached
+
 /** What a press of Back should do from a given [NavSnapshot]. */
 sealed interface BackAction {
     /** Go one level out, to this state. */

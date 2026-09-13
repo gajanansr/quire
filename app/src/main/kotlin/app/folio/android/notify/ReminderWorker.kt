@@ -69,7 +69,12 @@ class ReminderWorker(
             is ReminderDecision.Silent -> Unit
         }
 
-        if (settings.remindersEnabled) {
+        // Re-read rather than reusing the snapshot taken at the top of this method.
+        // Gathering the facts, deciding and posting all take time, and a reader who
+        // switches reminders off during that window would otherwise have their
+        // decision undone by the enqueue below — a job surviving "off" and waking
+        // the device tomorrow for nothing.
+        if (habits.settings().remindersEnabled) {
             ReminderScheduler.schedule(
                 applicationContext,
                 reminderMinuteOfDay = settings.reminderMinuteOfDay,

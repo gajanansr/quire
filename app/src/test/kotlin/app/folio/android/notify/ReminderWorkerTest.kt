@@ -109,12 +109,20 @@ class ReminderWorkerTest {
         WorkManager.getInstance(app)
             .getWorkInfosForUniqueWork(ReminderScheduler.WORK_NAME).get()
 
-    /** Waits, briefly and with a limit, for a replacement reminder to appear. */
-    private fun awaitPending(timeoutMs: Long = 10_000): List<WorkInfo> {
+    /**
+     * Waits, briefly and with a limit, for a *replacement* reminder to appear.
+     *
+     * Keyed on the id of the job that just ran rather than on "something is
+     * enqueued". Waiting for any enqueued job would be satisfied instantly by the
+     * original still sitting there, and the test would then assert against a state
+     * the worker had not reached yet — passing or failing on WorkManager's internal
+     * timing rather than on whether the chain works.
+     */
+    private fun awaitReplacementFor(ran: java.util.UUID, timeoutMs: Long = 10_000): List<WorkInfo> {
         val deadline = System.currentTimeMillis() + timeoutMs
         var infos = scheduled()
         while (System.currentTimeMillis() < deadline &&
-            infos.none { it.state == WorkInfo.State.ENQUEUED }
+            infos.none { it.id != ran && it.state == WorkInfo.State.ENQUEUED }
         ) {
             Thread.sleep(10)
             infos = scheduled()
@@ -270,7 +278,7 @@ class ReminderWorkerTest {
         // dispatcher of its own, so the replacement appears a moment later. Bounded
         // rather than a fixed sleep, so the test is as fast as the machine allows
         // and still fails rather than hangs if the chain is genuinely broken.
-        val after = awaitPending()
+        val after = awaitReplacementFor(first.id)
         assertTrue(
             "the chain stopped after one reminder: ${after.map { it.state }}",
             after.any { it.state == WorkInfo.State.ENQUEUED },

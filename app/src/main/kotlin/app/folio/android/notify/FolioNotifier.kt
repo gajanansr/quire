@@ -94,7 +94,17 @@ object FolioNotifier {
         context,
         0,
         Intent(context, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            // SINGLE_TOP matters more than it looks. MainActivity's launch mode is
+            // `standard`, and CLEAR_TOP on a standard activity *finishes and
+            // recreates* it instead of delivering a new intent — so tapping a
+            // reminder that says "open at Chapter 9" would destroy the running app
+            // and land the reader on the Library, which is precisely not where they
+            // left off. With SINGLE_TOP the existing instance is reused.
+            .addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+            ),
         // Immutable because nothing should be able to rewrite where this goes, and
         // required outright from Android 12.
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
