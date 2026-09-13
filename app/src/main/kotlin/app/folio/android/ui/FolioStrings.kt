@@ -86,6 +86,7 @@ object FolioStrings {
     const val COPIED = "Copied"
     const val ADD_A_CAPTION = "Add a caption\u2026"
     const val HIGHLIGHT = "Highlight"
+    const val REMOVE = "Remove"
 
     /**
      * Greeting by time of day. The handoff shows "Good evening"; the others follow

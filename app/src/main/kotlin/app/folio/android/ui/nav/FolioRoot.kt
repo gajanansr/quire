@@ -224,6 +224,18 @@ fun FolioRoot(
                     },
                     onOpenContents = { /* Contents sheet arrives in Plan 4 */ },
                     onOpenBookmarks = { openBookId = null; destination = FolioDestination.BOOKMARKS },
+                    onShare = {
+                        shareCard = ShareCard.Quote(
+                            bookId = details.id,
+                            bookTitle = details.title,
+                            author = details.author,
+                            // The book, not a passage from it: Book Details is about
+                            // the whole thing, and quoting its first paragraph here
+                            // would be Folio choosing words the reader did not.
+                            text = details.description.orEmpty(),
+                            chapterLabel = "",
+                        )
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
 
@@ -266,6 +278,16 @@ fun FolioRoot(
                 destination == FolioDestination.BOOKMARKS -> BookmarksScreen(
                     bookmarks = bookmarks,
                     onOpen = { id, _ -> readingBookId = id },
+                    onShare = { entry ->
+                        shareCard = ShareCard.Quote(
+                            bookId = entry.bookmark.bookId,
+                            bookTitle = entry.bookTitle,
+                            author = null,
+                            text = entry.bookmark.snippet,
+                            chapterLabel = "Chapter ${entry.bookmark.chapterIndex + 1}",
+                        )
+                    },
+                    onRemove = { id -> scope.launch { repository.removeBookmark(id) } },
                     modifier = Modifier.fillMaxSize(),
                 )
 

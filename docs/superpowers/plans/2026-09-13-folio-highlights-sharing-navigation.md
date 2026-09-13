@@ -105,11 +105,11 @@ destinations are generic glyphs that hand off nowhere.
 **Files:** `ui/reader/ReaderScreen.kt`, `ui/bookmarks/BookmarksScreen.kt`,
 `ui/details/BookDetailsScreen.kt`, `ui/nav/FolioRoot.kt`
 
-- [ ] Reader chrome gains a Share action beside Bookmark; it shares the current page,
+- [x] Reader chrome gains a Share action beside Bookmark; it shares the current page,
       or the selection when there is one (Task 6).
-- [ ] Each bookmark row gains Share and Remove. `removeBookmark` already exists.
-- [ ] Book Details gains Share — title, author, and nothing else.
-- [ ] Every one of them routes through the same `ShareCard`/`ShareSheet` path, so
+- [x] Each bookmark row gains Share and Remove. `removeBookmark` already exists.
+- [x] Book Details gains Share — title, author, and nothing else.
+- [x] Every one of them routes through the same `ShareCard`/`ShareSheet` path, so
       there is one description of what a shared thing looks like.
 
 ### Task 6: Select a passage
@@ -153,7 +153,7 @@ is neutral grey, which is what keeps that theme black and white.
 - [x] Test: **a highlighted paragraph measures identically to the same paragraph
       unhighlighted.** A background span cannot move a line break; this is the test
       that proves it stays that way, and it belongs next to the drift it prevents.
-- [ ] Test: a saved highlight reappears on the page it was made on, and the bookmark
+- [x] Test: a saved highlight reappears on the page it was made on, and the bookmark
       list shows its text rather than the page it happened to be on.
 
 ### Task 8: Support Folio

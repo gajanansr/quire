@@ -316,6 +316,22 @@ fun ReaderHost(
                     bookmarked = true
                 }
             },
+            onSharePage = {
+                // No selection: share the page the reader is looking at. The same
+                // envelope a chosen passage travels in, so both read alike.
+                Sharing.start(
+                    context,
+                    ShareIntents.text(
+                        buildString {
+                            append('\u201C').append(state.currentPageSnippet.trim()).append('\u201D')
+                            if (state.bookTitle.isNotBlank()) {
+                                append("\n\n\u2014 ").append(state.bookTitle)
+                            }
+                        },
+                        FolioStrings.SHARE,
+                    ),
+                )
+            },
             onFinish = { persist(); onExit() },
             onSelectionStart = { state = ReaderTransitions.selectionStarted(state, it) },
             onSelectionExtend = { state = ReaderTransitions.selectionExtended(state, it) },

@@ -56,6 +56,7 @@ fun BookDetailsScreen(
     onReadOriginal: () -> Unit,
     onOpenContents: () -> Unit,
     onOpenBookmarks: () -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = Folio.colors
@@ -75,7 +76,7 @@ fun BookDetailsScreen(
             .background(colors.bg)
             .verticalScroll(rememberScrollState()),
     ) {
-        CoverHeader(state = state, onBack = onBack)
+        CoverHeader(state = state, onBack = onBack, onShare = onShare)
 
         Column(Modifier.padding(horizontal = 20.dp)) {
             Spacer(Modifier.height(20.dp))
@@ -136,7 +137,11 @@ fun BookDetailsScreen(
 }
 
 @Composable
-private fun CoverHeader(state: BookDetailsState, onBack: () -> Unit) {
+private fun CoverHeader(
+    state: BookDetailsState,
+    onBack: () -> Unit,
+    onShare: () -> Unit,
+) {
     val colors = Folio.colors
     Box(
         modifier = Modifier
@@ -156,6 +161,11 @@ private fun CoverHeader(state: BookDetailsState, onBack: () -> Unit) {
                 description = FolioStrings.BACK,
             )
             Spacer(Modifier.weight(1f))
+            GlassIcon(
+                onClick = onShare,
+                icon = FolioIcons.Share,
+                description = FolioStrings.SHARE,
+            )
         }
         Text(
             text = state.title,

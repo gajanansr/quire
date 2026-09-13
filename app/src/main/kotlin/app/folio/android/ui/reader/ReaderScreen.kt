@@ -84,6 +84,7 @@ fun ReaderScreen(
     onOpenContents: () -> Unit,
     onOpenTypography: () -> Unit,
     onBookmark: () -> Unit,
+    onSharePage: () -> Unit,
     onFinish: () -> Unit,
     onSelectionStart: (TextAnchor) -> Unit = {},
     onSelectionExtend: (TextAnchor) -> Unit = {},
@@ -187,6 +188,7 @@ fun ReaderScreen(
                 onOpenContents = onOpenContents,
                 onOpenTypography = onOpenTypography,
                 onBookmark = onBookmark,
+                onSharePage = onSharePage,
                 onFinish = onFinish,
             )
         }
@@ -504,6 +506,7 @@ private fun BottomBar(
     onOpenContents: () -> Unit,
     onOpenTypography: () -> Unit,
     onBookmark: () -> Unit,
+    onSharePage: () -> Unit,
     onFinish: () -> Unit,
 ) {
     val colors = Folio.colors
@@ -543,6 +546,7 @@ private fun BottomBar(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             ChromeAction(FolioIcons.Bookmark, FolioStrings.BOOKMARK, onBookmark)
+            ChromeAction(FolioIcons.Share, FolioStrings.SHARE, onSharePage)
             ChromeAction(FolioIcons.Contents, FolioStrings.CONTENTS, onOpenContents)
             ChromeAction(FolioIcons.Typography, FolioStrings.TYPOGRAPHY, onOpenTypography)
             ChromeAction(FolioIcons.Done, FolioStrings.FINISH, onFinish)

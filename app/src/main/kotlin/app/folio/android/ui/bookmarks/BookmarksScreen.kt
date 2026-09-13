@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,20 +24,33 @@ import app.folio.android.data.BookmarkWithBook
 import app.folio.android.ui.FolioStrings
 import app.folio.android.ui.common.EmptyState
 import app.folio.android.ui.theme.Folio
+import app.folio.android.ui.theme.FolioIcon
+import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
 
 /**
- * Saved bookmarks across the whole library.
+ * Saved passages across the whole library.
  *
- * Each row shows the passage the reader marked rather than a position, because a
+ * Each row shows the words the reader marked rather than a position, because a
  * chapter and offset mean nothing to a person scanning a list. The snippet was
- * captured when the bookmark was made, so it stays recognisable even if the book
- * is later reprocessed.
+ * captured when the mark was made, so it stays recognisable even if the book is
+ * later reprocessed.
+ *
+ * A highlight and a bookmark share a row and a table: a bookmark is a highlight of
+ * no width. Only the label differs, and only so the reader can tell at a glance
+ * which ones are their own choice of words.
  */
 @Composable
 fun BookmarksScreen(
     bookmarks: List<BookmarkWithBook>,
     onOpen: (bookId: String, chapterIndex: Int) -> Unit,
+    onShare: (BookmarkWithBook) -> Unit,
+    onRemove: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = Folio.colors
@@ -83,14 +97,41 @@ fun BookmarksScreen(
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    "${entry.bookTitle} · Chapter ${entry.bookmark.chapterIndex + 1}",
-                    color = colors.muted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.labelSmall,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "${entry.bookTitle} · Chapter ${entry.bookmark.chapterIndex + 1}",
+                        color = colors.muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    RowAction(FolioIcons.Share, FolioStrings.SHARE) { onShare(entry) }
+                    Spacer(Modifier.size(4.dp))
+                    RowAction(FolioIcons.Remove, FolioStrings.REMOVE) {
+                        onRemove(entry.bookmark.id)
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun RowAction(@DrawableRes icon: Int, description: String, onClick: () -> Unit) {
+    val colors = Folio.colors
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        FolioIcon(
+            icon,
+            contentDescription = description,
+            tint = colors.muted,
+            size = FolioIcons.Size.Small,
+        )
     }
 }
