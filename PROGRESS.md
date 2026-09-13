@@ -1782,3 +1782,43 @@ intact.
 - The first frame from `initialLayout`, which is the only thing the static
   Paper/Night resources are still for.
 - The picker previews, which were rewritten to match the new layouts.
+
+## 2026-09-13 — Open source, and a widget tap that stopped relaunching the app
+
+**Folio is public: https://github.com/gajanansr/folio** — MIT, CI green on the first
+run, 792 tests.
+
+**A widget tap was starting a second copy of the app.** Reproduced before fixing:
+tapping three times left three `MainActivity` instances stacked on each other, so the
+app appeared to relaunch and Back peeled the copies off one at a time. The intent
+carried `FLAG_ACTIVITY_SINGLE_TOP`, which reads like it prevents exactly this and does
+not — it reuses the activity only when it is already the top of the target task, and a
+launcher starting one with `NEW_TASK` usually is not. The guarantee has to come from
+the manifest: `launchMode="singleTask"`. `WidgetLaunchTest` reads it back rather than
+trusting the flags. Measured again after: flat at one instance across three taps.
+
+**Publishing needed history rewritten, for two reasons.** The 322 MB heap dump
+committed on 11 September is over GitHub's 100 MB hard limit, so the push would simply
+have been rejected — the tidy-up I had flagged as optional turned out to be a blocker.
+And 62 of the commits carried a work email that a public repo would have made permanent.
+`git-filter-repo` handled both in one pass. Dry-run on a `--no-local` clone first, and
+the check that mattered was comparing the HEAD *tree hash* before and after: identical,
+so every file at HEAD survived byte for byte and only the blob's presence in older
+commits changed. 128 commits in, 128 out. 113 MB to 6.4 MB.
+
+**`scripts/env.sh` exported a macOS Homebrew layout unconditionally**, which made the
+build machine-specific and would have failed for every contributor and for CI. Each
+path is now applied only when it exists. The green CI run on a clean Ubuntu runner is
+the proof, and is worth more than the assertion.
+
+**Four agents' work merged**: notifications, widgets, the widget redesign, and Play
+release readiness. Every merge conflict in this round was additive — two branches adding
+different things in the same place — except one: concatenating both sides of a conflict
+inside `MainActivity` swallowed a closing brace, because the `}` that ended one side's
+method sat on the far side of the `=======`. The compiler caught it; a careless
+resolution of an "additive" conflict is not automatically safe.
+
+**Still open:** a book keeps whatever extraction it was imported with, there is no way
+to delete a book, and a scanned PDF with no text layer still takes its title from the
+filename. The pre-rewrite repository is at `/tmp/folio-backup-prerewrite` until the
+next reboot, if the old history is ever wanted.

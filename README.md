@@ -6,6 +6,9 @@
 
 **A quiet place to read.** Your books never leave your device.
 
+[![CI](https://github.com/gajanansr/folio/actions/workflows/ci.yml/badge.svg)](https://github.com/gajanansr/folio/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 </div>
 
 Folio is an Android reading app for EPUB, PDF and plain text. It has no account, no
