@@ -9,7 +9,9 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import app.folio.android.R
+import app.folio.android.ui.theme.FolioThemeName
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -30,8 +32,13 @@ class HabitWidgetTest {
 
     /** `apply` returns the inflated tree; the parent it is given supplies layout
      *  params only, and never receives the view. */
-    private fun render(state: HabitWidgetState): View =
-        habitViews(app, state).apply(app, FrameLayout(app))
+    private fun render(
+        state: HabitWidgetState,
+        theme: FolioThemeName = FolioThemeName.PAPER,
+    ): View = habitViews(app, state, widgetPalette(theme)).apply(app, FrameLayout(app))
+
+    private fun filterOn(root: View, id: Int) =
+        root.findViewById<ImageView>(id).colorFilter
 
     private fun text(root: View, id: Int): String =
         root.findViewById<TextView>(id).text.toString()
@@ -121,8 +128,9 @@ class HabitWidgetTest {
         val read = root.findViewById<ImageView>(HabitWidgetIds.DAYS[0])
         val unread = root.findViewById<ImageView>(HabitWidgetIds.DAYS[1])
 
-        assertEquals(tint(R.color.widget_accent), read.colorFilter)
-        assertEquals(tint(R.color.widget_border), unread.colorFilter)
+        val paper = widgetPalette(FolioThemeName.PAPER)
+        assertEquals(tint(paper.accent), read.colorFilter)
+        assertEquals(tint(paper.edge), unread.colorFilter)
         assertEquals(200, read.imageAlpha)
     }
 
@@ -132,13 +140,71 @@ class HabitWidgetTest {
             render(state("1 day", lit = lit))
                 .findViewById<ImageView>(R.id.widget_habit_flame).colorFilter
         }
-        assertEquals(tint(R.color.widget_accent), flame(true))
-        assertEquals(tint(R.color.widget_border), flame(false))
+        val paper = widgetPalette(FolioThemeName.PAPER)
+        assertEquals(tint(paper.accent), flame(true))
+        assertEquals(tint(paper.edge), flame(false))
     }
 
     /** What `ImageView.setColorFilter(int)` builds: SRC_ATOP over the white shape. */
-    private fun tint(colorRes: Int) =
-        PorterDuffColorFilter(app.getColor(colorRes), PorterDuff.Mode.SRC_ATOP)
+    private fun tint(color: Int) = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_ATOP)
+
+    @Test
+    fun `the widget is drawn in the theme the reader chose`() {
+        // The failure this exists for is quiet and total: a reader on Sepia, E-ink
+        // or Black gets a widget in somebody else's palette, and nothing inside the
+        // app looks wrong. Sepia is checked rather than Night because Night is what
+        // a dark launcher would have produced anyway, so it would pass even if the
+        // theme never arrived.
+        val sepia = widgetPalette(FolioThemeName.SEPIA)
+        val root = render(state("7 days", "12 of 20 minutes today"), FolioThemeName.SEPIA)
+
+        assertEquals(tint(sepia.surface), filterOn(root, R.id.widget_habit_surface))
+        assertEquals(tint(sepia.edge), filterOn(root, R.id.widget_habit_hairline))
+        assertEquals(
+            sepia.ink,
+            root.findViewById<TextView>(R.id.widget_habit_headline).currentTextColor,
+        )
+        assertEquals(
+            sepia.muted,
+            root.findViewById<TextView>(R.id.widget_habit_detail).currentTextColor,
+        )
+        assertEquals(
+            tint(sepia.accent),
+            filterOn(root, HabitWidgetIds.DAYS[0]),
+        )
+    }
+
+    @Test
+    fun `two themes do not draw the same widget`() {
+        // Everything above would still pass if the palette were resolved once and
+        // the theme ignored.
+        val sepia = render(state("7 days"), FolioThemeName.SEPIA)
+        val night = render(state("7 days"), FolioThemeName.NIGHT)
+        assertNotEquals(
+            "the card is the same colour in Sepia and Night",
+            filterOn(sepia, R.id.widget_habit_surface),
+            filterOn(night, R.id.widget_habit_surface),
+        )
+        assertNotEquals(
+            "the headline is the same colour in Sepia and Night",
+            sepia.findViewById<TextView>(R.id.widget_habit_headline).currentTextColor,
+            night.findViewById<TextView>(R.id.widget_habit_headline).currentTextColor,
+        )
+    }
+
+    @Test
+    fun `the mark is on the widget, quietly, in every theme`() {
+        // Muted rather than accent: the mark says whose widget this is and must not
+        // compete with the streak. It is tinted rather than drawn in a fixed colour
+        // because a two-tone launcher mark is mud on Black and invisible on E-ink.
+        FolioThemeName.entries.forEach { theme ->
+            val palette = widgetPalette(theme)
+            val root = render(state("7 days"), theme)
+            val mark = root.findViewById<ImageView>(R.id.widget_habit_mark)
+            assertNotNull("$theme: the widget carries no mark", mark)
+            assertEquals("$theme: the mark is not muted", tint(palette.mark), mark.colorFilter)
+        }
+    }
 
     @Test
     fun `the habit provider draws the habit widget`() {

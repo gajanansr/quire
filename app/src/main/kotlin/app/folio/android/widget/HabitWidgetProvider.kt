@@ -13,5 +13,5 @@ import android.widget.RemoteViews
 class HabitWidgetProvider : FolioWidgetProvider() {
 
     override fun views(context: Context, snapshot: WidgetSnapshot): RemoteViews =
-        habitViews(context, habitWidget(snapshot))
+        habitViews(context, habitWidget(snapshot), widgetPalette(snapshot.theme))
 }

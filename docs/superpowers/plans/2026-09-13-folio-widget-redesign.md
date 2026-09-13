@@ -214,19 +214,19 @@ content bottom in every state the device test's fixed XML visibilities never rea
 (rewrite), `widget/WidgetViews.kt` (edit), `widget/HabitWidgetProvider.kt` (edit),
 `test/widget/HabitWidgetTest.kt` (edit)
 
-- [ ] Test first: every method the provider reaches through `setInt` —
+- [x] Test first: every method the provider reaches through `setInt` —
       `setColorFilter`, `setImageAlpha`, `setImageLevel` — carries
       `@RemotableViewMethod`. This is the API 26 guarantee, and a rename or a typo in
       one of those strings is otherwise a no-op nobody sees.
-- [ ] Test: rendered against `SEPIA`, the card is Sepia's `bg`, the headline is
+- [x] Test: rendered against `SEPIA`, the card is Sepia's `bg`, the headline is
       Sepia's `ink`, the detail is its `muted`, a read day is its `accent` and an
       unread day its `border` — and rendered against `NIGHT`, none of those is the
       Sepia value.
-- [ ] Test: the mark is present, is drawn in `muted`, and is the same in every theme.
-- [ ] Rewrite the layout: a `FrameLayout` root carrying the surface and hairline as
+- [x] Test: the mark is present, is drawn in `muted`, and is the same in every theme.
+- [x] Rewrite the layout: a `FrameLayout` root carrying the surface and hairline as
       full-bleed `ImageView`s under the content, 12dp padding, a 48dp header row of
       flame / (headline + detail) / mark, and a weighted week strip.
-- [ ] `habitViews(context, state, palette)`. The existing tests move to the new
+- [x] `habitViews(context, state, palette)`. The existing tests move to the new
       signature; nothing they assert about the copy changes.
 
 ### Task 5: The stats widget, redrawn
@@ -237,14 +237,14 @@ content bottom in every state the device test's fixed XML visibilities never rea
 `res/layout/widget_stats_preview.xml` (rewrite), `widget/WidgetViews.kt` (edit),
 `test/widget/StatsWidgetTest.kt` (edit)
 
-- [ ] Test first: at 42% the fill drawable's level is 4200 and the track is the
+- [x] Test first: at 42% the fill drawable's level is 4200 and the track is the
       theme's `border` while the fill is its `accent`. A `ClipDrawable` left at its
       default level 0 draws nothing, which is what a silent `setImageLevel` failure
       would look like, so the level is asserted rather than assumed.
-- [ ] Test: 0% and 100% are levels 0 and 10000, and neither is clamped wrong.
-- [ ] Test: the three existing state tests — stocked, empty, nothing open — keep
+- [x] Test: 0% and 100% are levels 0 and 10000, and neither is clamped wrong.
+- [x] Test: the three existing state tests — stocked, empty, nothing open — keep
       passing with the same words and the same visibilities.
-- [ ] Rewrite the layout: the same `FrameLayout` surface, 12dp padding, the mark
+- [x] Rewrite the layout: the same `FrameLayout` surface, 12dp padding, the mark
       overlaid top-end where it costs no height, three tiles, and a footer wrapper
       holding the current book and the prompt. The empty invitation loses its inner
       panel and is simply centred on the card — one themed surface is enough, and

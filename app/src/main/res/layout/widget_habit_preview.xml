@@ -7,61 +7,86 @@
   what the widget is for instead of a bare app icon — and the widget itself, in
   `widget_habit.xml`, is filled only from what is stored. A picker showing an empty
   streak would be an accurate catalogue entry for nobody's widget.
+
+  It also keeps the static Paper/Night palette rather than the reader's theme, and
+  keeps the card as a plain background rather than a tinted ImageView: the picker
+  runs before a widget exists, with no reader and no database behind it, so there is
+  nothing here to theme and no reason to pay for the two extra views.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_card"
-    android:gravity="center_vertical"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="12dp">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
+        android:layout_height="48dp"
+        android:baselineAligned="false"
         android:orientation="horizontal">
 
         <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginEnd="8dp"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginEnd="10dp"
             android:importantForAccessibility="no"
             android:src="@drawable/ic_flame"
             android:tint="@color/widget_accent" />
 
-        <TextView
+        <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_weight="1"
-            android:fontFamily="@font/source_serif_regular"
-            android:maxLines="1"
-            android:text="5 days"
-            android:textColor="@color/widget_ink"
-            android:textSize="24sp" />
-    </LinearLayout>
+            android:orientation="vertical">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:fontFamily="@font/work_sans_regular"
-        android:maxLines="1"
-        android:text="12 of 20 minutes today"
-        android:textColor="@color/widget_muted"
-        android:textSize="13sp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:fontFamily="@font/source_serif_regular"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:text="5 days"
+                android:textColor="@color/widget_ink"
+                android:textSize="24sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="16dp"
+                android:layout_marginTop="2dp"
+                android:fontFamily="@font/work_sans_regular"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:text="12 of 20 minutes today"
+                android:textColor="@color/widget_muted"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginStart="8dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/folio_mark"
+            android:tint="@color/widget_muted" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_weight="1"
         android:importantForAccessibility="no"
         android:orientation="horizontal">
 
         <ImageView
             android:layout_width="0dp"
-            android:layout_height="20dp"
-            android:layout_marginEnd="4dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="5dp"
             android:layout_weight="1"
             android:scaleType="fitXY"
             android:src="@drawable/widget_day_bar"
@@ -69,8 +94,8 @@
 
         <ImageView
             android:layout_width="0dp"
-            android:layout_height="20dp"
-            android:layout_marginEnd="4dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="5dp"
             android:layout_weight="1"
             android:scaleType="fitXY"
             android:src="@drawable/widget_day_bar"
@@ -78,8 +103,8 @@
 
         <ImageView
             android:layout_width="0dp"
-            android:layout_height="20dp"
-            android:layout_marginEnd="4dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="5dp"
             android:layout_weight="1"
             android:alpha="0.55"
             android:scaleType="fitXY"
@@ -88,8 +113,8 @@
 
         <ImageView
             android:layout_width="0dp"
-            android:layout_height="20dp"
-            android:layout_marginEnd="4dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="5dp"
             android:layout_weight="1"
             android:alpha="0.8"
             android:scaleType="fitXY"
@@ -98,8 +123,8 @@
 
         <ImageView
             android:layout_width="0dp"
-            android:layout_height="20dp"
-            android:layout_marginEnd="4dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="5dp"
             android:layout_weight="1"
             android:scaleType="fitXY"
             android:src="@drawable/widget_day_bar"
@@ -107,8 +132,8 @@
 
         <ImageView
             android:layout_width="0dp"
-            android:layout_height="20dp"
-            android:layout_marginEnd="4dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="5dp"
             android:layout_weight="1"
             android:alpha="0.65"
             android:scaleType="fitXY"
@@ -117,7 +142,7 @@
 
         <ImageView
             android:layout_width="0dp"
-            android:layout_height="20dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:alpha="0.9"
             android:scaleType="fitXY"
