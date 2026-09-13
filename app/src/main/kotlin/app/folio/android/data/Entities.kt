@@ -78,7 +78,12 @@ data class AppSettingsEntity(
     val themeName: String = "PAPER",
     val readerFont: String = "SERIF",
     val readerFontSizeSp: Float = 19f,
-    val readerJustify: Boolean = false,
+    /**
+     * Justified by default. Books are set justified; a ragged right edge is the web's
+     * convention, not the page's, and [MIGRATION_3_4] carries existing readers over
+     * because the stored `false` was an old default rather than anyone's choice.
+     */
+    val readerJustify: Boolean = true,
     val booksFinished: Int = 0,
     val chaptersFinished: Int = 0,
     val onboarded: Boolean = false,

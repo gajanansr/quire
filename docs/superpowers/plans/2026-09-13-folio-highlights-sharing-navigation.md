@@ -40,10 +40,10 @@ nobody ever chose — it was the old default.
 
 **Files:** `data/Entities.kt`, `data/FolioDatabase.kt`, `test/data/MigrationTest.kt`
 
-- [ ] `AppSettingsEntity.readerJustify` defaults to `true`.
-- [ ] `MIGRATION_3_4` sets `readerJustify = 1` on the existing settings row, database
+- [x] `AppSettingsEntity.readerJustify` defaults to `true`.
+- [x] `MIGRATION_3_4` sets `readerJustify = 1` on the existing settings row, database
       version 4. Justified: the stored `false` is an old default, not a choice.
-- [ ] Test: a version-3 database with `readerJustify = 0` opens at version 4 with it
+- [x] Test: a version-3 database with `readerJustify = 0` opens at version 4 with it
       set, and the rest of the settings row is untouched.
 
 ### Task 2: The Library header loses its duplicate buttons

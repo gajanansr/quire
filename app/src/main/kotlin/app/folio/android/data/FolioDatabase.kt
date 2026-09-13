@@ -128,7 +128,7 @@ interface SettingsDao {
         BookEntity::class, ReadingProgressEntity::class, BookmarkEntity::class,
         ReadingDayEntity::class, AppSettingsEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class FolioDatabase : RoomDatabase() {
@@ -148,6 +148,23 @@ abstract class FolioDatabase : RoomDatabase() {
          * schema change, and it is far too easy to leave in place until it does
          * exactly that to someone.
          */
+        /**
+         * Turns justification on for a reader who has one.
+         *
+         * A data migration rather than a schema one: the column already exists and
+         * the default in [AppSettingsEntity] only reaches installs that have no row
+         * yet. Without this, justification would be the default for new readers and
+         * off for everyone already here, which is the kind of split that makes a
+         * bug report impossible to reproduce. Safe because nothing in the app has
+         * ever asked the question — the stored `false` is the previous default, not
+         * an answer.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("UPDATE app_settings SET readerJustify = 1")
+            }
+        }
+
         /** Adds the habit rollup and the single settings row. */
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
