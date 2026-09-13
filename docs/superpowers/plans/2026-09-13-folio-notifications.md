@@ -103,13 +103,13 @@ The heart. No Android imports; a plain JUnit 4 test class, no Robolectric.
 
 **Files:** `notify/Reminders.kt` (create), `test/notify/RemindersTest.kt` (create)
 
-- [ ] `ReminderFacts(remindersEnabled, dailyEnabled, streakEnabled, canPost, today,
+- [x] `ReminderFacts(remindersEnabled, dailyEnabled, streakEnabled, canPost, today,
       minutesToday, goalMinutes, currentStreak, lastReminderDay, minuteOfDay,
       reminderMinuteOfDay, book: BookInProgress?)`.
-- [ ] `BookInProgress(title, chapterLabel, chapterNumber, percentRead)`.
-- [ ] `ReminderDecision` is `Silent(reason: Silence)` or
+- [x] `BookInProgress(title, chapterLabel, chapterNumber, percentRead)`.
+- [x] `ReminderDecision` is `Silent(reason: Silence)` or
       `Notify(kind: ReminderKind, copy: ReminderCopy)`.
-- [ ] Rules, in this order, each returning a distinct `Silence` so a test can say
+- [x] Rules, in this order, each returning a distinct `Silence` so a test can say
       *why* it was quiet rather than only that it was:
       1. `REMINDERS_OFF` — the master toggle. First, so off outranks everything.
       2. `CANNOT_POST` — no permission, or notifications disabled in system settings.
@@ -126,14 +126,14 @@ The heart. No Android imports; a plain JUnit 4 test class, no Robolectric.
          the phone was dozing is worse than none.
       7. Otherwise `Notify`. Kind is `STREAK` when streak nudges are on and
          `currentStreak >= STREAK_MIN` (3), else `DAILY`.
-- [ ] Test, at minimum: goal met is silent; *some* reading is silent; reading exactly
+- [x] Test, at minimum: goal met is silent; *some* reading is silent; reading exactly
       at the goal is silent; zero minutes with everything on notifies; master off
       outranks a live streak; each toggle independently silences its own kind and
       only its own; a streak of 2 gets the daily line and a streak of 3 gets the
       streak line; the window's two edges and both sides of them; `lastReminderDay ==
       today` silences and `today - 1` does not; permission missing silences even with
       everything else perfect.
-- [ ] Test: the precedence itself — construct facts that trip several rules at once
+- [x] Test: the precedence itself — construct facts that trip several rules at once
       and assert the *reason* reported is the earlier one. Precedence is the part
       that rots silently when a rule is added later.
 
