@@ -1460,3 +1460,32 @@ two cells, which is ~80dp of content and the tightest thing here; that a tap on 
 streak widget lands on the streak screen when Folio is already open, which is
 `onNewIntent` and cannot be driven from Robolectric; the day bars at real widths; and
 the dark launcher.
+
+## 2026-09-13 — Widgets, and the one thing tests could not answer
+
+Merged `agent/widgets`: a Reading Streak widget (flame, streak, minutes against the
+goal, the week as bars on the Library's own intensity ramp) and a Reading Stats widget
+(books, chapters, time read, and the open book's progress). RemoteViews, not Glance —
+Glance would be a dependency and this needs none. Refresh is driven by an
+`onDataChanged` callback the repositories call, not by the system's half-hour cadence,
+so the widget moves when reading does. 660 tests, 0 failures.
+
+**The gap the agent named, closed on a device.** `WidgetState` decides *what* a widget
+says and 76 JVM tests cover it — plurals, a broken streak, an empty library, a met
+goal. Whether those words *fit* is a different question, and only a real inflater with
+real fonts can answer it. The stats widget places three tiles, a book title and a
+progress bar in about 80dp of usable height at its declared 250×110dp minimum, and a
+widget that overflows is not clipped tidily: the launcher simply cuts it, on whichever
+phone has the tightest grid. `WidgetLayoutTest` inflates both layouts on device at the
+declared minimum, at the narrowest resize a reader can drag them to, and at a full 4×2
+cell, and asserts no descendant reaches past the bottom. All four pass.
+
+**Still unverified, and worth saying plainly.** Dropping a widget on a home screen by
+`adb` drag-and-drop does not work reliably — the Pixel launcher cancels the gesture —
+so the live render, the `goAsync` broadcast path and a tap while Folio is already open
+have been seen only in the picker and in tests, not on a home screen.
+
+**One departure, deliberate and flagged by the agent.** The picker previews show sample
+values — a 5-day streak, four books, an invented title. It is the only place in Folio
+showing a number nobody earned, and it is conventional for a widget picker, which is a
+product illustration rather than a claim about the reader. Worth knowing it is there.
