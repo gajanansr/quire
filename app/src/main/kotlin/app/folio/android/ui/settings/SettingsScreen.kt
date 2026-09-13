@@ -100,6 +100,13 @@ fun SettingsScreen(
         Group {
             ToggleRow(
                 label = FolioStrings.REMINDERS,
+                // The line under the switch is the only place a reader can find out
+                // that Android is refusing to deliver. Without it the switch says
+                // "on" and nothing arrives, which is unanswerable from inside the
+                // app.
+                status = FolioStrings.reminderStatus(
+                    settings.remindersEnabled, canPostNotifications,
+                ),
                 checked = settings.remindersEnabled,
                 onCheckedChange = onRemindersChange,
             )
@@ -110,12 +117,11 @@ fun SettingsScreen(
             if (settings.remindersEnabled) {
                 Divider()
                 if (!canPostNotifications) {
-                    // Said plainly, with the one route that can undo it. A toggle
-                    // reading "on" over a phone that refuses to deliver is the
-                    // failure a reader can never diagnose from inside the app.
+                    // The way out, since Folio cannot undo this itself. The row
+                    // above has already said what is wrong.
                     ValueRow(
-                        label = FolioStrings.reminderStatus(true, canPost = false),
-                        value = "Open settings",
+                        label = "Open notification settings",
+                        value = "",
                         onClick = onOpenNotificationSettings,
                     )
                 } else {
@@ -253,7 +259,12 @@ private fun Divider() {
  * and a knob, which is all a switch is.
  */
 @Composable
-private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun ToggleRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    status: String? = null,
+) {
     val colors = Folio.colors
     Row(
         modifier = Modifier
@@ -265,7 +276,12 @@ private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(label, color = colors.ink, style = MaterialTheme.typography.bodyLarge)
+        Column(Modifier.weight(1f)) {
+            Text(label, color = colors.ink, style = MaterialTheme.typography.bodyLarge)
+            if (status != null) {
+                Text(status, color = colors.muted, style = MaterialTheme.typography.labelSmall)
+            }
+        }
         Box(
             Modifier
                 .size(width = 44.dp, height = 26.dp)
