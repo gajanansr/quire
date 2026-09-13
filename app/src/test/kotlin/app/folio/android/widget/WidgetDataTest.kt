@@ -6,6 +6,7 @@ import app.folio.android.data.BookRepository
 import app.folio.android.data.BookStore
 import app.folio.android.data.FolioDatabase
 import app.folio.android.data.HabitRepository
+import app.folio.android.ui.theme.FolioThemeName
 import app.folio.core.habit.DayMinutes
 import app.folio.core.model.Book
 import app.folio.core.model.BookMetadata
@@ -77,6 +78,31 @@ class WidgetDataTest {
         assertEquals(0, snapshot.totalMinutes)
         assertNull(snapshot.currentBook)
         assertEquals(0, snapshot.habits.currentStreak)
+    }
+
+    @Test
+    fun `the reader's own theme travels with the numbers`() = runBlocking {
+        // The widget is drawn in the launcher's process, where FolioTheme does not
+        // exist. This one column is the whole of its theming, and it is read in the
+        // same pass as everything else — a second query would be a second chance to
+        // be interrupted and leave the card wearing last week's palette.
+        habits.setTheme("SEPIA")
+        assertEquals(FolioThemeName.SEPIA, load().theme)
+    }
+
+    @Test
+    fun `a fresh install is Paper, the theme it has not chosen yet`() = runBlocking {
+        assertEquals(FolioThemeName.PAPER, load().theme)
+    }
+
+    @Test
+    fun `a theme saved under its old name is still that reader's theme`() = runBlocking {
+        // Folio's themes were renamed once: LIGHT / PALE / DARK became PAPER /
+        // SEPIA / EINK / NIGHT / BLACK. Anyone who chose a theme before that still
+        // has the old string in the row, and reading it with valueOf would put a
+        // white card on the home screen of every reader who picked dark years ago.
+        habits.setTheme("DARK")
+        assertEquals(FolioThemeName.NIGHT, load().theme)
     }
 
     @Test

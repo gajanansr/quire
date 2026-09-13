@@ -14,5 +14,5 @@ import android.widget.RemoteViews
 class StatsWidgetProvider : FolioWidgetProvider() {
 
     override fun views(context: Context, snapshot: WidgetSnapshot): RemoteViews =
-        statsViews(context, statsWidget(snapshot))
+        statsViews(context, statsWidget(snapshot), widgetPalette(snapshot.theme))
 }

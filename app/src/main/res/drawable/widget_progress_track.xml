@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The unfilled part of the progress bar.
+
+  Drawn in the border colour, because in Folio "not yet" is the border colour and
+  "done" is the accent — the same pair the week strip uses, in the app and on the
+  home screen alike.
+
+  Solid white so `setColorFilter` can take it to any of the five palettes; the
+  rounded ends survive because SRC_ATOP keeps the shape's alpha.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FFFFFFFF" />
+    <corners android:radius="3dp" />
+</shape>

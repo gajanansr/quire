@@ -13,20 +13,20 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The widget palette, pinned to the same tokens the app reads.
+ * The widget's first frame, pinned to the same tokens the app reads.
  *
- * A home-screen widget is inflated in the launcher's process, long before
- * `FolioTheme` exists and with no way to open the database that holds the reader's
- * chosen theme. Its colours are therefore literals in `res/values` and
- * `res/values-night`, and literals drift — the widget would keep last year's accent
- * on every home screen while the app moved on, and nothing inside the app would look
- * wrong. This converts the same OKLCH tokens through the same transform
- * [FolioColors] uses and asserts the literals still match, exactly as
- * [IcLauncherColorTest] does for the launcher icon.
+ * These resources are no longer how a widget is themed — `widget/WidgetPalette.kt`
+ * is, from the theme the reader actually chose. What is left to them is the moment
+ * before that: the frame a launcher draws from `initialLayout` when a widget is
+ * first dropped on a home screen, and the picker's previews, neither of which has a
+ * database behind it. Light and dark is all a qualifier can distinguish, so Paper is
+ * the light one and Night the dark one.
  *
- * Paper is the light palette and Night the dark one because those are the two states
- * a resource qualifier can tell apart. Sepia, E-ink and Black are choices a reader
- * makes inside the app; the launcher has no way to know about them.
+ * They are still literals, and literals drift. A first frame in last year's accent
+ * would flash the wrong colour on every home screen and nothing inside the app would
+ * look wrong. This converts the same OKLCH tokens through the same transform
+ * [FolioColors] uses and asserts they still match, exactly as [IcLauncherColorTest]
+ * does for the launcher icon.
  */
 @RunWith(RobolectricTestRunner::class)
 class WidgetColorTest {
@@ -48,7 +48,6 @@ class WidgetColorTest {
     fun `the light widget wears Paper`() {
         val paper = FolioPalettes.Paper
         assertToken("widget_bg", paper.bg, R.color.widget_bg)
-        assertToken("widget_bg_alt", paper.bgAlt, R.color.widget_bg_alt)
         assertToken("widget_ink", paper.ink, R.color.widget_ink)
         assertToken("widget_muted", paper.muted, R.color.widget_muted)
         assertToken("widget_border", paper.border, R.color.widget_border)
@@ -60,7 +59,6 @@ class WidgetColorTest {
     fun `the dark widget wears Night`() {
         val night = FolioPalettes.Night
         assertToken("widget_bg", night.bg, R.color.widget_bg)
-        assertToken("widget_bg_alt", night.bgAlt, R.color.widget_bg_alt)
         assertToken("widget_ink", night.ink, R.color.widget_ink)
         assertToken("widget_muted", night.muted, R.color.widget_muted)
         assertToken("widget_border", night.border, R.color.widget_border)

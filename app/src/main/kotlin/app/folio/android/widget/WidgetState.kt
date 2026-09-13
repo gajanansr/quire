@@ -1,6 +1,7 @@
 package app.folio.android.widget
 
 import app.folio.android.data.HabitSummary
+import app.folio.android.ui.theme.FolioThemeName
 import kotlin.math.roundToInt
 
 /**
@@ -23,6 +24,16 @@ data class WidgetSnapshot(
     val chaptersFinished: Int = 0,
     val libraryCount: Int = 0,
     val currentBook: CurrentBook? = null,
+    /**
+     * The theme the reader chose, which the widget wears too.
+     *
+     * The one thing on this snapshot that is not a number about reading. It is here
+     * rather than fetched separately because the settings row is already read in
+     * this pass for the finished counts, and a widget update is a broadcast with
+     * about ten seconds to live: a second query would be a second chance to be
+     * interrupted and leave the card in last week's palette.
+     */
+    val theme: FolioThemeName = FolioThemeName.PAPER,
 ) {
     /**
      * Derived from the recorded days rather than carried alongside them.
@@ -54,7 +65,7 @@ data class HabitWidgetState(
      * the one fact the bars carry is also said in words.
      */
     val weekDescription: String,
-    /** Whether the flame is drawn in the accent colour rather than the border one. */
+    /** Whether the flame is drawn in the accent colour rather than the muted one. */
     val lit: Boolean,
 )
 

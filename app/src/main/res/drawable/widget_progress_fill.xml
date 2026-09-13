@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The filled part of the progress bar, cut to the percentage by its own level.
+
+  A `<clip>` is exactly what a ProgressBar's progress layer is; the difference is
+  that this one lives in an ImageView, where `setImageLevel` is remotable and a
+  colour filter can reach it. `setProgressTintList` needs a ColorStateList and
+  therefore API 31, so a real ProgressBar could not be themed at all on the devices
+  Folio still supports.
+
+  Level runs 0..10000. **It starts at 0, which draws nothing** — so the provider must
+  set it on every update, and `StatsWidgetTest` asserts the level that arrives rather
+  than assuming the call was made. An empty track is what a missed `setImageLevel`
+  looks like, and it looks exactly like a book nobody has started.
+
+  Gravity left rather than start: ClipDrawable resolves gravity against a layout
+  direction that a drawable inside a RemoteViews does not reliably have, and a bar
+  that fills from the wrong end in one configuration is worse than one that always
+  fills from the same end.
+-->
+<clip xmlns:android="http://schemas.android.com/apk/res/android"
+    android:clipOrientation="horizontal"
+    android:gravity="left">
+    <shape android:shape="rectangle">
+        <solid android:color="#FFFFFFFF" />
+        <corners android:radius="3dp" />
+    </shape>
+</clip>

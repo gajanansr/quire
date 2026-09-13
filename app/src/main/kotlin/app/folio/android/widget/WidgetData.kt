@@ -2,6 +2,7 @@ package app.folio.android.widget
 
 import app.folio.android.data.BookRepository
 import app.folio.android.data.HabitRepository
+import app.folio.android.ui.theme.themeNamed
 import kotlinx.coroutines.flow.first
 
 /**
@@ -35,6 +36,11 @@ object WidgetData {
             currentBook = library.firstOrNull {
                 it.lastOpenedAt != null && it.progress > 0.0 && it.progress < 1.0
             }?.let { CurrentBook(it.id, it.title, it.progress) },
+            // Through themeNamed rather than valueOf, for the same reason
+            // MainActivity reads it that way: the stored string outlives the set of
+            // names it came from, and a reader who chose DARK before the themes
+            // were renamed must not be silently reset to Paper on their home screen.
+            theme = themeNamed(settings.themeName),
         )
     }
 }

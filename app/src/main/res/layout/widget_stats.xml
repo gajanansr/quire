@@ -2,204 +2,349 @@
 <!--
   The stats widget: what has been finished, and what is open now.
 
-  Three blocks, exactly one of which is hidden at any time — the tiles plus a book
-  row, the tiles plus a prompt, or the invitation on its own. The provider sets the
-  visibilities; a RemoteViews cannot add or remove children, so every state has to be
-  present in the layout and switched off.
+  Three blocks, exactly one combination of which is visible at any time — the tiles
+  plus a book row, the tiles plus a prompt, or the invitation on its own. The provider
+  sets the visibilities; a RemoteViews cannot add or remove children, so every state
+  has to be present in the layout and switched off.
 
-  Deliberately compact. At the default four-by-two this has roughly 80dp of content
-  height to work in, and anything taller is clipped by the launcher rather than
-  scrolled.
+  **Why a FrameLayout root**, and why the card is two ImageViews rather than a
+  background: the card takes the reader's theme, and the only API-26-safe way to
+  recolour a rounded surface is a tinted shape in an ImageView. The same reasoning as
+  `widget_habit.xml`, written out in full there.
+
+  **Why the mark is overlaid rather than in a row of its own.** At the declared
+  minimum this widget has 86dp of content height for three tiles, a title and a
+  progress bar; a header row would cost a fifth of it. As a child of the FrameLayout
+  it sits in the corner for nothing, and it stays visible when the tiles are switched
+  off for the empty invitation — which is the one state where the card would
+  otherwise say nothing about whose widget it is. The tiles row reserves the strip it
+  occupies with a paddingEnd so the third value can never run underneath it.
+
+  **Why there is no ProgressBar.** ProgressBar has no remotable method for its
+  colours before API 31 — `setProgressTintList` needs a ColorStateList, which means
+  `RemoteViews.setColorStateList`, which is API 31 — so on three of Folio's five
+  themes the bar would be the wrong colour. Two tinted ImageViews do the same job:
+  a track, and a fill whose `<clip>` drawable is cut to the percentage by
+  `setImageLevel`. That is also what a ProgressBar's own progress layer is, so it
+  looks the same.
+
+  Every TextView has a fixed height and autosizes, so the widget's height is a sum of
+  constants — 12 + 36 + 8 + 17 + 5 + 14 + 12 = 104 of the 110dp minimum — rather than
+  a function of the reader's font scale.
+
+  The colours here are the light/dark resource values, which the launcher draws once
+  from `initialLayout` before the first update can read the reader's theme. Everything
+  is recoloured in `WidgetViews.statsViews`.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_stats_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/widget_card"
-    android:gravity="center_vertical"
-    android:orientation="vertical"
-    android:padding="14dp">
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/widget_stats_surface"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_surface"
+        android:tint="@color/widget_bg" />
+
+    <ImageView
+        android:id="@+id/widget_stats_hairline"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_surface_stroke"
+        android:tint="@color/widget_border" />
+
+    <ImageView
+        android:id="@+id/widget_stats_mark"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="12dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/folio_mark"
+        android:tint="@color/widget_muted" />
 
     <LinearLayout
-        android:id="@+id/widget_stats_tiles"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:baselineAligned="false"
-        android:orientation="horizontal">
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/widget_stat_value_0"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:fontFamily="@font/source_serif_regular"
-                android:maxLines="1"
-                android:textColor="@color/widget_ink"
-                android:textSize="18sp" />
-
-            <TextView
-                android:id="@+id/widget_stat_label_0"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:fontFamily="@font/work_sans_regular"
-                android:maxLines="1"
-                android:textColor="@color/widget_muted"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/widget_stat_value_1"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:fontFamily="@font/source_serif_regular"
-                android:maxLines="1"
-                android:textColor="@color/widget_ink"
-                android:textSize="18sp" />
-
-            <TextView
-                android:id="@+id/widget_stat_label_1"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:fontFamily="@font/work_sans_regular"
-                android:maxLines="1"
-                android:textColor="@color/widget_muted"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/widget_stat_value_2"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:fontFamily="@font/source_serif_regular"
-                android:maxLines="1"
-                android:textColor="@color/widget_ink"
-                android:textSize="18sp" />
-
-            <TextView
-                android:id="@+id/widget_stat_label_2"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:fontFamily="@font/work_sans_regular"
-                android:maxLines="1"
-                android:textColor="@color/widget_muted"
-                android:textSize="11sp" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/widget_stats_current"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/widget_stats_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:fontFamily="@font/source_serif_regular"
-            android:maxLines="1"
-            android:textColor="@color/widget_ink"
-            android:textSize="13sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:baselineAligned="false"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <!--
-              The explicit platform style, not ?android:attr — a widget is inflated
-              against the launcher's theme, and a theme attribute would resolve to
-              whatever that launcher happens to define. Without a horizontal style a
-              bare ProgressBar is an indeterminate spinner.
-            -->
-            <ProgressBar
-                android:id="@+id/widget_stats_progress"
-                style="@android:style/Widget.ProgressBar.Horizontal"
-                android:layout_width="0dp"
-                android:layout_height="5dp"
-                android:layout_weight="1"
-                android:max="100"
-                android:progressDrawable="@drawable/widget_progress" />
-
-            <TextView
-                android:id="@+id/widget_stats_percent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:fontFamily="@font/work_sans_regular"
-                android:maxLines="1"
-                android:textColor="@color/widget_muted"
-                android:textSize="11sp" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/widget_stats_prompt"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:ellipsize="end"
-        android:fontFamily="@font/work_sans_regular"
-        android:maxLines="1"
-        android:textColor="@color/widget_muted"
-        android:textSize="13sp"
-        android:visibility="gone" />
-
-    <LinearLayout
-        android:id="@+id/widget_stats_empty"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/widget_panel"
-        android:gravity="center"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
         android:orientation="vertical"
-        android:padding="14dp"
-        android:visibility="gone">
+        android:padding="12dp">
 
-        <TextView
-            android:id="@+id/widget_stats_empty_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/source_serif_regular"
-            android:maxLines="1"
-            android:textColor="@color/widget_ink"
-            android:textSize="15sp" />
+        <LinearLayout
+            android:id="@+id/widget_stats_tiles"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:baselineAligned="false"
+            android:orientation="horizontal"
+            android:paddingEnd="24dp">
 
-        <TextView
-            android:id="@+id/widget_stats_empty_detail"
-            android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_stat_value_0"
+                    android:layout_width="match_parent"
+                    android:layout_height="22dp"
+                    android:autoSizeMaxTextSize="18sp"
+                    android:autoSizeMinTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"
+                    android:autoSizeTextType="uniform"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/source_serif_regular"
+                    android:gravity="center_vertical"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_ink" />
+
+                <TextView
+                    android:id="@+id/widget_stat_label_0"
+                    android:layout_width="match_parent"
+                    android:layout_height="13dp"
+                    android:layout_marginTop="1dp"
+                    android:autoSizeMaxTextSize="10sp"
+                    android:autoSizeMinTextSize="8sp"
+                    android:autoSizeStepGranularity="1sp"
+                    android:autoSizeTextType="uniform"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/work_sans_medium"
+                    android:gravity="center_vertical"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_muted" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_stat_value_1"
+                    android:layout_width="match_parent"
+                    android:layout_height="22dp"
+                    android:autoSizeMaxTextSize="18sp"
+                    android:autoSizeMinTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"
+                    android:autoSizeTextType="uniform"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/source_serif_regular"
+                    android:gravity="center_vertical"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_ink" />
+
+                <TextView
+                    android:id="@+id/widget_stat_label_1"
+                    android:layout_width="match_parent"
+                    android:layout_height="13dp"
+                    android:layout_marginTop="1dp"
+                    android:autoSizeMaxTextSize="10sp"
+                    android:autoSizeMinTextSize="8sp"
+                    android:autoSizeStepGranularity="1sp"
+                    android:autoSizeTextType="uniform"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/work_sans_medium"
+                    android:gravity="center_vertical"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_muted" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_stat_value_2"
+                    android:layout_width="match_parent"
+                    android:layout_height="22dp"
+                    android:autoSizeMaxTextSize="18sp"
+                    android:autoSizeMinTextSize="13sp"
+                    android:autoSizeStepGranularity="1sp"
+                    android:autoSizeTextType="uniform"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/source_serif_regular"
+                    android:gravity="center_vertical"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_ink" />
+
+                <TextView
+                    android:id="@+id/widget_stat_label_2"
+                    android:layout_width="match_parent"
+                    android:layout_height="13dp"
+                    android:layout_marginTop="1dp"
+                    android:autoSizeMaxTextSize="10sp"
+                    android:autoSizeMinTextSize="8sp"
+                    android:autoSizeStepGranularity="1sp"
+                    android:autoSizeTextType="uniform"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/work_sans_medium"
+                    android:gravity="center_vertical"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_muted" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!--
+          The book row and the prompt share a wrapper, and carry their own top
+          margins rather than taking one from it. Both are switched off together for
+          the empty invitation, and a GONE child contributes neither height nor
+          margin — so the wrapper collapses to nothing instead of leaving a gap where
+          the book used to be.
+        -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:fontFamily="@font/work_sans_regular"
-            android:maxLines="1"
-            android:textColor="@color/widget_muted"
-            android:textSize="12sp" />
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:id="@+id/widget_stats_current"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_stats_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="17dp"
+                    android:autoSizeMaxTextSize="13sp"
+                    android:autoSizeMinTextSize="11sp"
+                    android:autoSizeStepGranularity="1sp"
+                    android:autoSizeTextType="uniform"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/source_serif_regular"
+                    android:gravity="center_vertical"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="@color/widget_ink" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="14dp"
+                    android:layout_marginTop="5dp"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <FrameLayout
+                        android:id="@+id/widget_stats_progress"
+                        android:layout_width="0dp"
+                        android:layout_height="5dp"
+                        android:layout_weight="1">
+
+                        <ImageView
+                            android:id="@+id/widget_stats_progress_track"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:importantForAccessibility="no"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_progress_track"
+                            android:tint="@color/widget_border" />
+
+                        <ImageView
+                            android:id="@+id/widget_stats_progress_fill"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:importantForAccessibility="no"
+                            android:scaleType="fitXY"
+                            android:src="@drawable/widget_progress_fill"
+                            android:tint="@color/widget_accent" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/widget_stats_percent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="14dp"
+                        android:layout_marginStart="8dp"
+                        android:autoSizeMaxTextSize="11sp"
+                        android:autoSizeMinTextSize="9sp"
+                        android:autoSizeStepGranularity="1sp"
+                        android:autoSizeTextType="uniform"
+                        android:fontFamily="@font/work_sans_regular"
+                        android:gravity="center_vertical"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:textColor="@color/widget_muted" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_stats_prompt"
+                android:layout_width="match_parent"
+                android:layout_height="16dp"
+                android:layout_marginTop="8dp"
+                android:autoSizeMaxTextSize="12sp"
+                android:autoSizeMinTextSize="9sp"
+                android:autoSizeStepGranularity="1sp"
+                android:autoSizeTextType="uniform"
+                android:ellipsize="end"
+                android:fontFamily="@font/work_sans_regular"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="@color/widget_muted"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!--
+          The invitation, centred on the card rather than boxed on an inner panel.
+          One themed surface is enough: a second one inside it is a box within a box
+          on a card 86dp tall, and it was only ever there to stop the two lines
+          floating.
+        -->
+        <LinearLayout
+            android:id="@+id/widget_stats_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/widget_stats_empty_title"
+                android:layout_width="wrap_content"
+                android:layout_height="20dp"
+                android:autoSizeMaxTextSize="15sp"
+                android:autoSizeMinTextSize="12sp"
+                android:autoSizeStepGranularity="1sp"
+                android:autoSizeTextType="uniform"
+                android:ellipsize="end"
+                android:fontFamily="@font/source_serif_regular"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="@color/widget_ink" />
+
+            <TextView
+                android:id="@+id/widget_stats_empty_detail"
+                android:layout_width="wrap_content"
+                android:layout_height="16dp"
+                android:layout_marginTop="2dp"
+                android:autoSizeMaxTextSize="12sp"
+                android:autoSizeMinTextSize="9sp"
+                android:autoSizeStepGranularity="1sp"
+                android:autoSizeTextType="uniform"
+                android:ellipsize="end"
+                android:fontFamily="@font/work_sans_regular"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="@color/widget_muted" />
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>

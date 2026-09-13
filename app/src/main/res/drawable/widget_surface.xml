@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The card a widget is drawn on, as a tintable shape.
+
+  Not a background on the root view: the reader's theme is only known at update time,
+  and the only remotable way to recolour a *rounded* surface before API 31 is to put
+  the shape in an ImageView and call `setColorFilter` on it —
+  `setInt(id, "setBackgroundColor", …)` paints square corners, and
+  `RemoteViews.setColorStateList` is API 31. So the card is a full-bleed ImageView
+  behind the content, and `widget_surface_stroke` is the hairline over it.
+
+  Solid white for the same reason `widget_day_bar` is: `setColorFilter`'s SRC_ATOP
+  blend keeps the shape's alpha — the rounded corners stay transparent — and takes
+  its colour from the filter.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FFFFFFFF" />
+    <corners android:radius="@dimen/widget_corner_radius" />
+</shape>

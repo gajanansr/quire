@@ -2,9 +2,14 @@
 <!--
   What the widget picker shows.
 
-  Sample values, and the same caveat as the habit widget's preview: no home screen
+  Sample values, and the same caveat as the streak widget's preview: no home screen
   ever inflates this layout, and `widget_stats.xml` is filled only from what is
   stored. The picker is a catalogue, not a reader's data.
+
+  It keeps a real ProgressBar, which the widget itself no longer has. The widget gave
+  one up because its colours cannot be themed before API 31; a preview has no theme
+  to follow and one fixed percentage to draw, so the platform's own bar is the
+  simplest thing that is correct here.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -12,24 +17,26 @@
     android:background="@drawable/widget_card"
     android:gravity="center_vertical"
     android:orientation="vertical"
-    android:padding="14dp">
+    android:padding="12dp">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="36dp"
         android:baselineAligned="false"
         android:orientation="horizontal">
 
         <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="22dp"
                 android:fontFamily="@font/source_serif_regular"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
                 android:maxLines="1"
                 android:text="4"
                 android:textColor="@color/widget_ink"
@@ -37,24 +44,29 @@
 
             <TextView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/work_sans_regular"
+                android:layout_height="13dp"
+                android:layout_marginTop="1dp"
+                android:fontFamily="@font/work_sans_medium"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
                 android:maxLines="1"
                 android:text="Books"
                 android:textColor="@color/widget_muted"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="22dp"
                 android:fontFamily="@font/source_serif_regular"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
                 android:maxLines="1"
                 android:text="37"
                 android:textColor="@color/widget_ink"
@@ -62,24 +74,29 @@
 
             <TextView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/work_sans_regular"
+                android:layout_height="13dp"
+                android:layout_marginTop="1dp"
+                android:fontFamily="@font/work_sans_medium"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
                 android:maxLines="1"
                 android:text="Chapters"
                 android:textColor="@color/widget_muted"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="22dp"
                 android:fontFamily="@font/source_serif_regular"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
                 android:maxLines="1"
                 android:text="3h 20m"
                 android:textColor="@color/widget_ink"
@@ -87,58 +104,68 @@
 
             <TextView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/work_sans_regular"
+                android:layout_height="13dp"
+                android:layout_marginTop="1dp"
+                android:fontFamily="@font/work_sans_medium"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
                 android:maxLines="1"
                 android:text="Read"
                 android:textColor="@color/widget_muted"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_gravity="top"
+            android:layout_marginStart="8dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/folio_mark"
+            android:tint="@color/widget_muted" />
     </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="17dp"
+        android:layout_marginTop="8dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/source_serif_regular"
+        android:gravity="center_vertical"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:text="The Weight of Silence"
+        android:textColor="@color/widget_ink"
+        android:textSize="13sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:orientation="vertical">
+        android:layout_height="14dp"
+        android:layout_marginTop="5dp"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ProgressBar
+            android:id="@+id/widget_stats_preview_progress"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="0dp"
+            android:layout_height="5dp"
+            android:layout_weight="1"
+            android:max="100"
+            android:progress="42"
+            android:progressDrawable="@drawable/widget_progress" />
 
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:fontFamily="@font/source_serif_regular"
-            android:maxLines="1"
-            android:text="The Weight of Silence"
-            android:textColor="@color/widget_ink"
-            android:textSize="13sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:baselineAligned="false"
+            android:layout_width="wrap_content"
+            android:layout_height="14dp"
+            android:layout_marginStart="8dp"
+            android:fontFamily="@font/work_sans_regular"
             android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <ProgressBar
-                android:id="@+id/widget_stats_preview_progress"
-                style="@android:style/Widget.ProgressBar.Horizontal"
-                android:layout_width="0dp"
-                android:layout_height="5dp"
-                android:layout_weight="1"
-                android:max="100"
-                android:progress="42"
-                android:progressDrawable="@drawable/widget_progress" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:fontFamily="@font/work_sans_regular"
-                android:maxLines="1"
-                android:text="42% through"
-                android:textColor="@color/widget_muted"
-                android:textSize="11sp" />
-        </LinearLayout>
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="42% through"
+            android:textColor="@color/widget_muted"
+            android:textSize="11sp" />
     </LinearLayout>
 </LinearLayout>
