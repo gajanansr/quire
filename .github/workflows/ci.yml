@@ -1,0 +1,44 @@
+name: CI
+
+# The same gate the project uses locally. `scripts/check.sh` is the single source of
+# truth for what "green" means, so CI runs that rather than a second list of tasks
+# that could drift from it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Gate
+        run: ./scripts/check.sh
+
+      - name: Build a debug APK
+        run: ./gradlew :app:assembleDebug
+
+      # Uploaded so a reviewer can install the build under discussion rather than
+      # taking a screenshot's word for it.
+      - name: Keep the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: folio-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
