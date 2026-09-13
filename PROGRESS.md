@@ -1133,3 +1133,80 @@ lines. Chapter 8 went from 121 one-line blocks to 99 paragraphs. 512 tests, 0 fa
 **Still open.** A book keeps whatever extraction it was imported with, so this fix did
 not reach the copy already on the device; it had to be re-imported by hand. And there
 is no way to delete a book from the library at all.
+
+## 2026-09-13 — Highlights, real sharing, and a Back button that goes back
+
+Six things, one plan (`2026-09-13-folio-highlights-sharing-navigation.md`), all eight
+tasks ticked. 557 tests, 0 failures.
+
+**Justified by default**, for everyone. Changing the Kotlin default would have reached
+only new installs, leaving the setting on for new readers and off for everyone already
+here — a split nobody can reproduce a bug report against. `MIGRATION_3_4` turns it on,
+which is safe precisely because nothing in the app had ever asked the question: the
+stored `false` was the old default, not an answer.
+
+**The Library header** loses the two circular buttons that went where the nav pill
+already goes.
+
+**Back** now means "out of this". One reducer, `ui/nav/FolioBack.kt`, describes every
+level, and `FolioRoot` holds the only `BackHandler`. Only the Library asks before
+closing. The reducer is pure, so `FolioBackTest` can walk it from the deepest state and
+assert it unwinds to a bare Library in a bounded number of presses — a rule that popped
+nothing, or two things, shows up there rather than as a stuck screen. Making it the
+single handler meant the Reader could no longer rely on its own back arrow to save the
+place, so it now persists on dispose instead; no caller has to remember.
+
+**Sharing** was a sheet that closed and did nothing, behind four glyphs standing in for
+apps. The glyphs were generic for a good reason — a recognisable mark without the SDK
+is a trademark problem — but generic *and* inert was worse than either. The four
+destinations are now the four things that actually happen: Image, Text, Copy, Save. The
+card is captured with `rememberGraphicsLayer()` from the composable already on screen
+rather than drawn a second time into a bitmap, and the caption box is a real field
+instead of a placeholder that promised an edit and then sent the passage without it.
+Share reaches the reader, the bookmark list and a book's own page.
+
+**Highlights.** Long-press takes the word under the finger, a drag extends it across
+paragraphs, and an action bar offers Highlight, Share, Copy. A highlight is a bookmark
+with an end — one table, because a bookmark is a highlight of no width, and two would
+mean two lists and two places to forget one of them.
+
+The arithmetic worth naming is `Selection.portionOf`. A selection is stated in chapter
+coordinates; a page draws a *slice* of each block, so a highlight of characters 120–140
+in a paragraph whose page starts at character 100 has to come out as 20–40. Get it
+wrong and the highlight still appears, over the wrong words, looking like a rendering
+glitch. Sixteen tests in `:core` pin it.
+
+**The assumption the feature rests on** is that a background span cannot move a line
+break. The paginator measures a chapter without knowing which parts of it a reader has
+marked, so the drawn page carries spans the measured one never saw. That is only safe
+because a background changes no metric — so `MeasureMatchesRenderTest` now asserts a
+highlighted paragraph breaks on exactly the same characters as an unhighlighted one.
+The day someone reaches for a bolder highlight or an underline, that test fails instead
+of pages quietly losing their last line again.
+
+**Support.** A Settings row opening `razorpay.me/@gajanansr` in the browser, and a line
+naming who made this. The URL is a constant with its own test: a mistyped donation link
+sends a reader's money to a stranger and nothing in the app ever looks wrong.
+
+**Two traps recorded.**
+
+`FileProvider` canonicalises paths, and on macOS Robolectric's temp directory arrives
+through the `/var` → `/private/var` symlink, so the configured root never matches and
+the uri assertion cannot pass. The file write is tested directly instead, and the real
+risk — code and manifest disagreeing about the provider authority, which crashes at the
+moment a reader taps Share — is tested by reading the authority back out of the merged
+manifest.
+
+Compose gave one genuinely hard problem: a long-press-drag has to extend a selection
+while the same surface turns pages on a horizontal drag. Keying the page-turn detectors
+on whether a selection is live, and putting the long-press detector first in the
+modifier chain, is what makes both work.
+
+**Found while verifying on device**, and fixed: the exit dialog was wearing Material's
+default lavender, the one surface in the app ignoring the theme the reader chose. And a
+saved bookmark read "38" — `currentPageSnippet` took the first non-blank block, which on
+a real page is the running page number. It now prefers the first block carrying letters,
+falling back to whatever was there, because a poor snippet still beats an empty one.
+
+**Still open**, unchanged: a book keeps whatever extraction it was imported with, and
+there is no way to delete a book from the library.
