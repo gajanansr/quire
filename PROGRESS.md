@@ -121,6 +121,24 @@ Record anything needing a human decision here rather than guessing.
   does not cover. Suggest treating it like `reflowFailed`: import it, and offer
   "Read original PDF".
 
+- **Back does nothing visible on three screens.** `back()` in `ui/nav/FolioBack.kt`
+  has no case for `goalJustReached`, `importProgress` or `failure`, so on the goal,
+  import-progress and error screens a press pops the stack *underneath* the screen
+  the reader is looking at — the screen stays, and the press is spent. Pre-existing,
+  not from the reminders work, and surfaced while fixing exactly this shape of bug
+  for the reminder invitation. `invitationVisible` shows the pattern that fixes it:
+  say which screen is on top, once, and let Back and the renderer read the same
+  answer. Not done here because it reaches three screens this branch does not own.
+
+- **`reflowFailed` means two different things.** `PdfPipeline` sets it both for a
+  scan with no chapters (line 68) and for a low-confidence reflow that keeps a real
+  chapter list (line 104), and Book Details offers "read the pages" for both. The
+  reminder copy had to special-case it to avoid announcing a real chapter title at a
+  page number. Anything else that reads a position without knowing which reader wrote
+  it has the same trap waiting. Two flags — "could not be reflowed" and "is read by
+  page" — would say what is actually meant, but that is a migration and a pipeline
+  change, so it is recorded rather than taken.
+
 ## Log
 
 ### 2026-09-11 — session start
