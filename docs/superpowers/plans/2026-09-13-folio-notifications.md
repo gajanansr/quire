@@ -234,17 +234,17 @@ it enqueues and that class does not exist until then. Both live where they are u
 **Files:** `notify/ReminderWorker.kt` (create), `work/FolioWorkerFactory.kt` or a
 sibling factory, `FolioApp.kt`, `test/notify/ReminderWorkerTest.kt` (create)
 
-- [ ] `ReminderWorker` reads settings and the habit summary, finds the most recently
+- [x] `ReminderWorker` reads settings and the habit summary, finds the most recently
       opened book and its chapter, builds `ReminderFacts`, and calls `decide`.
-- [ ] On `Notify`: post, then `recordReminderSent(today)` — written *after* the post
+- [x] On `Notify`: post, then `recordReminderSent(today)` — written *after* the post
       so a failed post does not burn the day.
-- [ ] Reschedules the next occurrence on every run, except when the decision was
+- [x] Reschedules the next occurrence on every run, except when the decision was
       `REMINDERS_OFF`: off is permanent, and a job that reschedules itself forever
       after the reader said no is the bug this clause exists to prevent.
-- [ ] Wired through a factory alongside `FolioWorkerFactory` — via
+- [x] Wired through a factory alongside `FolioWorkerFactory` — via
       `DelegatingWorkerFactory`, so `ImportWorker`'s existing construction and its
       tests are untouched.
-- [ ] Test (Robolectric + `TestListenableWorkerBuilder`): a day with reading posts
+- [x] Test (Robolectric + `TestListenableWorkerBuilder`): a day with reading posts
       nothing; a clean day posts one; a second run the same day posts nothing more;
       `lastReminderDay` is written; with the master toggle off nothing is posted and
       no work is left pending.

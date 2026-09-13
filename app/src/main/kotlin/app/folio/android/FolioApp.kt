@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Context
 import androidx.room.Room
 import androidx.work.Configuration
+import androidx.work.DelegatingWorkerFactory
+import app.folio.android.notify.ReminderWorkerFactory
 import app.folio.android.data.BookRepository
 import app.folio.android.data.BookStore
 import app.folio.android.data.HabitRepository
@@ -41,7 +43,15 @@ class FolioApp : Application(), Configuration.Provider {
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
-            .setWorkerFactory(FolioWorkerFactory(graph.importer, graph.importProgress))
+            // Two factories rather than one that knows about both jobs: importing
+            // and reminding share no dependencies, and DelegatingWorkerFactory asks
+            // each in turn until one recognises the worker.
+            .setWorkerFactory(
+                DelegatingWorkerFactory().apply {
+                    addFactory(FolioWorkerFactory(graph.importer, graph.importProgress))
+                    addFactory(ReminderWorkerFactory(graph.habits, graph.repository))
+                }
+            )
             .build()
 }
 
