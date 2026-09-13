@@ -130,4 +130,140 @@ class SettingsMigrationTest {
         }
         db.close()
     }
+
+    // ------------------------------------------------- reminders (5 -> 6)
+
+    /**
+     * The version-5 settings table.
+     *
+     * Identical to version 3's: `MIGRATION_3_4` only rewrote a value and
+     * `MIGRATION_4_5` only touched bookmarks, so `app_settings` has not changed
+     * shape since it was created.
+     */
+    private fun versionFive(): SupportSQLiteDatabase = versionThree(justify = 1)
+
+    @Test
+    fun `an upgrading reader is not signed up for notifications`() {
+        // The worst possible introduction to this feature is a phone that starts
+        // buzzing after an update nobody asked for. The migration creates the
+        // column; the reader's own tap is the only thing that can set it.
+        val db = versionFive()
+        FolioDatabase.MIGRATION_5_6.migrate(db)
+        assertEquals(
+            "an upgrade enabled reminders on its own",
+            0,
+            db.one("SELECT remindersEnabled FROM app_settings WHERE id = 0") { it.getInt(0) },
+        )
+        assertEquals(
+            "an upgrade recorded that the reader had already been asked",
+            0,
+            db.one("SELECT remindersAsked FROM app_settings WHERE id = 0") { it.getInt(0) },
+        )
+        db.close()
+    }
+
+    @Test
+    fun `the reminder defaults are the ones a reader would expect`() {
+        val db = versionFive()
+        FolioDatabase.MIGRATION_5_6.migrate(db)
+        db.query(
+            "SELECT reminderMinuteOfDay, dailyReminderEnabled, streakReminderEnabled, " +
+                "reminderPermissionDenied, lastReminderDay FROM app_settings WHERE id = 0"
+        ).use {
+            it.moveToFirst()
+            assertEquals("the default reminder time is not 8pm", 20 * 60, it.getInt(0))
+            assertEquals("the daily reminder is not on by default", 1, it.getInt(1))
+            assertEquals("streak nudges are not on by default", 1, it.getInt(2))
+            assertEquals("permission is presumed denied", 0, it.getInt(3))
+            // Before every real epoch day, so a fresh install is never mistaken for
+            // one that has already been reminded today.
+            assertEquals("lastReminderDay does not precede every real day", -1, it.getInt(4))
+        }
+        db.close()
+    }
+
+    @Test
+    fun `nothing the reader already chose is lost on the way to version 6`() {
+        val db = versionFive()
+        FolioDatabase.MIGRATION_5_6.migrate(db)
+        db.query(
+            "SELECT dailyGoalMinutes, themeName, readerFont, readerFontSizeSp, " +
+                "readerJustify, booksFinished, chaptersFinished, onboarded FROM app_settings"
+        ).use {
+            it.moveToFirst()
+            assertEquals(25, it.getInt(0))
+            assertEquals("EINK", it.getString(1))
+            assertEquals("LORA", it.getString(2))
+            assertEquals(22.0f, it.getFloat(3), 0.001f)
+            assertEquals(1, it.getInt(4))
+            assertEquals(2, it.getInt(5))
+            assertEquals(9, it.getInt(6))
+            assertEquals(1, it.getInt(7))
+        }
+        db.close()
+    }
+
+    @Test
+    fun `the migrated table is the one Room expects to find`() {
+        // The failure this prevents is the worst in the file: Room validates the
+        // schema after running a migration, and a column it did not expect — a typo
+        // in a name, INTEGER where it wanted TEXT, a nullable where it wanted NOT
+        // NULL — is an IllegalStateException at launch on every device upgrading
+        // from the previous version. Nothing else here would catch it, because every
+        // other test in this class runs the migration's SQL without ever asking Room
+        // whether it approves.
+        //
+        // Compared rather than asserted literally: Room builds `app_settings` from
+        // [AppSettingsEntity], so a column added to the entity and forgotten in the
+        // migration fails here without anyone having to remember to update a list.
+        val room = androidx.room.Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(), FolioDatabase::class.java,
+        ).allowMainThreadQueries().build()
+        val expected = columnsOf(room.openHelper.writableDatabase, "app_settings")
+        room.close()
+
+        val migrated = versionFive()
+        FolioDatabase.MIGRATION_5_6.migrate(migrated)
+        val actual = columnsOf(migrated, "app_settings")
+        migrated.close()
+
+        assertEquals(
+            "the migrated app_settings does not match the one Room builds from the entity",
+            expected,
+            actual,
+        )
+    }
+
+    /**
+     * A table's shape, as SQLite reports it.
+     *
+     * Names, types, nullability and primary key — but deliberately not the SQL
+     * default, because Room emits none for a Kotlin default and the migration must.
+     */
+    private fun columnsOf(db: SupportSQLiteDatabase, table: String): List<String> =
+        db.query("PRAGMA table_info($table)").use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        "${cursor.getString(1)} ${cursor.getString(2)} " +
+                            "notNull=${cursor.getInt(3)} pk=${cursor.getInt(5)}"
+                    )
+                }
+            }.sorted()
+        }
+
+    @Test
+    fun `a fresh install and an upgraded one agree about reminders`() {
+        // Two descriptions of the same defaults — the Kotlin one for fresh installs,
+        // the SQL one for upgrades. They drift apart silently, and then the same app
+        // behaves differently depending on when it happened to be installed.
+        val defaults = AppSettingsEntity()
+        assertEquals("a fresh install has reminders on", false, defaults.remindersEnabled)
+        assertEquals("a fresh install has already been asked", false, defaults.remindersAsked)
+        assertEquals(20 * 60, defaults.reminderMinuteOfDay)
+        assertEquals(true, defaults.dailyReminderEnabled)
+        assertEquals(true, defaults.streakReminderEnabled)
+        assertEquals(false, defaults.reminderPermissionDenied)
+        assertEquals(-1L, defaults.lastReminderDay)
+    }
 }

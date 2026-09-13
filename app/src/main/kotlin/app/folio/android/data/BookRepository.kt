@@ -203,6 +203,14 @@ class BookRepository(
 
     suspend fun removeBookmark(id: Long) = db.bookmarks().remove(id)
 
+    /**
+     * When the reader last turned a page, or null if they never have.
+     *
+     * Across every book, because the question it answers is about the reader rather
+     * than about one title: is a book open in front of them right now?
+     */
+    suspend fun lastPageTurnAt(): Long? = db.progress().lastUpdatedAt()
+
     /** The stored progress fraction, or null when the book has never been opened. */
     suspend fun storedProgress(bookId: String): Double? =
         db.progress().find(bookId)?.progress

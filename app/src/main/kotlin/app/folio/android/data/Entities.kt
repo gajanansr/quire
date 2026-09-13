@@ -101,4 +101,42 @@ data class AppSettingsEntity(
     val booksFinished: Int = 0,
     val chaptersFinished: Int = 0,
     val onboarded: Boolean = false,
+
+    // ------------------------------------------------------------- reminders
+
+    /**
+     * The master switch, off until the reader says otherwise.
+     *
+     * Off is the default for new installs and for upgrades alike. Notifications are
+     * the one feature where shipping the useful default is the wrong call: a phone
+     * that starts buzzing after an update nobody asked for teaches the reader to
+     * silence Folio, and that lesson does not wear off.
+     */
+    val remindersEnabled: Boolean = false,
+    /**
+     * Whether the reader has been offered reminders in the app.
+     *
+     * Set by either answer. The offer appears once, after a reading session that
+     * recorded real minutes, and a "no thanks" has to be as permanent as a yes or it
+     * is not a choice at all.
+     */
+    val remindersAsked: Boolean = false,
+    /** Minutes past local midnight. 20:00 — after dinner, before bed. */
+    val reminderMinuteOfDay: Int = 20 * 60,
+    val dailyReminderEnabled: Boolean = true,
+    val streakReminderEnabled: Boolean = true,
+    /**
+     * The reader refused the system prompt. Android shows it at most twice and then
+     * silently refuses; asking again would be both useless and rude, so once this is
+     * set the only route offered is the system settings screen.
+     */
+    val reminderPermissionDenied: Boolean = false,
+    /**
+     * The local epoch-day a reminder was last delivered, or -1 for never.
+     *
+     * -1 rather than 0 because epoch day 0 is a real date (1 Jan 1970); a sentinel
+     * that is also a valid value would make a fresh install look as though it had
+     * already been reminded.
+     */
+    val lastReminderDay: Long = -1L,
 )

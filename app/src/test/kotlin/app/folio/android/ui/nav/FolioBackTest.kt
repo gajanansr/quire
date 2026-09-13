@@ -1,6 +1,7 @@
 package app.folio.android.ui.nav
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -101,5 +102,60 @@ class FolioBackTest {
         }
         assertEquals(NavSnapshot(), snapshot)
         assertEquals(BackAction.ConfirmExit, back(snapshot))
+    }
+
+    // ------------------------------------------- the reminder invitation
+
+    @Test
+    fun `the invitation is not on screen merely because it is owed`() {
+        // The bug this pins, in full: a reading session is flushed when the app goes
+        // to the background, which is how most sessions end. That flush raises the
+        // offer while the reader is still inside the Reader, and the Reader is drawn
+        // above the invitation. Treating "owed" as "visible" meant the single Back
+        // handler swallowed a press for a screen nobody could see — and recorded the
+        // one-shot offer as answered. The reader lost a Back press and lost
+        // reminders permanently, with nothing on screen to explain either.
+        assertFalse(
+            "the invitation claimed the screen from under the Reader",
+            invitationVisible(
+                offered = true, onboarded = true, readingBookId = "b1",
+                readingOriginal = false, importing = false, importFailed = false,
+                goalJustReached = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `nothing drawn above the invitation loses its Back press to it`() {
+        // One entry per screen the `when` in FolioRoot puts ahead of the invitation.
+        // Kept as a list so that adding a screen there without adding it here is a
+        // visible omission rather than a silent one.
+        val covered = listOf(
+            "the Reader" to invitationVisible(true, true, "b1", false, false, false, false),
+            "a scanned book's pages" to invitationVisible(true, true, null, true, false, false, false),
+            "an import in flight" to invitationVisible(true, true, null, false, true, false, false),
+            "an import that failed" to invitationVisible(true, true, null, false, false, true, false),
+            "the goal screen" to invitationVisible(true, true, null, false, false, false, true),
+            "onboarding" to invitationVisible(true, false, null, false, false, false, false),
+        )
+        covered.forEach { (screen, visible) ->
+            assertFalse("the invitation stole Back from $screen", visible)
+        }
+    }
+
+    @Test
+    fun `the invitation is on screen once the reader has left the book`() {
+        assertTrue(
+            invitationVisible(
+                offered = true, onboarded = true, readingBookId = null,
+                readingOriginal = false, importing = false, importFailed = false,
+                goalJustReached = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `an invitation that is not owed is never on screen`() {
+        assertFalse(invitationVisible(false, true, null, false, false, false, false))
     }
 }

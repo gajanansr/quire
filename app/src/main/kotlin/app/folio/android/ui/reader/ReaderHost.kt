@@ -71,6 +71,14 @@ fun ReaderHost(
     onShareQuote: (ShareCard.Quote) -> Unit = {},
     /** Fired when a flush pushes the reader over their daily goal. */
     onGoalReached: () -> Unit = {},
+    /**
+     * Fired with the minutes a finished session credited to today.
+     *
+     * The one moment there is evidence that this reader intends to come back, which
+     * is when Folio is allowed to ask about reminders — see
+     * [app.folio.android.notify.ReminderPermission].
+     */
+    onSessionRecorded: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var state by remember(bookId) { mutableStateOf(ReaderState()) }
@@ -220,6 +228,7 @@ fun ReaderHost(
         if (credits.isEmpty()) return
         val after = habitRepository.observeSummary().first()
         if (!before.goalMet && after.goalMet) onGoalReached()
+        onSessionRecorded(tracker.minutesToday(credits))
     }
 
     fun persist() {

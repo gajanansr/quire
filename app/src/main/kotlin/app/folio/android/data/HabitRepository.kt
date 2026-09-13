@@ -159,6 +159,59 @@ class HabitRepository(
         )
     }
 
+    // ------------------------------------------------------------- reminders
+
+    /**
+     * The master switch.
+     *
+     * Turning it off also clears the record of the last reminder sent. Without that,
+     * a reader who switched reminders off in the evening and back on the next
+     * morning would be silenced for a day by a fact about a notification they had
+     * already decided to stop receiving.
+     */
+    suspend fun setRemindersEnabled(enabled: Boolean) {
+        val current = settings()
+        db.settings().put(
+            current.copy(
+                remindersEnabled = enabled,
+                lastReminderDay = if (enabled) current.lastReminderDay else -1L,
+            )
+        )
+    }
+
+    suspend fun setReminderTime(minuteOfDay: Int) {
+        require(minuteOfDay in 0 until MINUTES_PER_DAY) { "not a time of day: $minuteOfDay" }
+        db.settings().put(settings().copy(reminderMinuteOfDay = minuteOfDay))
+    }
+
+    suspend fun setReminderKinds(daily: Boolean, streak: Boolean) {
+        db.settings().put(
+            settings().copy(dailyReminderEnabled = daily, streakReminderEnabled = streak)
+        )
+    }
+
+    /** Records that the offer was made, whichever way the reader answered it. */
+    suspend fun markRemindersAsked() {
+        db.settings().put(settings().copy(remindersAsked = true))
+    }
+
+    /**
+     * The reader refused the system prompt.
+     *
+     * Reminders are switched off at the same time: a toggle reading "on" while the
+     * OS refuses to deliver is a lie the reader would only discover by not being
+     * reminded.
+     */
+    suspend fun markReminderPermissionDenied() {
+        db.settings().put(
+            settings().copy(reminderPermissionDenied = true, remindersEnabled = false)
+        )
+    }
+
+    suspend fun recordReminderSent(epochDay: Long) {
+        db.settings().put(settings().copy(lastReminderDay = epochDay))
+    }
+
     suspend fun recordBookFinished() {
         val current = settings()
         db.settings().put(current.copy(booksFinished = current.booksFinished + 1))
@@ -176,5 +229,6 @@ class HabitRepository(
         val GOAL_OPTIONS = listOf(5, 10, 20, 30)
         const val RECOMMENDED_GOAL = 5
         const val DEFAULT_GOAL = 10
+        const val MINUTES_PER_DAY = 24 * 60
     }
 }

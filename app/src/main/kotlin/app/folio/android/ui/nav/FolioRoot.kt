@@ -40,7 +40,11 @@ import app.folio.android.ui.habit.GoalCompleteScreen
 import app.folio.android.ui.habit.GoalScreen
 import app.folio.android.ui.habit.OnboardingScreen
 import app.folio.android.ui.habit.StreakScreen
+import app.folio.android.ui.notify.ReminderInviteScreen
 import app.folio.android.ui.settings.SettingsScreen
+import app.folio.android.notify.ReminderPermission
+import app.folio.android.notify.Reminders
+import android.text.format.DateFormat
 import app.folio.android.share.ShareIntents
 import app.folio.android.share.Sharing
 import app.folio.android.share.SupportLink
@@ -78,6 +82,20 @@ fun FolioRoot(
     /** A destination a home-screen widget asked for, not yet taken. */
     pendingHabitScreen: HabitScreen? = null,
     onHabitScreenOpened: () -> Unit = {},
+    /**
+     * Turns reminders on, raising the system prompt if that is what is needed.
+     *
+     * Supplied by the Activity because a runtime permission needs an
+     * `ActivityResultLauncher`, which only an Activity can register.
+     */
+    onEnableReminders: () -> Unit = {},
+    onDisableReminders: () -> Unit = {},
+    /** Re-enqueues the pending job so a changed time takes effect tonight. */
+    onRescheduleReminders: () -> Unit = {},
+    /** Opens Folio's own page in system notification settings. */
+    onOpenNotificationSettings: () -> Unit = {},
+    /** Whether the OS will currently deliver anything Folio posts. */
+    canPostNotifications: Boolean = true,
 ) {
     var destination by remember { mutableStateOf(FolioDestination.LIBRARY) }
     var showAddSheet by remember { mutableStateOf(false) }
@@ -124,6 +142,7 @@ fun FolioRoot(
 
     var shareCard by remember { mutableStateOf<ShareCard?>(null) }
     var goalJustReached by remember { mutableStateOf(false) }
+    var offerReminders by remember { mutableStateOf(false) }
     var onboardingSeen by remember { mutableStateOf(false) }
     var pendingGoal by remember { mutableStateOf(HabitRepository.RECOMMENDED_GOAL) }
 
@@ -133,11 +152,34 @@ fun FolioRoot(
     var confirmExit by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
     val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // Whether the invitation is the screen in front of the reader, rather than
+    // merely pending. The rule is in [invitationVisible] where a test can read it,
+    // and it is used by both the screen switch below and the Back handler.
+    val invitePending = invitationVisible(
+        offered = offerReminders,
+        onboarded = settings.onboarded,
+        readingBookId = readingBookId,
+        readingOriginal = originalPdf != null,
+        importing = importProgress != null,
+        importFailed = importProgress?.failureReason != null,
+        goalJustReached = goalJustReached,
+    )
 
     // One Back rule for the whole app, and it lives in [back] where a test can read
     // it. Every screen below is a `when` branch over these same variables, so Back
     // is that `when` in reverse rather than a second opinion about it.
     BackHandler(enabled = !confirmExit) {
+        if (invitePending) {
+            // Backing out of the offer is a "no thanks" like any other, and it is
+            // recorded as one. Leaving the flag unset would bring the question back
+            // the next time a session recorded minutes, which is the definition of
+            // nagging about not being allowed to nag.
+            offerReminders = false
+            scope.launch { habitRepository.markRemindersAsked() }
+            return@BackHandler
+        }
         val here = NavSnapshot(
             readingOriginal = originalPdf != null,
             readingBookId = readingBookId,
@@ -160,7 +202,6 @@ fun FolioRoot(
     }
 
     val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
-    val scope = rememberCoroutineScope()
 
     FolioTheme(theme) {
         Box(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -186,6 +227,7 @@ fun FolioRoot(
                     onContinue = { goalJustReached = false },
                     modifier = Modifier.fillMaxSize(),
                 )
+
                 // An import in flight owns the screen: the handoff shows it as a
                 // full view, not a banner over the Library.
                 failure != null -> ErrorState(
@@ -227,10 +269,35 @@ fun FolioRoot(
                     habitRepository = habitRepository,
                     bookId = readingBookId!!,
                     onGoalReached = { goalJustReached = true },
+                    onSessionRecorded = { minutes ->
+                        if (ReminderPermission.shouldInvite(settings, minutes)) {
+                            offerReminders = true
+                        }
+                    },
                     theme = theme,
                     onThemeChange = onThemeChange,
                     onExit = { readingBookId = null },
                     onShareQuote = { shareCard = it },
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                // Below the Reader, deliberately. A session is also flushed when the
+                // app goes to the background, so a reader who locks their phone
+                // mid-chapter would otherwise come back to this question instead of
+                // to their book. Here it waits until they have actually left.
+                invitePending -> ReminderInviteScreen(
+                    time = Reminders.formatTime(
+                        settings.reminderMinuteOfDay,
+                        use24Hour = DateFormat.is24HourFormat(context),
+                    ),
+                    onAccept = { offerReminders = false; onEnableReminders() },
+                    onDecline = {
+                        offerReminders = false
+                        // Asked, and answered. The flag is set on a "no" exactly as
+                        // it is on a yes, so declining is something the reader does
+                        // once rather than something they keep having to do.
+                        scope.launch { habitRepository.markRemindersAsked() }
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
 
@@ -322,6 +389,28 @@ fun FolioRoot(
                         onThemeChange(all[(all.indexOf(theme) + 1).mod(all.size)])
                     },
                     onGoalChange = { scope.launch { habitRepository.setDailyGoal(it) } },
+                    canPostNotifications = canPostNotifications,
+                    use24HourClock = DateFormat.is24HourFormat(context),
+                    // Enabling routes through the Activity because it may need the
+                    // system prompt; disabling cancels the pending job as well as
+                    // clearing the flag, so off is off now rather than at the next
+                    // scheduled wake-up.
+                    onRemindersChange = { wanted ->
+                        if (wanted) onEnableReminders() else onDisableReminders()
+                    },
+                    onReminderTimeChange = { minute ->
+                        scope.launch {
+                            habitRepository.setReminderTime(minute)
+                            // The pending job carries the old delay, so the new time
+                            // only means anything once the job is replaced. Without
+                            // this the change would take effect a day late.
+                            onRescheduleReminders()
+                        }
+                    },
+                    onReminderKindsChange = { daily, streak ->
+                        scope.launch { habitRepository.setReminderKinds(daily, streak) }
+                    },
+                    onOpenNotificationSettings = onOpenNotificationSettings,
                     onOpenLicences = { /* the licence text ships in res/raw */ },
                     onShowSupport = {
                         Sharing.start(context, ShareIntents.view(SupportLink.URL))
@@ -339,7 +428,8 @@ fun FolioRoot(
             // The pill stays out of the way while a book is being prepared, and
             // while a book's own page is open.
             if (importProgress == null && openBookId == null && readingBookId == null &&
-                habitScreen == null && settings.onboarded && !goalJustReached
+                habitScreen == null && settings.onboarded && !goalJustReached &&
+                !invitePending
             ) {
                 FolioPillNav(
                     current = destination,

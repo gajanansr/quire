@@ -64,6 +64,34 @@ object FolioStrings {
     const val NO_BOOKMARKS_HINT =
         "Highlights and bookmarks you save while reading will appear here."
 
+    // Reminders. The lines a *delivered* reminder carries are not here: they vary
+    // by kind and by day and are chosen by a rule, so they live beside that rule in
+    // notify/ReminderWords.kt where the tests that police them can reach them.
+    // These are the fixed strings — what the channel is called in system settings,
+    // and what the reader is asked and shown in Folio itself.
+    const val REMINDER_CHANNEL = "Reading reminders"
+    const val REMINDER_CHANNEL_EXPLAINER =
+        "One gentle reminder a day, and none at all on a day you've already read."
+
+    // The offer, made once, after a reading session that recorded real minutes.
+    // It states the two things a reader needs to decide: how often, and that a day
+    // they have already read is a day Folio says nothing.
+    const val REMINDER_INVITE_TITLE = "Want a nudge at reading time?"
+    const val REMINDER_INVITE_BODY =
+        "One quiet reminder a day, at a time you pick. Never on a day you've " +
+            "already read, and you can turn it off whenever you like."
+    const val REMINDER_INVITE_YES = "Yes, remind me"
+    const val REMINDER_INVITE_NO = "No thanks"
+
+    // Settings.
+    const val REMINDERS = "Reading reminders"
+    const val REMINDER_TIME = "Remind me at"
+    const val REMINDER_DAILY = "Daily reminder"
+    const val REMINDER_STREAK = "Streak nudges"
+    const val REMINDERS_BLOCKED = "Turned off in system settings"
+    const val REMINDERS_ON = "On"
+    const val REMINDERS_OFF = "Off"
+
     // Navigation
     const val NAV_LIBRARY = "Library"
     const val NAV_BOOKMARKS = "Bookmarks"
@@ -96,6 +124,21 @@ object FolioStrings {
     const val SHARE_FOOTER = "Free, offline reading for Android."
     const val HIGHLIGHT = "Highlight"
     const val REMOVE = "Remove"
+
+    /**
+     * What the reminders row says.
+     *
+     * A function rather than a value at the call site because there are three
+     * states and only two of them are obvious. The one that matters is the third:
+     * the reader has reminders switched on in Folio and Android will not deliver
+     * them. A row reading "On" there is the only thing standing between them and
+     * quietly wondering why Folio stopped reminding them.
+     */
+    fun reminderStatus(remindersEnabled: Boolean, canPost: Boolean): String = when {
+        !remindersEnabled -> REMINDERS_OFF
+        !canPost -> REMINDERS_BLOCKED
+        else -> REMINDERS_ON
+    }
 
     /**
      * Greeting by time of day. The handoff shows "Good evening"; the others follow

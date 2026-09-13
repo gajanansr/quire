@@ -73,6 +73,17 @@ interface ProgressDao {
 
     @Query("DELETE FROM reading_progress WHERE bookId = :bookId")
     suspend fun deleteFor(bookId: String)
+
+    /**
+     * When the reader last turned a page, across the whole library.
+     *
+     * Nullable: no row means nobody has read anything yet. Written on every page
+     * turn because that is when the position is saved, which makes it the freshest
+     * evidence of reading there is — recorded minutes only appear when a session
+     * ends.
+     */
+    @Query("SELECT MAX(updatedAt) FROM reading_progress")
+    suspend fun lastUpdatedAt(): Long?
 }
 
 @Dao
@@ -128,7 +139,7 @@ interface SettingsDao {
         BookEntity::class, ReadingProgressEntity::class, BookmarkEntity::class,
         ReadingDayEntity::class, AppSettingsEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class FolioDatabase : RoomDatabase() {
@@ -139,6 +150,31 @@ abstract class FolioDatabase : RoomDatabase() {
     abstract fun settings(): SettingsDao
 
     companion object {
+        /**
+         * Adds the reminder settings.
+         *
+         * Every default here matches [AppSettingsEntity]'s, and the important one is
+         * `remindersEnabled = 0`: an upgrade must not sign anyone up for
+         * notifications. The reader's own tap is the only thing that sets it, which
+         * is also what makes the permission request in Task 7 honest — by the time
+         * Android asks, the reader has already said yes to Folio.
+         *
+         * `lastReminderDay = -1` is a sentinel that precedes every real epoch day,
+         * so a freshly migrated install is not mistaken for one already reminded
+         * today and silenced on its first evening.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE app_settings ADD COLUMN remindersEnabled INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE app_settings ADD COLUMN remindersAsked INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE app_settings ADD COLUMN reminderMinuteOfDay INTEGER NOT NULL DEFAULT 1200")
+                db.execSQL("ALTER TABLE app_settings ADD COLUMN dailyReminderEnabled INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE app_settings ADD COLUMN streakReminderEnabled INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE app_settings ADD COLUMN reminderPermissionDenied INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE app_settings ADD COLUMN lastReminderDay INTEGER NOT NULL DEFAULT -1")
+            }
+        }
+
         /**
          * Adds the fields Book Details needs: the publisher's description and the
          * dc:subject values shown as genre chips.

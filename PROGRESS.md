@@ -99,6 +99,7 @@ Append to the log; never rewrite history.
 - [x] Plan 3 — design system + Library/Details UI **COMPLETE** (287 JVM + 15 device)
 - [x] Plan 4 — reader + pagination + bookmarks **COMPLETE** (337 JVM + 15 device)
 - [x] Plan 5 — habits, settings, share sheets **COMPLETE** (387 JVM + 15 device)
+- [x] Reading reminders **COMPLETE** (663 JVM) · `docs/superpowers/plans/2026-09-13-folio-notifications.md`
 
 When a plan's tasks are all ticked, write the next plan from the spec using the same
 structure, commit it, then continue. Later plans should incorporate what was actually
@@ -125,6 +126,24 @@ Record anything needing a human decision here rather than guessing.
   and flag a shortfall — but "flag" how, in UI terms, is a design question the handoff
   does not cover. Suggest treating it like `reflowFailed`: import it, and offer
   "Read original PDF".
+
+- **Back does nothing visible on three screens.** `back()` in `ui/nav/FolioBack.kt`
+  has no case for `goalJustReached`, `importProgress` or `failure`, so on the goal,
+  import-progress and error screens a press pops the stack *underneath* the screen
+  the reader is looking at — the screen stays, and the press is spent. Pre-existing,
+  not from the reminders work, and surfaced while fixing exactly this shape of bug
+  for the reminder invitation. `invitationVisible` shows the pattern that fixes it:
+  say which screen is on top, once, and let Back and the renderer read the same
+  answer. Not done here because it reaches three screens this branch does not own.
+
+- **`reflowFailed` means two different things.** `PdfPipeline` sets it both for a
+  scan with no chapters (line 68) and for a low-confidence reflow that keeps a real
+  chapter list (line 104), and Book Details offers "read the pages" for both. The
+  reminder copy had to special-case it to avoid announcing a real chapter title at a
+  page number. Anything else that reads a position without knowing which reader wrote
+  it has the same trap waiting. Two flags — "could not be reflowed" and "is read by
+  page" — would say what is actually meant, but that is a migration and a pipeline
+  change, so it is recorded rather than taken.
 
 ## Log
 
@@ -1489,3 +1508,164 @@ have been seen only in the picker and in tests, not on a home screen.
 values — a 5-day streak, four books, an invented title. It is the only place in Folio
 showing a number nobody earned, and it is conventional for a widget picker, which is a
 product illustration rather than a claim about the reader. Worth knowing it is there.
+
+## 2026-09-13 — Reminders that stay quiet on the days it matters
+
+Plan: `docs/superpowers/plans/2026-09-13-folio-notifications.md`, branch
+`agent/notifications`. All eight tasks ticked. **663 JVM tests, 0 failures.**
+
+One notification a day, at a time the reader picks, in words taken from the book they
+are actually mid-way through — and none at all on a day they have already read.
+
+**The whole feature is a negative, and that decided the architecture.** Almost every
+requirement here is a notification that must *not* appear: not on a day with reading
+in it, not twice in one day, not at two in the morning, not after the switch was
+turned off. A negative is invisible on a device — nothing happening looks exactly
+like nothing happening for the wrong reason — so the entire product question lands in
+`Reminders.decide(facts)`, a pure function with no Android imports, and 21 tests say
+what silence means and why. The worker around it gathers facts, asks, and posts.
+
+The rule that matters most is `minutesToday > 0`, not `goalMet`. Four minutes of a
+ten-minute goal is still a day the reader read, and the only notification that fits a
+partly-read day is one pointing out the shortfall — which is the nagging the feature
+exists to avoid.
+
+**Eleven hand-written lines**, four registers, rotated by epoch day. Three properties
+are tested rather than reviewed, because copy decays the moment nobody re-reads it:
+
+- **No invented numbers.** Every variant is rendered against facts whose title and
+  chapter carry no digits, those two strings are stripped, and every remaining
+  integer must be the goal, the percentage or the streak. A separate test proves
+  `1984` and `Catch-22` survive intact — the ban is on numbers Folio made up, not on
+  numbers the author wrote.
+- **No guilt.** A word list, asserted: `broke`, `broken`, `lost`, `fail`, `missed`,
+  `don't`, `should`, `last chance`, `hurry`, `at risk`, `behind`, and no `!`.
+- **Always the reader's own book.** Every with-book line must contain the title.
+
+**The bug that would actually have shipped.** The rule above reads
+`reading_days.minutes`, and that number lags reality by a whole session: minutes are
+written when a session *ends* — on leaving the Reader, or on the app backgrounding.
+A reader who starts at 19:50 with a reminder set for 20:00 therefore still has zero
+recorded minutes at 20:00, every check passes, and the phone buzzes in their hands
+on the page they are looking at. The worst possible version of the one rule that
+matters, and every test of that rule passed.
+
+The fix is a second signal: `reading_progress.updatedAt`, which is written on every
+page turn because that is where the reading position is saved. Less than ten minutes
+since the last turn means the book is still open, and Folio says nothing. Ten rather
+than the accumulator's two-minute idle timeout because the costs are not symmetric —
+being generous costs at most a skipped evening, and costs nothing in practice, since
+a reader who really did stop gets their minutes recorded the moment the session
+flushes.
+
+**Two traps found by tests rather than by reading.**
+
+`"1 days" in text` is true of `"11 days running"`. The first plural test failed at
+streak 11 and the assertion, not the copy, was wrong — it now matches `(\d+)\s+days\b`
+and asserts the captured number *is* the streak, which is the thing that was meant.
+
+And the first "off means off" test passed for the wrong reason. The worker correctly
+said nothing after the switch was flipped, but the job enqueued by the previous run
+was still pending — silence, with something of Folio's still waking the device on a
+schedule the reader had cancelled. The worker now cancels its own unique work when it
+finds reminders off, so a stale job takes itself out rather than waiting to be
+cancelled again. Two locks: the UI cancels immediately, the decision refuses anyway.
+
+**The scheduling risk worth recording.** Each run enqueues the next with `REPLACE`,
+under the same unique work name it is itself running under. If replacing a running
+job dropped its replacement, reminders would stop dead after the first one — silently,
+on a real device, a day later. That is now driven for real under
+`WorkManagerTestInitHelper` rather than assumed, because a worker built by hand never
+collides with its own name and would have proved nothing.
+
+No exact alarms: `SCHEDULE_EXACT_ALARM` is special-access and an offline reading app
+has no business asking for it. The price is that delivery is approximate, and it is
+paid deliberately — a three-hour window, clamped to the end of the day, outside which
+the reminder is dropped rather than delivered stale. A phone that dozes all evening
+and wakes at 02:00 says nothing, and does not record the day as reminded either, so
+the evening the reader is actually awake for is still available.
+
+**Permission is asked once, after the first session that recorded real minutes** —
+never on first launch, where the question arrives before there is anything for it to
+be about and gets the refusal it deserves. A refusal is permanent: Android stops
+showing its dialog after the second decline and every later request returns "denied"
+with nothing on screen, so after that the only route offered is Folio's own page in
+system settings. Backing out of the offer counts as declining, and is recorded as
+one.
+
+`POST_NOTIFICATIONS` joins the reviewed allowlist in `NoNetworkPermissionTest`, with
+a new test in the other direction: a runtime permission asked for but never declared
+is refused instantly and silently, and the symptom is a feature that simply never
+works with nothing in any log to say why. `INTERNET` is still removed.
+
+Database at **version 6**. `MIGRATION_5_6` adds seven columns, and the one that
+matters is `remindersEnabled DEFAULT 0`: an update that starts buzzing someone who
+never asked is the worst possible introduction to this feature.
+
+**Left out on purpose**: snooze (turns one notification into two), an import-finished
+notification (the import is already on screen), per-book reminders, and a weekly
+summary (a second notification whose job is to mention the first).
+
+**A second bug of the same shape, and it took two passes to actually kill.** A book
+read as pages keeps its page number in the *chapter* slot of the same
+`reading_progress` row a reflowed book uses — `PagePosition` puts it there, and both
+readers share one row per book. Read back as a chapter index it produced "Chapter 41"
+for a reader on page 41: specific, confident, and false about something they can
+check.
+
+The first fix nulled the label when the stored index fell *outside* the chapter list.
+That covers a scan, which carries no chapters at all — and misses the worse case
+entirely. `reflowFailed` has two routes (`PdfPipeline` lines 68 and 104), and the
+second is a reflow whose confidence was merely too low, which keeps a **real** chapter
+list. Book Details offers "read the pages" for both. So on that route the page number
+lands *inside* the list, resolves to a genuine chapter, and the reminder announces
+chapter two's real title to someone sitting on page two. A range check cannot see it.
+The guard is now `candidate.reflowFailed` asked *before* the lookup.
+
+That one line is sufficient rather than lucky, and the argument runs from the other
+end: `PagePosition.of` has exactly one call site in main (`FolioRoot`, inside the
+`originalPdf != null` branch), that branch is reachable only through
+`onReadOriginal`, and `BookDetailsScreen` offers `onReadOriginal` only under
+`if (state.reflowFailed)`. So every page-unit write to `reading_progress` comes from
+a `reflowFailed` book, and the guard is a strict superset of the cases that need it.
+Worth writing down, because the next person to read that `when` will wonder whether
+it is a special case or a rule.
+
+`BookInProgress.chapterLabel` is nullable, and when there is no chapter to name the
+copy falls back to the lines that never name one, so the book is still named.
+
+**Two tests here were worthless when first written**, and both for the same reason.
+The scanned-book test ran a single day — and more than half the copy variants never
+mention a chapter anyway, so it passed or failed depending on the date. It now walks
+six days, and was confirmed by reinstating the bug and watching it go red. The rule
+holds generally: a test against copy chosen by a rotation has to walk the rotation.
+
+**What a review caught that neither found.** `FolioRoot` holds the app's only
+`BackHandler`, and the invitation's Back clause was keyed on the offer being *owed*
+rather than *on screen*. Since a session flushes when the app backgrounds — which is
+how most sessions end — the offer is routinely raised while the reader is still in
+the Reader, where the invitation is not drawn. Back was therefore swallowed by a
+screen nobody could see, and the one-shot offer recorded as answered: the reader
+lost a Back press and lost reminders permanently, with nothing on screen to explain
+either. The rule is now `invitationVisible(...)` in `ui/nav/FolioBack.kt`, read by
+both the screen switch and the Back handler so they cannot disagree, with four tests.
+
+The same review then caught that the first scanned-book fix was only half of one —
+the low-confidence route above. Worth recording *why* two rounds were needed: both
+misses were the same mistake, checking a proxy (is the index in range? is the offer
+owed?) instead of the thing itself (is this book read by page? is the screen
+visible?). A proxy that is true in every case you thought of is indistinguishable
+from the real rule until the case you didn't.
+
+Three more from the same review: the notification's `PendingIntent` had
+`CLEAR_TOP` without `SINGLE_TOP`, which on a `standard` activity destroys and
+recreates it — tapping "open at Chapter 9" would have landed the reader on the
+Library; the worker rescheduled from a settings snapshot taken before it posted, so
+a toggle-off landing mid-run left a job alive; and one notifier test asserted the
+thing its name did not claim.
+
+**Not verified on a device.** Everything above is JVM and Robolectric; the emulator
+was in use. What still needs a real phone: the notification's appearance and the
+`ic_book` small icon at status-bar size, the system permission dialog, the deep link
+to notification settings, and — the one that cannot be simulated — whether Doze
+actually delivers inside the three-hour window on a phone left alone overnight.

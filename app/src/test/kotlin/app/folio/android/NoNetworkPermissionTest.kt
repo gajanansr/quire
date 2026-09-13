@@ -45,6 +45,18 @@ class NoNetworkPermissionTest {
     }
 
     @Test
+    fun `the permission reading reminders need is actually declared`() {
+        // The other direction of the same guard. A runtime permission that is asked
+        // for but never declared is refused instantly and silently by the OS, and
+        // the symptom is a feature that simply never works on a real phone — with
+        // nothing in any log to say why.
+        assertTrue(
+            "reminders cannot be delivered: POST_NOTIFICATIONS is not declared",
+            requestedPermissions().contains("android.permission.POST_NOTIFICATIONS"),
+        )
+    }
+
+    @Test
     fun `no permission grants access to the reader's own data`() {
         // Books arrive through the system file picker, which hands back a single
         // URI and needs no storage permission. Anything in this family would mean
@@ -73,11 +85,16 @@ class NoNetworkPermissionTest {
         // ACCESS_NETWORK_STATE is read-only — WorkManager evaluates it for every
         // enqueued job whether or not the job has a network constraint. None of
         // them can move a byte off the device.
+        // POST_NOTIFICATIONS is reviewed on the same terms: it lets Folio put a
+        // line of its own text in the reader's own shade and can carry nothing
+        // anywhere. It is asked for at runtime, after the reader has already said
+        // yes inside the app.
         val allowed = setOf(
             "android.permission.WAKE_LOCK",
             "android.permission.ACCESS_NETWORK_STATE",
             "android.permission.RECEIVE_BOOT_COMPLETED",
             "android.permission.FOREGROUND_SERVICE",
+            "android.permission.POST_NOTIFICATIONS",
             "app.folio.android.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
         )
         val unexpected = requestedPermissions().filterNot { it in allowed }
