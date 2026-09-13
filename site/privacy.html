@@ -11,7 +11,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Folio — Privacy Policy — Quire</title>
+<title>Privacy Policy — Quire</title>
 <meta name="description" content="Quire collects nothing. It has no account, no analytics and no INTERNET permission.">
 <link rel="icon" href="assets/icon.png">
 <style>
@@ -73,44 +73,44 @@
 <header>
   <a class="brand" href="./"><img src="assets/icon.png" alt=""><span>Quire</span></a>
 </header>
-<h1>Folio — Privacy Policy</h1>
-<p><strong>Last updated:</strong> 13 September 2026 <strong>Applies to:</strong> Folio for Android (<code>app.quire.android</code>), all versions.</p>
+<h1>Quire — Privacy Policy</h1>
+<p><strong>Last updated:</strong> 13 September 2026 <strong>Applies to:</strong> Quire for Android (<code>app.quire.android</code>), all versions.</p>
 <hr>
 <h2>The short version</h2>
-<p>Folio collects nothing about you. It has no accounts, no analytics, no advertising, no crash reporting, and no server of its own. Your books, your place in them, the passages you save and the minutes you read stay on your phone.</p>
-<p>This is not only a promise. <strong>Folio does not hold the <code>INTERNET</code> permission</strong>, so Android will not let it open a network connection at all — not for telemetry, not for updates, not by accident through a library it depends on. See <em><a href="#why-no-network-is-stronger-than-a-promise">Why "no network" is stronger than a promise</a></em>.</p>
-<h2>What Folio collects</h2>
+<p>Quire collects nothing about you. It has no accounts, no analytics, no advertising, no crash reporting, and no server of its own. Your books, your place in them, the passages you save and the minutes you read stay on your phone.</p>
+<p>This is not only a promise. <strong>Quire does not hold the <code>INTERNET</code> permission</strong>, so Android will not let it open a network connection at all — not for telemetry, not for updates, not by accident through a library it depends on. See <em><a href="#why-no-network-is-stronger-than-a-promise">Why "no network" is stronger than a promise</a></em>.</p>
+<h2>What Quire collects</h2>
 <p>Nothing. There is no sign-up, no login, no profile, no device identifier, no advertising ID, and no usage or diagnostic data of any kind sent anywhere.</p>
-<p>Folio has no way to know that you exist.</p>
-<h2>What Folio stores, and where</h2>
-<p>All of it is on your device, inside Folio's own private app storage, which no other app can read:</p>
+<p>Quire has no way to know that you exist.</p>
+<h2>What Quire stores, and where</h2>
+<p>All of it is on your device, inside Quire's own private app storage, which no other app can read:</p>
 <div class="table-scroll"><table><thead><tr><th>What</th><th>Why it is kept</th></tr></thead><tbody><tr><td>A copy of each book you import (EPUB, PDF or TXT)</td><td>So a book stays readable after you move or delete the original file</td></tr><tr><td>The text extracted from each book, and its chapters</td><td>So the book can be reflowed, searched by chapter and paginated</td></tr><tr><td>A cover image, taken from the book itself</td><td>Shown in your library</td></tr><tr><td>Your place in each book</td><td>So it opens where you left it</td></tr><tr><td>Bookmarks and highlighted passages</td><td>The list under Bookmarks</td></tr><tr><td>Minutes read per day, your reading streak and daily goal</td><td>The habit screens</td></tr><tr><td>Your settings: theme, typeface, text size, justification</td><td>So the app looks the way you left it</td></tr></tbody></table></div>
 <p>Two things follow from that:</p>
-<ul><li><strong>Uninstalling Folio deletes all of it.</strong> There is no copy anywhere else, and no way to recover it. Keep your original book files if they matter to you.</li><li><strong>None of it is backed up.</strong> Folio sets <code>android:allowBackup="false"</code>, so Android's automatic backup does not copy your library to Google Drive.</li></ul>
-<h2>What Folio never does</h2>
-<ul><li>No account, no login, no email address collected.</li><li>No analytics, product telemetry, or usage measurement.</li><li>No advertising, and no advertising or tracking SDK in the app.</li><li>No crash or error reporting sent off the device.</li><li>No location, contacts, camera, microphone, photo library or health data — Folio does not request any of those permissions, and a test in the codebase fails the build if one ever appears.</li><li>No sale or sharing of anything, because there is nothing to sell or share.</li><li>No cloud sync.</li></ul>
-<h2>Permissions Folio holds, and why</h2>
+<ul><li><strong>Uninstalling Quire deletes all of it.</strong> There is no copy anywhere else, and no way to recover it. Keep your original book files if they matter to you.</li><li><strong>None of it is backed up.</strong> Quire sets <code>android:allowBackup="false"</code>, so Android's automatic backup does not copy your library to Google Drive.</li></ul>
+<h2>What Quire never does</h2>
+<ul><li>No account, no login, no email address collected.</li><li>No analytics, product telemetry, or usage measurement.</li><li>No advertising, and no advertising or tracking SDK in the app.</li><li>No crash or error reporting sent off the device.</li><li>No location, contacts, camera, microphone, photo library or health data — Quire does not request any of those permissions, and a test in the codebase fails the build if one ever appears.</li><li>No sale or sharing of anything, because there is nothing to sell or share.</li><li>No cloud sync.</li></ul>
+<h2>Permissions Quire holds, and why</h2>
 <p>This is the complete list, taken from the manifest that is actually packaged into the release build. There are five, and none of them can move a byte off your phone.</p>
-<div class="table-scroll"><table><thead><tr><th>Permission</th><th>Why</th></tr></thead><tbody><tr><td><code>WAKE_LOCK</code></td><td>Keeps the CPU awake while a large book is being processed, so importing a long PDF survives the screen turning off</td></tr><tr><td><code>FOREGROUND_SERVICE</code></td><td>Backs that same import work when Android runs it as expedited</td></tr><tr><td><code>RECEIVE_BOOT_COMPLETED</code></td><td>Lets an interrupted import resume after a restart instead of leaving a half-imported book</td></tr><tr><td><code>ACCESS_NETWORK_STATE</code></td><td>Read-only. Requested by Android's WorkManager library, which inspects it for every background job it schedules. It reveals whether a network exists; it cannot use one</td></tr><tr><td><code>app.quire.android.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION</code></td><td>Generated by Android itself. It stops other apps from sending messages to Folio's internal broadcast receivers</td></tr></tbody></table></div>
-<p><strong>Folio does not hold <code>INTERNET</code></strong>, and it holds no storage permission either: books arrive through Android's own file picker, which hands Folio one file you chose and nothing else.</p>
+<div class="table-scroll"><table><thead><tr><th>Permission</th><th>Why</th></tr></thead><tbody><tr><td><code>WAKE_LOCK</code></td><td>Keeps the CPU awake while a large book is being processed, so importing a long PDF survives the screen turning off</td></tr><tr><td><code>FOREGROUND_SERVICE</code></td><td>Backs that same import work when Android runs it as expedited</td></tr><tr><td><code>RECEIVE_BOOT_COMPLETED</code></td><td>Lets an interrupted import resume after a restart instead of leaving a half-imported book</td></tr><tr><td><code>ACCESS_NETWORK_STATE</code></td><td>Read-only. Requested by Android's WorkManager library, which inspects it for every background job it schedules. It reveals whether a network exists; it cannot use one</td></tr><tr><td><code>app.quire.android.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION</code></td><td>Generated by Android itself. It stops other apps from sending messages to Quire's internal broadcast receivers</td></tr></tbody></table></div>
+<p><strong>Quire does not hold <code>INTERNET</code></strong>, and it holds no storage permission either: books arrive through Android's own file picker, which hands Quire one file you chose and nothing else.</p>
 <h3>Why "no network" is stronger than a promise</h3>
 <p>Every Android app's permission list is assembled from its own manifest <em>and</em> from every library it uses. Libraries can add <code>INTERNET</code> for their own reasons — a logging or diagnostics backend bundled several levels down, for instance — and the app's author may never notice.</p>
-<p>Folio explicitly removes <code>INTERNET</code> from the merged result. An automated test (<code>NoNetworkPermissionTest</code>) reads the packaged manifest back on every build and fails if the permission reappears, or if any permission appears that has not been reviewed. With the permission absent, the operating system itself refuses the connection, whatever any part of the app might intend.</p>
+<p>Quire explicitly removes <code>INTERNET</code> from the merged result. An automated test (<code>NoNetworkPermissionTest</code>) reads the packaged manifest back on every build and fails if the permission reappears, or if any permission appears that has not been reviewed. With the permission absent, the operating system itself refuses the connection, whatever any part of the app might intend.</p>
 <h2>The two moments anything leaves your device</h2>
-<p>Both require you to tap something, and in both cases Folio hands off to an app you pick — it never sends anything itself.</p>
-<p><strong>1. Share.</strong> When you share a passage, a reading streak or a book, Folio builds either a piece of text or a single PNG image and passes it to Android's share chooser. You choose where it goes. The image is written to Folio's temporary cache, and the app you pick is granted permission to read that one file, for that one hand-off; the folder is emptied the next time you share. The envelope contains the passage and the book it came from, and no identifier of any kind — a test asserts exactly that.</p>
-<p><strong>Save</strong> writes the same image to your device's Pictures folder, in a <code>Folio</code> album, where it is yours like any other photo.</p>
-<p><strong>Copy</strong> puts the passage on your clipboard. Android may show a notification that an app copied something; that is the system, not Folio.</p>
-<p><strong>2. The support link.</strong> <em>Settings → Show your support</em> opens <code>https://razorpay.me/@gajanansr</code> in your browser. From that moment you are on Razorpay's site and their privacy policy applies, not this one. Folio holds no payment details, sees no transaction, and — having no network permission — could not send anything there even if it wanted to. It only asks Android to open a web address.</p>
-<p>If a website, source-code or contact link is shown in Settings in a future version, it works the same way: Folio asks your browser or mail app to open an address.</p>
+<p>Both require you to tap something, and in both cases Quire hands off to an app you pick — it never sends anything itself.</p>
+<p><strong>1. Share.</strong> When you share a passage, a reading streak or a book, Quire builds either a piece of text or a single PNG image and passes it to Android's share chooser. You choose where it goes. The image is written to Quire's temporary cache, and the app you pick is granted permission to read that one file, for that one hand-off; the folder is emptied the next time you share. The envelope contains the passage and the book it came from, and no identifier of any kind — a test asserts exactly that.</p>
+<p><strong>Save</strong> writes the same image to your device's Pictures folder, in a <code>Quire</code> album, where it is yours like any other photo.</p>
+<p><strong>Copy</strong> puts the passage on your clipboard. Android may show a notification that an app copied something; that is the system, not Quire.</p>
+<p><strong>2. The support link.</strong> <em>Settings → Show your support</em> opens <code>https://razorpay.me/@gajanansr</code> in your browser. From that moment you are on Razorpay's site and their privacy policy applies, not this one. Quire holds no payment details, sees no transaction, and — having no network permission — could not send anything there even if it wanted to. It only asks Android to open a web address.</p>
+<p>If a website, source-code or contact link is shown in Settings in a future version, it works the same way: Quire asks your browser or mail app to open an address.</p>
 <h2>Children</h2>
-<p>Folio is not directed at children and collects no data from anyone, of any age.</p>
+<p>Quire is not directed at children and collects no data from anyone, of any age.</p>
 <h2>Your rights</h2>
-<p>There is no personal data held by the author or by anyone else, so there is nothing to request, export, correct or delete. The data on your own device is entirely under your control: remove a bookmark in the app, or uninstall Folio to erase everything it has stored.</p>
+<p>There is no personal data held by the author or by anyone else, so there is nothing to request, export, correct or delete. The data on your own device is entirely under your control: remove a bookmark in the app, or uninstall Quire to erase everything it has stored.</p>
 <h2>Changes to this policy</h2>
 <p>If this policy changes, the date at the top changes with it, and the updated version replaces this one at the same URL.</p>
 <h2>Contact</h2>
-<p>Questions about this policy, or anything Folio does with your books: <strong><a href="https://github.com/gajanansr/quire/issues">open an issue</a></strong> on the project's GitHub, which is public and monitored.</p>
+<p>Questions about this policy, or anything Quire does with your books: <strong><a href="https://github.com/gajanansr/quire/issues">open an issue</a></strong> on the project's GitHub, which is public and monitored.</p>
 <hr>
 <h3>Where this is published</h3>
 <p>The hosted copy is &lt;https://gajanansr.github.io/quire/privacy.html&gt;, generated from <strong>this file</strong> by <code>scripts/build-site.py</code> when the site is deployed — so the page a reader sees and the document in the repository cannot drift apart. Edit this file; the page follows.</p>

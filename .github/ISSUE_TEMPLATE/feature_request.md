@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Something Folio should be able to do
+about: Something Quire should be able to do
 labels: enhancement
 ---
 
@@ -11,5 +11,5 @@ first imagined.
 **What you do today instead**
 
 **Anything this must not break**
-Folio has no network access, no account and no sync, and those are not going to
+Quire has no network access, no account and no sync, and those are not going to
 change. Ideas that fit inside that constraint are much more likely to happen.

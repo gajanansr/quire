@@ -12,7 +12,7 @@ import java.io.File;
 import javax.imageio.ImageIO;
 
 /**
- * Renders Folio's Play Store graphics: the 512x512 listing icon and the 1024x500
+ * Renders Quire's Play Store graphics: the 512x512 listing icon and the 1024x500
  * feature graphic.
  *
  * Generated rather than drawn, for one reason: the mark, the ground colour and the
@@ -24,7 +24,7 @@ import javax.imageio.ImageIO;
  * image most people see before they ever install the app.
  *
  * Java2D specifically, and no imaging library: the build already requires JDK 21, so
- * this runs on any machine that can build Folio, with nothing else installed. Run it
+ * this runs on any machine that can build Quire, with nothing else installed. Run it
  * through {@code scripts/generate-play-graphics.sh}.
  *
  * The curves below are transcribed from the vector drawable by hand. An SVG path
@@ -231,7 +231,7 @@ public final class PlayGraphics {
 
         g.setFont(wordmark);
         g.setColor(PAGE);
-        g.drawString("Folio", textLeft, (int) Math.round(top + capHeight));
+        g.drawString("Quire", textLeft, (int) Math.round(top + capHeight));
 
         g.setFont(tagline);
         // The tagline is the page colour held back, the same move the mark makes

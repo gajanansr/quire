@@ -1,7 +1,7 @@
-# Play Console — Data Safety answers for Folio
+# Play Console — Data Safety answers for Quire
 
 Every answer to type into **Play Console → App content → Data safety**, in the order
-the Console asks. Folio's answers are unusually short because the honest ones are all
+the Console asks. Quire's answers are unusually short because the honest ones are all
 "no", but each is justified here so a future version can be checked against it rather
 than re-guessed.
 
@@ -28,14 +28,14 @@ If it prints anything else, the answers below are no longer true.
 **Q. Does your app collect or share any of the required user data types?**
 → **No**
 
-Justification: Folio has no accounts and no server. It holds no `INTERNET`
+Justification: Quire has no accounts and no server. It holds no `INTERNET`
 permission, so it cannot transmit anything. Everything it writes — the book copies,
 extracted text, reading position, bookmarks, habit minutes and settings — stays in
 app-private storage on the device.
 
 *Play's definition matters here:* "collected" means data transmitted off the device.
 Data that only ever exists in app-private storage on the user's own device is **not**
-collected, and is not declared. Folio meets that definition completely.
+collected, and is not declared. Quire meets that definition completely.
 
 Answering **No** ends this section. The remaining questions in Section 1 (encryption
 in transit, deletion requests, independent security review) do not appear.
@@ -49,14 +49,14 @@ in transit, deletion requests, independent security review) do not appear.
 
 No data types are selected. Not one of these applies:
 
-| Category | Folio |
+| Category | Quire |
 |---|---|
 | Location (approximate, precise) | Not collected. Permission not requested |
 | Personal info (name, email, user IDs, address, phone, race, political or religious beliefs, sexual orientation, other) | Not collected. No accounts exist |
 | Financial info (payment info, purchase history, credit score, other) | Not collected. See *Financial features* below |
 | Health and fitness | Not collected |
 | Messages (emails, SMS, in-app messages) | Not collected |
-| Photos and videos | Not collected. Folio can *write* a share image to your Pictures folder when you tap Save; it never reads your photos |
+| Photos and videos | Not collected. Quire can *write* a share image to your Pictures folder when you tap Save; it never reads your photos |
 | Audio files (voice, music, recordings) | Not collected |
 | Files and docs | **Not collected.** This is the one worth pausing on — see below |
 | Calendar | Not collected |
@@ -68,7 +68,7 @@ No data types are selected. Not one of these applies:
 
 ### "Files and docs" — why the answer is still No
 
-Folio's whole purpose is opening a book file you choose, and that file is copied into
+Quire's whole purpose is opening a book file you choose, and that file is copied into
 app-private storage so it stays readable. It is reasonable to wonder whether that
 counts.
 
@@ -109,12 +109,12 @@ completeness, because they are all required before a release can go out:
 | **App access** | *All functionality is available without special access* | No login, no code, no region lock, no paywall. Nothing to give a reviewer |
 | **Ads** | *No, my app does not contain ads* | No ad SDK, and no network to serve one over |
 | **Content rating** | Complete the IARC questionnaire | Notes in `docs/release.md` |
-| **Target audience and content** | Adult age groups only (18+, or 13+ at your discretion) | See the warning in `docs/release.md`: selecting a children's age group brings Folio under the Families policy, which restricts external payment links — and Folio has one |
+| **Target audience and content** | Adult age groups only (18+, or 13+ at your discretion) | See the warning in `docs/release.md`: selecting a children's age group brings Quire under the Families policy, which restricts external payment links — and Quire has one |
 | **News app** | No | |
 | **COVID-19 contact tracing / status** | No | |
 | **Data safety** | As above | |
 | **Government apps** | No | |
-| **Financial features** | *My app doesn't provide any financial features* | Folio takes no payments. It opens a donation page in the user's browser. Read the Payments-policy warning in `docs/release.md` before submitting — the declaration is not the risk, the link itself is |
+| **Financial features** | *My app doesn't provide any financial features* | Quire takes no payments. It opens a donation page in the user's browser. Read the Payments-policy warning in `docs/release.md` before submitting — the declaration is not the risk, the link itself is |
 | **Health apps** | No | |
 | **Advertising ID** | Not declared — the app does not use one | If the Console asks, the answer is that no advertising ID is used |
 

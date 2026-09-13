@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Something Folio did that it should not have
+about: Something Quire did that it should not have
 labels: bug
 ---
 
@@ -15,7 +15,7 @@ copyrighted book — a description, or a page photographed with your camera, is 
 2.
 
 **Your phone**
-Android version, device, and the Folio version from Settings → About.
+Android version, device, and the Quire version from Settings → About.
 
 **Screenshot**
 Especially for anything about how text is set — the page is the evidence.

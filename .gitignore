@@ -15,7 +15,7 @@ app/src/test/resources/generated/
 
 # Release signing. None of this may ever enter git: a committed keystore is a
 # key that cannot be rotated out of history, and the passwords beside it sign
-# anything as Folio. scripts and CI read them from here or the environment.
+# anything as Quire. scripts and CI read them from here or the environment.
 keystore.properties
 *.jks
 *.keystore

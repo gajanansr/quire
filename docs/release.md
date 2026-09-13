@@ -1,4 +1,4 @@
-# Releasing Folio on Google Play
+# Releasing Quire on Google Play
 
 Clean checkout to published, in order. Every command is exact and every value you
 have to supply is named.
@@ -171,7 +171,7 @@ Measured on this app, 13 September 2026:
 | The debug APK PROGRESS.md records | 67 MB, all four ABIs |
 
 Play splits the bundle per device, so a phone downloads one ABI and one screen
-density rather than all of them. Most of Folio's size is PdfBox-Android's bundled
+density rather than all of them. Most of Quire's size is PdfBox-Android's bundled
 fonts and BouncyCastle, which every device does need.
 
 ---
@@ -305,15 +305,15 @@ question by question. The short version:
 ### Content rating questionnaire
 
 Run through IARC's questionnaire under *Utility, Productivity, Communication or
-Other*. Folio's honest answers:
+Other*. Quire's honest answers:
 
 - Violence, sexuality, profanity, controlled substances, gambling, horror — **no**
-  to all. Folio contains no content of its own; it displays files the user supplies.
+  to all. Quire contains no content of its own; it displays files the user supplies.
 - **Does the app allow users to interact or exchange content?** — **No.** There is
   no in-app social layer, no comments, no user-to-user anything. Sharing a passage
   hands it to Android's system chooser, which is the operating system's feature.
 - **Does the app share the user's location?** — No.
-- **Does the app allow purchases?** — **No** for in-app purchases. Folio sells
+- **Does the app allow purchases?** — **No** for in-app purchases. Quire sells
   nothing and contains no billing. The donation link is a web address opened in the
   browser; read the Payments-policy warning below before deciding how to describe it.
 - **Does the app collect or transmit personal information?** — No.
@@ -323,9 +323,9 @@ and equivalents).
 
 ### Why not a children's age group
 
-Selecting an under-13 audience puts Folio under Google Play's **Families policy**,
+Selecting an under-13 audience puts Quire under Google Play's **Families policy**,
 which adds requirements around ads, data and payments — including restrictions on
-sending children to external payment pages. Folio has exactly such a link in
+sending children to external payment pages. Quire has exactly such a link in
 Settings. Unless you intend to remove it and take on the Families requirements,
 select adult age groups.
 
@@ -363,7 +363,7 @@ Do not resolve it by quietly changing the number.
 **[verify]** Play requires apps targeting recent Android versions to support 16 KB
 memory pages on 64-bit devices.
 
-Folio ships exactly one native library, `libandroidx.graphics.path.so`, pulled in by
+Quire ships exactly one native library, `libandroidx.graphics.path.so`, pulled in by
 Compose. Its `LOAD` segments were checked in the release bundle on 13 September 2026
 and are aligned to 16384 bytes. Nothing to do — but if a dependency with native code
 is ever added, check it:
@@ -389,7 +389,7 @@ written and committed so it can be revisited in an afternoon.
 | `bundleRelease -PquireMinify=true` | **11 MB**, also builds clean |
 
 So R8 works and saves about a third. **What was not measured is the only thing that
-matters:** whether a shrunk Folio still imports a book. This session could not use
+matters:** whether a shrunk Quire still imports a book. This session could not use
 the emulator or a device, and PdfBox-Android is precisely the library where that
 question is not rhetorical — it resolves fonts, CMaps and codecs by class name out
 of its own bundled assets, and none of those names appear in bytecode. A wrongly
@@ -416,7 +416,7 @@ trade. An untested `minifyEnabled true` is how an app gets its first one-star re
    device and date in `PROGRESS.md`.
 
 Resource shrinking follows the same flag. It is worth much less here than code
-shrinking — Folio's bulk is PdfBox's assets, which resource shrinking does not
+shrinking — Quire's bulk is PdfBox's assets, which resource shrinking does not
 touch.
 
 ---
@@ -448,7 +448,7 @@ touch.
 
 ---
 
-## 11. Review risks specific to Folio
+## 11. Review risks specific to Quire
 
 Read this before submitting. None of it is hypothetical.
 
@@ -475,14 +475,14 @@ that unlocks a feature. It unlocks nothing, which is the strongest position to b
 
 ### The name
 
-"Folio" is a common word and other apps use it. Play requires that a title not
+"Quire" is a common word and other apps use it. Play requires that a title not
 infringe a trademark and not be confusingly similar to another app's. Search Play for
-"Folio" before you commit to the name — and remember §1: the application id cannot be
+"Quire" before you commit to the name — and remember §1: the application id cannot be
 changed afterwards, even if the display name can.
 
 ### Claims in the listing
 
-The description states that Folio has no internet permission. That is true and
+The description states that Quire has no internet permission. That is true and
 verifiable, and a reviewer can confirm it from the manifest in seconds — which is
 exactly why it must stay true. If a dependency ever reintroduces `INTERNET`, the
 listing becomes a false claim and the app becomes a misrepresentation case, not
