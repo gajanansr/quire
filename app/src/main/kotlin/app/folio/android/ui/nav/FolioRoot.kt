@@ -146,8 +146,15 @@ fun FolioRoot(
     var onboardingSeen by remember { mutableStateOf(false) }
     var pendingGoal by remember { mutableStateOf(HabitRepository.RECOMMENDED_GOAL) }
 
-    val settings by remember(habitRepository) { habitRepository.observeSettings() }
-        .collectAsState(initial = AppSettingsEntity())
+    // Null until the database answers, deliberately. A default `AppSettingsEntity()`
+    // has `onboarded = false`, so every cold start rendered the onboarding screen for
+    // the frame or two before the real row arrived — a reader who has used Folio for
+    // months was greeted with "A quiet place to read / Get Started" each time they
+    // opened it. The honest state before the answer is "not known yet", and the
+    // screen for that is the empty page below rather than a guess.
+    val storedSettings by remember(habitRepository) { habitRepository.observeSettings() }
+        .collectAsState(initial = null)
+    val settings = storedSettings ?: AppSettingsEntity()
 
     var confirmExit by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
@@ -209,6 +216,12 @@ fun FolioRoot(
             val failure = importProgress?.failureReason?.let(::failureReasonOf)
 
             when {
+                // Nothing at all until the settings row has been read. One blank
+                // frame on the theme's own ground is invisible; guessing wrong and
+                // showing onboarding to an existing reader is not.
+                storedSettings == null -> Unit
+
+
                 // First run, gated on a stored flag so it never reappears.
                 !settings.onboarded && !onboardingSeen -> OnboardingScreen(
                     onGetStarted = { onboardingSeen = true },

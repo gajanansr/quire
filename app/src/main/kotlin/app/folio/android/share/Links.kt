@@ -22,24 +22,26 @@ package app.folio.android.share
 object FolioLinks {
 
     /**
-     * FILL IN — the public URL of `docs/privacy-policy.md`, once it is hosted.
+     * The published privacy policy.
      *
-     * The same string goes in three places and they must agree: the Play store
-     * listing, the Data Safety section of the Console, and here.
+     * Generated from `docs/privacy-policy.md` and deployed by the Site workflow, so
+     * the page behind this URL is the document in the repository. The same string
+     * goes in two more places and all three must agree: the Play store listing and
+     * the Data Safety section of the Console.
      */
-    val PRIVACY_POLICY: String = ""
+    val PRIVACY_POLICY: String = "https://gajanansr.github.io/folio/privacy.html"
 
-    /** FILL IN — a landing page for Folio, if one is ever built. */
-    val WEBSITE: String = ""
+    val WEBSITE: String = "https://gajanansr.github.io/folio/"
 
-    /** FILL IN — where the source lives, if it is ever published. */
-    val SOURCE: String = ""
+    val SOURCE: String = "https://github.com/gajanansr/folio"
 
     /**
      * FILL IN — the address a reader can write to.
      *
-     * Play requires a contact email on the store listing whether or not the app
-     * shows one. This is the same address, so the two cannot drift.
+     * Still blank on purpose: Folio's own contact route is the issue tracker, which
+     * [SOURCE] already reaches. Play requires a real mailbox on the store listing,
+     * and that is an address only the author can supply — so this stays empty rather
+     * than inventing one, and the Settings row it would drive stays hidden.
      */
     val CONTACT_EMAIL: String = ""
 

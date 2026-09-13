@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Folio — a quiet place to read</title>
+<meta name="description" content="An offline Android reading app for EPUB, PDF and TXT. No account, no sync, no analytics — and no INTERNET permission at all.">
+
+<meta property="og:title" content="Folio — a quiet place to read">
+<meta property="og:description" content="An offline Android reading app. Your books never leave your device.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="assets/icon.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="assets/icon.png">
+
+<!--
+  Nothing is loaded from anywhere else: no fonts, no analytics, no tag manager, no
+  CDN. That is not a performance decision. Folio's whole claim is that it makes no
+  network requests, and a landing page that quietly phoned three companies to say so
+  would be the wrong way to say it. The type is whatever the reader's own device has.
+-->
+<style>
+  :root {
+    --bg:       #FDF9F6;
+    --bg-alt:   #F7EFE7;
+    --ink:      #111B28;
+    --muted:    #6A727D;
+    --border:   #E7DDD2;
+    --accent:   #214F7C;
+    --on-accent:#FDF9F6;
+
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Source Serif 4",
+             Georgia, "Times New Roman", serif;
+    --sans:  system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:       #1D1E20;
+      --bg-alt:   #26282B;
+      --ink:      #D0D1D3;
+      --muted:    #8E9298;
+      --border:   #34373B;
+      --accent:   #7FA8D4;
+      --on-accent:#10141A;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+
+  a { color: var(--accent); }
+
+  /* ---------------------------------------------------------------- header */
+
+  header {
+    padding: 28px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+  .brand img { width: 34px; height: 34px; border-radius: 9px; display: block; }
+  .brand span { font-family: var(--serif); font-size: 22px; letter-spacing: -0.01em; }
+  .nav { display: flex; gap: 22px; font-size: 15px; }
+  .nav a { color: var(--muted); text-decoration: none; }
+  .nav a:hover { color: var(--ink); }
+
+  /* ------------------------------------------------------------------ hero */
+
+  .hero { padding: 56px 0 24px; text-align: center; }
+  .hero h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(2.6rem, 7vw, 4.4rem);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin: 0 0 18px;
+  }
+  .hero p.lede {
+    font-size: clamp(1.05rem, 2.4vw, 1.3rem);
+    color: var(--muted);
+    max-width: 34ch;
+    margin: 0 auto 14px;
+  }
+  .hero p.claim {
+    font-size: 1rem;
+    color: var(--ink);
+    max-width: 52ch;
+    margin: 0 auto 34px;
+  }
+
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block;
+    padding: 13px 26px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 600;
+    border: 1px solid var(--accent);
+  }
+  .btn-primary { background: var(--accent); color: var(--on-accent); }
+  .btn-secondary { background: transparent; color: var(--accent); }
+  .btn:hover { opacity: 0.88; }
+
+  .note { margin-top: 16px; font-size: 13.5px; color: var(--muted); }
+
+  /* ------------------------------------------------------------- the claim */
+
+  .promise {
+    margin: 72px 0;
+    padding: 40px 32px;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    text-align: center;
+  }
+  .promise h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(1.6rem, 4vw, 2.3rem);
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+  .promise p { max-width: 62ch; margin: 0 auto; color: var(--muted); }
+  .promise code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9em;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1px 6px;
+    color: var(--ink);
+  }
+
+  /* --------------------------------------------------------------- gallery */
+
+  .shots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 26px;
+    margin: 72px 0;
+  }
+  .shot figure { margin: 0; }
+  .shot img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+  }
+  .shot figcaption {
+    margin-top: 12px;
+    font-size: 14px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* -------------------------------------------------------------- features */
+
+  h2.section {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    letter-spacing: -0.01em;
+    margin: 0 0 28px;
+  }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 26px;
+    margin-bottom: 80px;
+  }
+  .feature h3 {
+    font-size: 1.02rem;
+    margin: 0 0 7px;
+    letter-spacing: -0.005em;
+  }
+  .feature p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+  /* ---------------------------------------------------------------- footer */
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 34px 0 56px;
+    color: var(--muted);
+    font-size: 14.5px;
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--ink); text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <a class="brand" href="./">
+      <img src="assets/icon.png" alt="">
+      <span>Folio</span>
+    </a>
+    <nav class="nav">
+      <a href="#what">What it does</a>
+      <a href="#privacy">Privacy</a>
+      <a href="privacy.html">Policy</a>
+      <a href="https://github.com/gajanansr/folio">GitHub</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>A quiet place to read.</h1>
+    <p class="lede">An Android reading app for EPUB, PDF and plain text.</p>
+    <p class="claim">
+      No account. No sync. No analytics. No ads. Folio does not declare the
+      <code>INTERNET</code> permission at all — so your books cannot leave your
+      device, whatever anyone later decides.
+    </p>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://github.com/gajanansr/folio/releases">Download the APK</a>
+      <a class="btn btn-secondary" href="https://github.com/gajanansr/folio">Read the source</a>
+    </div>
+    <p class="note">Free and open source, MIT licensed. Android 8.0 and above.</p>
+  </section>
+
+  <section class="promise" id="privacy">
+    <h2>A promise the operating system keeps</h2>
+    <p>
+      Most apps promise privacy in a policy. Folio's manifest removes the
+      <code>INTERNET</code> permission outright, and a test fails the build if it ever
+      comes back — including through a dependency, which is how it got in the first
+      time. Android then refuses the socket. There is nowhere for your reading to go.
+    </p>
+  </section>
+
+  <section class="shots">
+    <div class="shot">
+      <figure>
+        <img src="assets/reader.png" alt="A page of a novel set in Folio: justified text with first-line indents on a warm paper background.">
+        <figcaption>Text set like a book, not like a web page.</figcaption>
+      </figure>
+    </div>
+    <div class="shot">
+      <figure>
+        <img src="assets/highlight.png" alt="A passage selected across two paragraphs, with Highlight, Share and Copy actions.">
+        <figcaption>Choose a passage. Keep it.</figcaption>
+      </figure>
+    </div>
+    <div class="shot">
+      <figure>
+        <img src="assets/share.png" alt="A share sheet showing a quote card in six colour styles.">
+        <figcaption>Share it as a card, in any of six looks.</figcaption>
+      </figure>
+    </div>
+    <div class="shot">
+      <figure>
+        <img src="assets/library.png" alt="The Folio library with book covers and a daily reading habit strip.">
+        <figcaption>Your shelf, and a daily habit.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="what">
+    <h2 class="section">What it does</h2>
+    <div class="features">
+
+      <div class="feature">
+        <h3>Reflows PDFs into real text</h3>
+        <p>
+          A PDF becomes actual paragraphs, so type size and themes work on it — rather
+          than a fixed page you pinch at.
+        </p>
+      </div>
+
+      <div class="feature">
+        <h3>Sets type properly</h3>
+        <p>
+          Justified, hyphenated, first-line indents, no paragraph gaps, a measure capped
+          for readability, and stranded lines pushed to the next page.
+        </p>
+      </div>
+
+      <div class="feature">
+        <h3>Keeps your place exactly</h3>
+        <p>
+          Position is stored by character, so it survives changing the type size, the
+          font, or the theme — and resumes where you actually were.
+        </p>
+      </div>
+
+      <div class="feature">
+        <h3>Five real themes</h3>
+        <p>
+          Paper, Sepia, E-ink, Night and Black — researched against what e-readers and
+          real electrophoretic panels do. E-ink is strictly greyscale.
+        </p>
+      </div>
+
+      <div class="feature">
+        <h3>Highlights and quote cards</h3>
+        <p>
+          Long-press a word, drag to choose a passage, keep it — and share it as a
+          picture dressed in any of the app's palettes.
+        </p>
+      </div>
+
+      <div class="feature">
+        <h3>A reading habit</h3>
+        <p>
+          A daily goal, a streak, and home-screen widgets. One gentle reminder a day,
+          and none at all on a day you have already read.
+        </p>
+      </div>
+
+      <div class="feature">
+        <h3>Honest about scans</h3>
+        <p>
+          A photographed book has no text to reflow, so Folio shows the pages as they
+          were printed and says so — rather than OCR inventing words the author never
+          wrote.
+        </p>
+      </div>
+
+      <div class="feature">
+        <h3>Yours to change</h3>
+        <p>
+          MIT licensed, built in the open, with the reasoning for each decision written
+          down in the repository rather than lost.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <div>© 2026 Gajanan Rathod · MIT licensed</div>
+    <nav>
+      <a href="privacy.html">Privacy policy</a>
+      <a href="https://github.com/gajanansr/folio">Source</a>
+      <a href="https://github.com/gajanansr/folio/issues">Report a problem</a>
+      <a href="https://razorpay.me/@gajanansr">Support Folio</a>
+    </nav>
+  </footer>
+
+</div>
+
+</body>
+</html>

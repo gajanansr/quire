@@ -3,15 +3,6 @@
 **Last updated:** 13 September 2026
 **Applies to:** Folio for Android (`app.folio.android`), all versions.
 
-> **Before publishing:** this document must be reachable at a **public URL** —
-> Google Play requires one, and refuses the listing without it. Host it anywhere
-> that serves plain HTML (GitHub Pages, a static host, your own domain), then put
-> the resulting URL in all three places listed at the end of this file.
->
-> Replace `[CONTACT EMAIL]` below with a real address before hosting. A privacy
-> policy with no way to reach the author is a policy nobody can act on, and Play
-> reviewers do check that the contact route exists.
-
 ---
 
 ## The short version
@@ -142,16 +133,23 @@ replaces this one at the same URL.
 
 ## Contact
 
-Questions about this policy: **[CONTACT EMAIL]**
+Questions about this policy, or anything Folio does with your books:
+**[open an issue](https://github.com/gajanansr/folio/issues)** on the project's
+GitHub, which is public and monitored.
 
 ---
 
-### Publishing checklist for this file
+### Where this is published
 
-Once hosted, the URL goes in exactly three places, and they must all match:
+The hosted copy is <https://gajanansr.github.io/folio/privacy.html>, generated from
+**this file** by `scripts/build-site.py` when the site is deployed — so the page a
+reader sees and the document in the repository cannot drift apart. Edit this file; the
+page follows.
+
+The same URL belongs in two places in the Play Console, and both must match it:
 
 1. Play Console → **Store listing** → *Privacy policy*
 2. Play Console → **App content** → *Data safety* → *Privacy policy URL*
-3. `app/src/main/kotlin/app/folio/android/share/Links.kt` →
-   `FolioLinks.PRIVACY_POLICY` (this is what makes the Privacy row in Settings a
-   tappable link instead of a plain statement)
+
+Play also asks for a **contact email address** in the store listing itself. That is
+separate from this document and has to be a real mailbox.

@@ -1,0 +1,50 @@
+name: Site
+
+# Deploys site/ to GitHub Pages. The privacy page is generated from
+# docs/privacy-policy.md at build time rather than trusted from the commit, so the
+# hosted policy is always the policy in the repository — a stale privacy policy is
+# the one kind of stale page that actually matters.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/privacy-policy.md'
+      - 'scripts/build-site.py'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; never cancel one midway, or the site is left half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render the generated pages
+        run: python3 scripts/build-site.py
+
+      - name: Fail if the generated page was committed stale
+        # The committed copy and the rendered one must agree. If they do not, someone
+        # edited docs/privacy-policy.md without re-running the script — the site would
+        # still be correct, but the repository would be telling readers something else.
+        run: git diff --exit-code -- site/privacy.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
