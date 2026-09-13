@@ -6,8 +6,10 @@ import android.app.Notification
 import android.app.NotificationManager
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.TestListenableWorkerBuilder
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.folio.android.data.BookRepository
@@ -69,12 +71,20 @@ class ReminderWorkerTest {
 
     @Before
     fun setUp() {
-        WorkManagerTestInitHelper.initializeTestWorkManager(app)
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         db = Room.inMemoryDatabaseBuilder(app, FolioDatabase::class.java)
             .allowMainThreadQueries().build()
         books = BookRepository(db, BookStore(temp.root)) { nowMs }
         habits = HabitRepository(db, zone = { zone }, nowMs = { nowMs })
+        // Initialised with the real factory so work enqueued under the reminder's
+        // own unique name can actually be driven, not only constructed by hand.
+        WorkManagerTestInitHelper.initializeTestWorkManager(
+            app,
+            Configuration.Builder()
+                .setExecutor(SynchronousExecutor())
+                .setWorkerFactory(ReminderWorkerFactory(habits, books, { nowMs }, { zone }))
+                .build(),
+        )
     }
 
     @After
@@ -97,6 +107,19 @@ class ReminderWorkerTest {
     private fun scheduled(): List<WorkInfo> =
         WorkManager.getInstance(app)
             .getWorkInfosForUniqueWork(ReminderScheduler.WORK_NAME).get()
+
+    /** Waits, briefly and with a limit, for a replacement reminder to appear. */
+    private fun awaitPending(timeoutMs: Long = 10_000): List<WorkInfo> {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var infos = scheduled()
+        while (System.currentTimeMillis() < deadline &&
+            infos.none { it.state == WorkInfo.State.ENQUEUED }
+        ) {
+            Thread.sleep(10)
+            infos = scheduled()
+        }
+        return infos
+    }
 
     private fun book(id: String, title: String) = Book(
         id = id, title = title, author = "Ursula K. Le Guin", coverPath = null,
@@ -187,6 +210,39 @@ class ReminderWorkerTest {
 
         assertEquals("tomorrow's reminder was not scheduled", 1, scheduled().size)
         assertEquals(WorkInfo.State.ENQUEUED, scheduled().single().state)
+    }
+
+    @Test
+    fun `today's run really does enqueue tomorrow's`() = runBlocking {
+        // The whole feature is a chain: each run schedules the next, under the same
+        // unique work name it is itself running under, with REPLACE. If replacing a
+        // running job dropped the replacement, reminders would stop dead after the
+        // first one — silently, on a real device, a day later. Enqueued and driven
+        // for real here rather than constructed by hand, because running under that
+        // name is the entire point.
+        habits.setRemindersEnabled(true)
+        ReminderScheduler.schedule(
+            app, reminderMinuteOfDay = 20 * 60, nowMinuteOfDay = 19 * 60,
+            replaceExisting = true,
+        )
+        val first = scheduled().single()
+        assertEquals(WorkInfo.State.ENQUEUED, first.state)
+
+        WorkManagerTestInitHelper.getTestDriver(app)!!.setInitialDelayMet(first.id)
+
+        // The driver starts the worker and returns; a CoroutineWorker finishes on a
+        // dispatcher of its own, so the replacement appears a moment later. Bounded
+        // rather than a fixed sleep, so the test is as fast as the machine allows
+        // and still fails rather than hangs if the chain is genuinely broken.
+        val after = awaitPending()
+        assertTrue(
+            "the chain stopped after one reminder: ${after.map { it.state }}",
+            after.any { it.state == WorkInfo.State.ENQUEUED },
+        )
+        assertTrue(
+            "the job left pending is the one that already ran",
+            after.none { it.id == first.id && it.state == WorkInfo.State.ENQUEUED },
+        )
     }
 
     @Test
