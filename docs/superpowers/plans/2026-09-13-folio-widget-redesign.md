@@ -268,5 +268,5 @@ content bottom in every state the device test's fixed XML visibilities never rea
 
 **Files:** `PROGRESS.md` (edit)
 
-- [ ] What changed, what was proved on the JVM, and the explicit list of what only a
+- [x] What changed, what was proved on the JVM, and the explicit list of what only a
       home screen can answer.

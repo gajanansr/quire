@@ -1489,3 +1489,116 @@ have been seen only in the picker and in tests, not on a home screen.
 values — a 5-day streak, four books, an invented title. It is the only place in Folio
 showing a number nobody earned, and it is conventional for a widget picker, which is a
 product illustration rather than a claim about the reader. Worth knowing it is there.
+
+## 2026-09-13 — The widgets, made good
+
+`agent/widget-redesign`, plan at
+`docs/superpowers/plans/2026-09-13-folio-widget-redesign.md`, seven tasks, all ticked.
+690 JVM tests, 0 failures; 106 of them are about the widgets now, up from 78. Nothing
+either widget *says* changed — `WidgetStateTest`'s 24 tests were not edited — and
+neither did the tap, the launch mode, `updatePeriodMillis` or the `onDataChanged`
+refresh path.
+
+**A widget wears the reader's theme now, not a guess at it.** The first plan said a
+widget can only be themed by resource qualifier, so it got Paper in a light launcher
+and Night in a dark one, and Sepia, E-ink and Black stayed inside the app. That was
+true about *resources* and not about *colours*. The provider already opens the
+database on every update — that is where the streak comes from — and `themeName` is
+one column over from the numbers it was already reading. So it rides along in the
+same single pass, through `themeNamed` rather than `valueOf` so that a reader who
+chose "DARK" before the themes were renamed is not quietly reset, and
+`widgetPalette(theme)` turns it into the six colours the views need.
+
+**The technique, because minSdk is 26 and this is where it would have gone wrong.**
+`RemoteViews.setColorStateList` is API 31 and unavailable. Text takes `setTextColor`,
+which has been there since API 1. Everything that is a *shape* — the card, its
+hairline, the seven day bars, the progress track and fill, the flame, the mark — is
+a white drawable in an `ImageView`, tinted with `setInt(id, "setColorFilter", …)`:
+SRC_ATOP keeps the drawable's alpha, so rounded corners stay rounded, and replaces
+the colour. `setBackgroundColor` is the other thing that works on API 26 and paints
+square corners, which is no use for any of them.
+
+`setInt` does not call anything. It records a *method name* that the launcher looks
+up by reflection and refuses unless it is annotated `@RemotableViewMethod` — so a
+wrong name is a silent no-op on someone's home screen, with no exception and no log.
+The three names live in one object and `RemotableCallTest` reads the annotations off
+the real framework classes and fails if any of them is not remotable; a third test
+greps `WidgetViews.kt` for `setInt` calls that bypass that object. That is the API 26
+proof, since the annotation is the whole of the platform's own check.
+
+**The progress bar stopped being a `ProgressBar`.** It had to: `setProgressTintList`
+needs a `ColorStateList`, so a real bar cannot be recoloured before API 31 and would
+have been wrong on three palettes out of five. It is two tinted `ImageView`s now, and
+the fill is a `<clip>` drawable opened to the percentage with `setImageLevel` — which
+is what a `ProgressBar`'s progress layer is anyway, so it looks the same. A clip
+drawable at its default level draws *nothing*, so a missed call would show an empty
+track and read as a book nobody had started; the test asserts the level that arrives
+rather than that the call was made.
+
+**The mark.** `folio_mark.xml`: the same folio the launcher draws — one sheet folded
+once — redrawn on a 24 grid, in **one flat colour** rather than the launcher's two.
+The launcher's shadowed leaf is an 0.8-alpha page over a fixed navy ground; a widget
+has five grounds and that leaf is mud on Black and invisible on E-ink. It also opens
+the fold: the launcher tapers it to under a unit at mid-height, which closes up
+entirely at 16dp. It sits in the corner of both widgets in the muted colour — beside
+the headline on the streak widget, where it balances the flame, and overlaid on the
+stats widget, where a header row would have cost a fifth of the height and where
+being a child of the root is what keeps it visible in the empty state.
+
+**Compact, and using the full size.** Padding 16dp → 12dp. The streak widget's week
+strip took a `layout_weight`: 30dp of bar at the declared 250×110 minimum, 80dp at a
+full 4×2 cell, 100dp at the largest resize — everything above it is fixed, so every
+pixel a reader adds by resizing goes to the data rather than to the margins. The
+stats widget's empty invitation lost its inner panel and is simply centred on the
+card; one themed surface is enough on a card 86dp tall, and `widget_panel.xml` went
+with it.
+
+**Every TextView has a fixed height and autosizes**, which is the part that made this
+safe to do without a device. The height of a widget is now a sum of constants —
+12 + 48 + 8 + week + 12 for the streak — so the budget is arithmetic rather than an
+estimate, and at a 1.3× system font scale the text shrinks inside its slot instead of
+pushing the week strip off the bottom of the card.
+
+**Measured, not reasoned about.** `WidgetLayoutBudgetTest` inflates both layouts
+under Robolectric at 250×110, 180×110, 330×160 and 360×180, in all five states either
+widget can be in, and at 1.3× text — and it replays `WidgetLayoutTest`'s own
+`contentBottom`, copied verbatim including the double-counting that makes it strict,
+so the device test's answer is known before it is run. At the minimum the streak
+widget's content ends at 98dp of 110 and the stats widget's at 95dp. Deliberately
+breaking the layout was checked to break the test.
+
+**Contrast, per theme, against that theme's own card** — the `ShareCardStyleTest`
+method, which is what caught the share card at 4.24:1:
+
+| | card | headline | secondary | accent |
+|---|---|---:|---:|---:|
+| Paper | #FDF9F6 | 16.6:1 | 4.65:1 | 8.1:1 |
+| Sepia | #F2E6D3 | 11.1:1 | 4.90:1 | 6.2:1 |
+| E-ink | #E9E9E9 | 15.2:1 | 4.95:1 | 13.1:1 |
+| Night | #1B1C1E | 11.2:1 | 4.67:1 | 6.9:1 |
+| Black | #000000 | 12.0:1 | 4.89:1 | 7.9:1 |
+
+Floors are 4.5:1 for text and 3:1 for the secondary line and for the graphics that
+carry meaning. E-ink's six widget colours are asserted to be strictly neutral, which
+is the property that theme exists for.
+
+**One design decision changed a colour rather than a rule.** The unlit flame was the
+border colour, the same as an unread day bar. On Night that is four steps from the
+card and reads as a drawing that failed to load rather than as "not yet" — seven
+faint bars read as an empty week, one faint icon reads as a bug. It is muted now.
+`lit` still means accent and unlit still does not, so the rule and its test are
+intact.
+
+**What still needs a home screen**, and none of it has been seen on one:
+
+- That `setImageLevel` really does reach the clip drawable through a launcher's
+  reflection on an old device. It is asserted under Robolectric and the method is
+  annotated, which is the platform's own test, but API 26 itself is unverified.
+- The two full-bleed `ImageView`s behind the content, against the system corner
+  radius on Android 12+, where the launcher clips the card a second time.
+- The mark at 16dp on a real screen, on all five themes.
+- The week strip at 100dp on the largest resize — seven tall columns is the one place
+  this could look like a chart nobody asked for.
+- The first frame from `initialLayout`, which is the only thing the static
+  Paper/Night resources are still for.
+- The picker previews, which were rewritten to match the new layouts.
