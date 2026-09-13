@@ -8,3 +8,19 @@ captures/
 .cxx/
 core/src/test/resources/generated/
 app/src/test/resources/generated/
+
+# Release signing. None of this may ever enter git: a committed keystore is a
+# key that cannot be rotated out of history, and the passwords beside it sign
+# anything as Folio. scripts and CI read them from here or the environment.
+keystore.properties
+*.jks
+*.keystore
+*.p12
+
+# Play Console service-account credentials, if fastlane upload is ever wired up.
+play-service-account*.json
+fastlane/*.json
+
+# JVM heap dumps. One of these (322 MB) was committed by accident; the ignore is
+# what stops the next OOM from doing it again.
+*.hprof
