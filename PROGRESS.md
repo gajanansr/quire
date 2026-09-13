@@ -1210,3 +1210,54 @@ falling back to whatever was there, because a poor snippet still beats an empty 
 
 **Still open**, unchanged: a book keeps whatever extraction it was imported with, and
 there is no way to delete a book from the library.
+
+## 2026-09-13 — A mark of its own, and passages worth sharing
+
+**The logo.** It was a serif "F" on a blue ground — at 48dp, any app beginning with F.
+A *folio* is a leaf of a book: one sheet folded once, which is where both the word and
+the book format come from. The mark is now that — two leaves meeting at a fold. Three
+details carry it: the fold is narrowest at mid-height and opens towards head and tail
+(a parallel slot reads as two rectangles; a taper reads as one creased sheet), the head
+and tail edges wave because a leaf lying open is never flat, and the left leaf is the
+same page colour held back, which is the gutter shadow rather than a second material.
+
+`LauncherMarkTest` reads the drawable's own path data back and asserts every
+coordinate sits inside Android's 66dp safe circle, bounding the curves by their control
+points — conservative in the right direction, since a Bézier never leaves the convex
+hull of its own points. An adaptive icon is masked differently by every launcher, so a
+mark that strays outside is not wrong on the machine you built it on; it is wrong on one
+phone in five, with a shaved corner nobody reports. The palette is unchanged:
+`IcLauncherColorTest` ties those two literals to the app's own accent and page tokens.
+
+**Sharing a passage.** Selecting text and tapping Share fired a plain-text intent, and
+the card — the thing anyone would actually post — was reachable only from the bookmark
+list, at the far end of the journey from where the passage was chosen. Both routes now
+open the same sheet.
+
+The card can be dressed six ways: the book's own cover, and Folio's five palettes,
+resolved through `FolioColors.of` so the card is never a sixth palette invented for one
+screen and a change to Night reaches it without anyone remembering.
+
+`ShareCardStyleTest` checks every style against every cover swatch for WCAG contrast,
+and it found something: white on the lightest of the six cover gradients measures
+**4.24:1**, under the 4.5 a passage of text needs. Five books would have looked fine
+and the sixth would not, and it would have shipped. A flat 22% scrim over the gradient
+fixes every swatch at once. A test asserts the raw swatches still fail on their own, so
+nobody deletes the scrim on the strength of one book that looked all right.
+
+**The card exports at 2x.** Captured from the composable on screen, which is ~600px
+wide — post that and the platform recompresses it again, turning a serif quote to mush.
+Recording the layer at twice the size and drawing it back down by half leaves the
+preview identical and re-rasterises the type rather than enlarging pixels. Verified:
+1208×2148 off the device, sharp.
+
+**The footer invites.** The card used to end on the tagline, which is lovely and tells a
+stranger nothing they can act on. It now carries the wordmark and a call to action, in
+one constant shared with the text share — so a passage posted as words and the same
+passage posted as a picture say the same thing, and it becomes a store link in one edit.
+
+566 tests, 0 failures.
+
+**One to watch.** `.claude/worktrees/` is now gitignored. Subagent worktrees are
+separate checkouts living inside the repo, and `git add -A` will happily commit them as
+embedded repositories.
