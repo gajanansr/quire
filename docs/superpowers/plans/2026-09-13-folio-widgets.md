@@ -250,5 +250,5 @@ on both home screens.
 
 **Files:** `PROGRESS.md`, this plan
 
-- [ ] Tick every box, append a log entry naming what was learned, and state plainly
+- [x] Tick every box, append a log entry naming what was learned, and state plainly
       which parts are held by tests and which still need a home screen to confirm.

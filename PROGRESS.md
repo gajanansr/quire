@@ -1210,3 +1210,87 @@ falling back to whatever was there, because a poor snippet still beats an empty 
 
 **Still open**, unchanged: a book keeps whatever extraction it was imported with, and
 there is no way to delete a book from the library.
+
+## 2026-09-13 — Two widgets, and the parts of one that a test can never see
+
+`docs/superpowers/plans/2026-09-13-folio-widgets.md`, nine tasks, all ticked. 637
+tests, 0 failures — 76 new, all JVM.
+
+**Reading Streak** is the streak as a number, the day's minutes against the goal, and
+the week as seven bars, which is the Library's habit card at arm's length. **Reading
+Stats** is books finished, chapters finished, time read, and the book open now with
+its progress. Four cells by two each, resizable both ways. `RemoteViews` and
+`AppWidgetProvider`, no Glance and no new dependency.
+
+**Everything a widget decides is decided in `widget/WidgetState.kt`,** which imports
+nothing from Android. That is not a preference here, it is the only way any of this
+gets tested: a widget is inflated by the launcher, in another process, and there is
+no JVM seam anywhere near it. `habitWidget(snapshot)` and `statsWidget(snapshot)`
+carry 24 tests between them — the plurals, the empty state, the broken streak, the
+goal of zero nobody can reach and the division that would crash on someone's home
+screen if they did. The providers below have no branch of their own.
+
+**The honest-empty-state rule turned out to have two sides**, and naming them was the
+real design work. Zero is a fact: a reader three books into their library really has
+finished none, and showing them "0 Books" is true. Having no library at all is a
+different thing, and gets the invitation instead. The two are separate states with
+separate tests, because collapsing them would have made the second reader look like
+the first.
+
+**The palette had to be copied, and a copy drifts.** A widget cannot reach
+`FolioTheme` — it is drawn in the launcher's process, and the row holding the
+reader's chosen theme is in a database that process cannot open. A resource qualifier
+is the only theming it gets, and it distinguishes exactly two things, so the widget
+wears Paper in a light launcher and Night in a dark one. `WidgetColorTest` converts
+the same OKLCH tokens through the same transform `FolioColors` uses and asserts the
+six literals still match, the way `IcLauncherColorTest` already does for the launcher
+icon. It also asserts the dark values are *not* the light ones, because a
+`values-night` file in the wrong directory passes every other assertion and shows up
+only as a white card in someone else's dark launcher.
+
+**Refreshing on the clock is not refreshing.** The platform's floor is thirty
+minutes. The habit widget keeps it as a backstop — midnight resets "minutes today"
+and can break a streak with nobody touching anything — and the stats widget sets it
+to zero, because no book is finished by the passage of time. What actually keeps them
+current is `onDataChanged`, a callback both repositories take and neither understands:
+recorded minutes, a changed goal, a finished book or chapter, a saved book, an opened
+one, saved progress, a deletion. `FolioGraph` is the only place that connects that to
+`FolioWidgets.refresh`, and it dispatches off the caller's thread — the Reader
+persists from a main-thread coroutine, and asking the AppWidgetManager what is pinned
+is a binder call.
+
+**The trap in that**, and it very nearly landed: `onDataChanged` is a `() -> Unit`,
+and `BookRepository(db, store) { clock }` passes the clock as a trailing lambda. Put
+the callback last and Kotlin binds `{ clock }` to it — it compiles, because any
+lambda coerces to `() -> Unit` — and several tests quietly start running on the wall
+clock instead of their own. It sits before the clock parameter in both repositories,
+with a comment saying why.
+
+**Three things RemoteViews will not do**, each of which shaped a layout. It cannot
+add a child, so the week is seven fixed ids and every state of the stats widget is
+present in the layout and switched off. It rejects any class the platform has not
+marked `@RemoteView`, which rules out the bare `<View>` a hairline divider would
+normally be — so the day bars are `ImageView`s, tinted through `setColorFilter` and
+`setImageAlpha`, the two remotable methods that let a four-minute day be drawn lighter
+than a full one without a drawable per intensity. And it draws only a `ProgressBar`,
+so the whole appearance of the progress bar lives in its progress drawable.
+
+**Found in review, not by a test failing**: nothing joined `HabitWidgetProvider` to
+the habit renderer. Every test called the renderers directly, so swapping the two
+providers' bodies would have passed all of them and put the same widget on both home
+screens. `views` is `internal` now and two tests close that loop. The broadcast around
+it — `goAsync`, the coroutine, the graph — is still unreachable from a JVM test, and
+is the one part of this that has to be checked on a phone.
+
+**One deliberate departure.** `previewLayout` shows sample values — a five-day streak,
+four books. It is the only place in Folio that shows a number nobody earned. The
+picker is a catalogue and no home screen ever inflates those layouts, both files say
+so in a comment, and an empty invitation there would make the picker useless. Flagged
+rather than hidden: say the word and they become the empty state.
+
+**What still needs a home screen.** The widget picker itself (previews, labels, and
+whether the four-by-two default is the size it claims); the stats layout at exactly
+two cells, which is ~80dp of content and the tightest thing here; that a tap on the
+streak widget lands on the streak screen when Folio is already open, which is
+`onNewIntent` and cannot be driven from Robolectric; the day bars at real widths; and
+the dark launcher.
