@@ -109,22 +109,44 @@ The whole of both widgets' copy and geometry, decided where JUnit can reach it.
       the week is always seven bars, oldest first, including days with nothing in
       them. 23 tests.
 
-### Task 3: The habit widget
+### Task 3: Reading the data, off the main thread
+
+Moved ahead of the two widgets: both providers need a snapshot before either can
+draw anything, and writing it twice and extracting it afterwards would be worse.
+
+**Files:** `widget/WidgetData.kt` (create), `test/widget/WidgetDataTest.kt` (create)
+
+- [x] `WidgetData.load(books: BookRepository, habits: HabitRepository):
+      WidgetSnapshot` — a suspend function over the repositories, taking them as
+      parameters so a test can hand it an in-memory database instead of the graph.
+- [x] Test: against an in-memory Room database, a fresh install loads the empty
+      snapshot; recorded minutes, a finished book and a part-read book each reach the
+      snapshot they belong to; the current book is the most recently opened one that
+      is started and not finished, which is the rule the Library's Continue Reading
+      card already uses.
+
+### Task 4: The habit widget
 
 **Files:** `res/layout/widget_habit.xml`, `res/layout/widget_habit_preview.xml`,
 `res/drawable/widget_card.xml`, `res/drawable/widget_day_bar.xml`,
 `res/values/strings.xml` (create), `res/xml/widget_habit_info.xml`,
-`widget/FolioWidgets.kt`, `widget/HabitWidgetProvider.kt`, `AndroidManifest.xml`,
+`widget/FolioWidgets.kt`, `widget/WidgetViews.kt`, `widget/FolioWidgetProvider.kt`,
+`widget/HabitWidgetProvider.kt`, `AndroidManifest.xml`,
+`test/widget/AppWidgetInfoAssertions.kt` (create, shared with Task 5),
 `test/widget/HabitWidgetTest.kt` (create)
 
 - [ ] Test first: the provider is declared and exported with an
       `APPWIDGET_UPDATE` filter and an `android.appwidget.provider` meta-data; the
       referenced `widget_habit_info` declares `minWidth`, `minHeight`,
       `minResizeWidth`, `minResizeHeight`, `targetCellWidth`, `targetCellHeight`,
-      `maxResizeWidth`, `maxResizeHeight`, `previewLayout`, `resizeMode` and
-      `updatePeriodMillis`; `RemoteViews` built from a known `HabitWidgetState`
-      inflates and carries that state's headline, detail and seven day bars.
-- [ ] Layout: a rounded `widget_card` ground in `widget_bg_alt`, a flame, the
+      `maxResizeWidth`, `maxResizeHeight`, `previewLayout`, `initialLayout`,
+      `widgetCategory`, `resizeMode` and `updatePeriodMillis`; `RemoteViews` built
+      from a known `HabitWidgetState` inflates and carries that state's headline,
+      detail and seven day bars.
+- [ ] A shared `FolioWidgetProvider` base: `goAsync()`, load on `Dispatchers.IO`,
+      apply, and finish the broadcast in a `finally` — a `PendingResult` that is
+      never finished is an ANR and then a dropped update.
+- [ ] Layout: a rounded `widget_card` ground in `widget_bg`, a flame, the
       headline, the detail line, and seven `ImageView` bars with fixed ids
       `widget_day_0`…`widget_day_6`. Each bar is tinted by
       `setInt(id, "setColorFilter", …)` and `setInt(id, "setImageAlpha", …)` — both
@@ -137,14 +159,14 @@ The whole of both widgets' copy and geometry, decided where JUnit can reach it.
 - [ ] Sizes: `targetCellWidth` 4, `targetCellHeight` 2, `minWidth` 250dp,
       `minHeight` 110dp, resizable both ways down to 180×110dp and up to 360×180dp.
 
-### Task 4: The stats widget
+### Task 5: The stats widget
 
 **Files:** `res/layout/widget_stats.xml`, `res/layout/widget_stats_preview.xml`,
 `res/drawable/widget_progress.xml`, `res/xml/widget_stats_info.xml`,
 `widget/StatsWidgetProvider.kt`, `AndroidManifest.xml`, `res/values/strings.xml`,
 `test/widget/StatsWidgetTest.kt` (create)
 
-- [ ] Test first, the same shape as Task 3: declaration, sizing metadata, and a
+- [ ] Test first, the same shape as Task 4: declaration, sizing metadata, and a
       `RemoteViews` built from a known `StatsWidgetState` carrying three tiles, the
       current book's title and its percentage — and, for an empty library, the
       invitation with the tiles hidden rather than three zeroes.
@@ -157,7 +179,7 @@ The whole of both widgets' copy and geometry, decided where JUnit can reach it.
 - [ ] Sizes: `targetCellWidth` 4, `targetCellHeight` 2, `minWidth` 250dp,
       `minHeight` 110dp, resizable both ways down to 180×110dp and up to 360×250dp.
 
-### Task 5: A tap that lands somewhere
+### Task 6: A tap that lands somewhere
 
 **Files:** `widget/FolioWidgets.kt`, `MainActivity.kt`, `ui/nav/FolioRoot.kt`,
 `test/widget/WidgetIntentTest.kt` (create)
@@ -177,23 +199,6 @@ The whole of both widgets' copy and geometry, decided where JUnit can reach it.
       widget and no extra for stats, and `FolioWidgets.habitScreenOf(intent)` reads
       back what `openIntent` wrote — a round trip, because a mistyped extra key is
       invisible until someone taps a widget.
-
-### Task 6: Reading the data off the main thread
-
-**Files:** `widget/WidgetData.kt` (create), `widget/FolioWidgets.kt`,
-`test/widget/WidgetDataTest.kt` (create)
-
-- [ ] `WidgetData.load(books: BookRepository, habits: HabitRepository):
-      WidgetSnapshot` — a suspend function over the repositories, taking them as
-      parameters so a test can hand it an in-memory database instead of the graph.
-- [ ] Both providers share a base that calls `goAsync()`, loads on `Dispatchers.IO`,
-      applies the `RemoteViews`, and finishes the broadcast in a `finally` — a
-      `PendingResult` that is never finished is an ANR and then a dropped update.
-- [ ] Test: against an in-memory Room database, a fresh install loads the empty
-      snapshot; recorded minutes, a finished book and a part-read book each reach the
-      snapshot they belong to; the current book is the most recently opened one that
-      is started and not finished, which is the rule the Library's Continue Reading
-      card already uses.
 
 ### Task 7: Refreshing when reading data changes, not on a timer
 
