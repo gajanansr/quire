@@ -204,6 +204,55 @@ class SettingsMigrationTest {
     }
 
     @Test
+    fun `the migrated table is the one Room expects to find`() {
+        // The failure this prevents is the worst in the file: Room validates the
+        // schema after running a migration, and a column it did not expect — a typo
+        // in a name, INTEGER where it wanted TEXT, a nullable where it wanted NOT
+        // NULL — is an IllegalStateException at launch on every device upgrading
+        // from the previous version. Nothing else here would catch it, because every
+        // other test in this class runs the migration's SQL without ever asking Room
+        // whether it approves.
+        //
+        // Compared rather than asserted literally: Room builds `app_settings` from
+        // [AppSettingsEntity], so a column added to the entity and forgotten in the
+        // migration fails here without anyone having to remember to update a list.
+        val room = androidx.room.Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(), FolioDatabase::class.java,
+        ).allowMainThreadQueries().build()
+        val expected = columnsOf(room.openHelper.writableDatabase, "app_settings")
+        room.close()
+
+        val migrated = versionFive()
+        FolioDatabase.MIGRATION_5_6.migrate(migrated)
+        val actual = columnsOf(migrated, "app_settings")
+        migrated.close()
+
+        assertEquals(
+            "the migrated app_settings does not match the one Room builds from the entity",
+            expected,
+            actual,
+        )
+    }
+
+    /**
+     * A table's shape, as SQLite reports it.
+     *
+     * Names, types, nullability and primary key — but deliberately not the SQL
+     * default, because Room emits none for a Kotlin default and the migration must.
+     */
+    private fun columnsOf(db: SupportSQLiteDatabase, table: String): List<String> =
+        db.query("PRAGMA table_info($table)").use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        "${cursor.getString(1)} ${cursor.getString(2)} " +
+                            "notNull=${cursor.getInt(3)} pk=${cursor.getInt(5)}"
+                    )
+                }
+            }.sorted()
+        }
+
+    @Test
     fun `a fresh install and an upgraded one agree about reminders`() {
         // Two descriptions of the same defaults — the Kotlin one for fresh installs,
         // the SQL one for upgrades. They drift apart silently, and then the same app
