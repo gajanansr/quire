@@ -1,10 +1,15 @@
 package app.folio.android.ui.nav
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -104,6 +109,34 @@ fun FolioRoot(
 
     val settings by remember(habitRepository) { habitRepository.observeSettings() }
         .collectAsState(initial = AppSettingsEntity())
+
+    var confirmExit by remember { mutableStateOf(false) }
+    val activity = LocalActivity.current
+
+    // One Back rule for the whole app, and it lives in [back] where a test can read
+    // it. Every screen below is a `when` branch over these same variables, so Back
+    // is that `when` in reverse rather than a second opinion about it.
+    BackHandler(enabled = !confirmExit) {
+        val here = NavSnapshot(
+            readingOriginal = originalPdf != null,
+            readingBookId = readingBookId,
+            openBookId = openBookId,
+            habitScreen = habitScreen,
+            destination = destination,
+        )
+        when (val action = back(here)) {
+            is BackAction.Pop -> {
+                val next = action.next
+                if (!next.readingOriginal) originalPdf = null
+                readingBookId = next.readingBookId
+                openBookId = next.openBookId
+                habitScreen = next.habitScreen
+                destination = next.destination
+            }
+
+            BackAction.ConfirmExit -> confirmExit = true
+        }
+    }
 
     val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
     val scope = rememberCoroutineScope()
@@ -271,6 +304,24 @@ fun FolioRoot(
                     onShare = { shareCard = null },
                     onSaveImage = { shareCard = null },
                     onDismiss = { shareCard = null },
+                )
+            }
+
+            if (confirmExit) {
+                AlertDialog(
+                    onDismissRequest = { confirmExit = false },
+                    title = { Text(FolioStrings.CLOSE_FOLIO) },
+                    text = { Text(FolioStrings.CLOSE_FOLIO_HINT) },
+                    confirmButton = {
+                        TextButton(onClick = { activity?.finish() }) {
+                            Text(FolioStrings.CLOSE)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirmExit = false }) {
+                            Text(FolioStrings.KEEP_READING)
+                        }
+                    },
                 )
             }
 

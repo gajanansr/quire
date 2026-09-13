@@ -229,8 +229,12 @@ fun ReaderHost(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            // Leaving the Reader by any route still commits the session.
-            runBlocking { flushSession() }
+            // Leaving the Reader by any route still commits the session *and* the
+            // place. Position used to be saved only by the Reader's own back arrow,
+            // which was fine while that was the only way out — a system Back press
+            // now closes the Reader too, and it has no way to reach `persistNow`.
+            // Doing it here means no caller has to remember.
+            runBlocking { flushSession(); persistNow() }
         }
     }
 

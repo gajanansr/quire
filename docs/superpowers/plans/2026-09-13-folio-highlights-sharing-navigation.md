@@ -65,15 +65,15 @@ Back currently closes the app from wherever the reader is standing.
 **Files:** `ui/nav/FolioBack.kt` (create), `ui/nav/FolioRoot.kt`,
 `test/ui/nav/FolioBackTest.kt` (create)
 
-- [ ] `NavSnapshot(readingBookId, readingOriginal, openBookId, habitScreen,
+- [x] `NavSnapshot(readingBookId, readingOriginal, openBookId, habitScreen,
       destination)` and `fun back(snapshot: NavSnapshot): BackAction`, where
       `BackAction` is `Pop(next: NavSnapshot)` or `ConfirmExit`. Pure, no Compose.
-- [ ] Order, deepest first: the original-PDF view, the Reader, Book Details, a habit
+- [x] Order, deepest first: the original-PDF view, the Reader, Book Details, a habit
       screen (Milestones and Level return to Streak, Streak closes), a non-Library
       destination, then the Library — which is the only `ConfirmExit`.
-- [ ] `FolioRoot` holds one `BackHandler` that applies `back(...)`, and an
+- [x] `FolioRoot` holds one `BackHandler` that applies `back(...)`, and an
       `AlertDialog` for the exit confirmation that calls `Activity.finish()`.
-- [ ] Test: from every state, back lands where the table says; only the Library asks;
+- [x] Test: from every state, back lands where the table says; only the Library asks;
       leaving the Reader keeps `openBookId` so Back returns to Book Details, not past
       it.
 

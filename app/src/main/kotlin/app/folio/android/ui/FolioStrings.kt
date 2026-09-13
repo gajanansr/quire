@@ -69,6 +69,13 @@ object FolioStrings {
     const val NAV_BOOKMARKS = "Bookmarks"
     const val NAV_SETTINGS = "Settings"
 
+    // Leaving. Back means "out of this"; only the last one out means "done", and
+    // that one asks — closing a reading app by accident loses the thread, not data.
+    const val CLOSE_FOLIO = "Close Folio?"
+    const val CLOSE_FOLIO_HINT = "Your place is saved. You can pick it up whenever."
+    const val CLOSE = "Close"
+    const val KEEP_READING = "Stay"
+
     /**
      * Greeting by time of day. The handoff shows "Good evening"; the others follow
      * the same voice.
