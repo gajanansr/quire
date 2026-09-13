@@ -85,6 +85,15 @@ object FolioStrings {
     const val SAVE = "Save"
     const val COPIED = "Copied"
     const val ADD_A_CAPTION = "Add a caption\u2026"
+
+    /**
+     * What a shared card says at the bottom, and the last line of a shared passage.
+     *
+     * One constant for both, so a passage posted as a picture and the same passage
+     * posted as words never disagree. It becomes a store link the day there is one.
+     */
+    const val APP_NAME = "Folio"
+    const val SHARE_FOOTER = "Free, offline reading for Android."
     const val HIGHLIGHT = "Highlight"
     const val REMOVE = "Remove"
 

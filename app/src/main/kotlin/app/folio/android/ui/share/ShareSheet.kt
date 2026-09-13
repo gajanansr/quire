@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,6 +31,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -47,13 +51,14 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import app.folio.android.ui.library.CoverGradient
 import androidx.annotation.DrawableRes
 import app.folio.android.ui.theme.Folio
 import app.folio.android.ui.theme.FolioIcon
 import app.folio.android.ui.theme.FolioIcons
 import app.folio.android.ui.theme.FolioShapes
 import app.folio.android.ui.theme.SourceSerif
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import app.folio.core.habit.ReadingDay
 
 /** What is being shared. */
@@ -118,6 +123,8 @@ fun ShareSheet(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var caption by remember { mutableStateOf("") }
+    var style by remember { mutableStateOf(ShareCardStyle.COVER) }
+    val palette = style.palette(bookIdOf(card))
 
     // The card is captured from the composable already on screen rather than drawn
     // a second time into a bitmap. Two descriptions of the same card would drift,
@@ -178,13 +185,44 @@ fun ShareSheet(
                     .aspectRatio(9f / 16f)
                     .clip(FolioShapes.card)
                     .drawWithContent {
-                        cardLayer.record { this@drawWithContent.drawContent() }
-                        drawLayer(cardLayer)
+                        // Recorded at twice the size it is shown at, then drawn back
+                        // down by half. The preview is unchanged; the exported PNG is
+                        // 2x. It matters because the card is 9:16 and about 600px wide
+                        // on screen — post that to a feed and the platform recompresses
+                        // it again, which turns a serif quote to mush. Scaling the
+                        // recording re-rasterises the type at the larger size rather
+                        // than enlarging pixels, so the words stay sharp.
+                        val exported = IntSize(
+                            (size.width * EXPORT_SCALE).toInt(),
+                            (size.height * EXPORT_SCALE).toInt(),
+                        )
+                        cardLayer.record(size = exported) {
+                            scale(EXPORT_SCALE, pivot = Offset.Zero) {
+                                this@drawWithContent.drawContent()
+                            }
+                        }
+                        scale(1f / EXPORT_SCALE, pivot = Offset.Zero) { drawLayer(cardLayer) }
                     },
             ) {
                 when (card) {
-                    is ShareCard.Quote -> QuoteCard(card)
-                    is ShareCard.Streak -> StreakCard(card)
+                    is ShareCard.Quote -> QuoteCard(card, palette)
+                    is ShareCard.Streak -> StreakCard(card, palette)
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ShareCardStyle.entries.forEach { option ->
+                    Swatch(
+                        style = option,
+                        bookId = bookIdOf(card),
+                        selected = option == style,
+                        onClick = { style = option },
+                    )
                 }
             }
 
@@ -261,11 +299,17 @@ fun ShareSheet(
     }
 }
 
-/** The card's words, with the reader's caption in front of them when there is one. */
+/**
+ * The card as words: the reader's caption, the passage, and the same footer the
+ * picture carries. A passage shared as text and the same passage shared as an image
+ * should not read differently.
+ */
 private fun bodyOf(card: ShareCard, caption: String): String {
-    val body = card.asText()
     val note = caption.trim()
-    return if (note.isEmpty()) body else "$note\n\n$body"
+    val footer = "${FolioStrings.APP_NAME} \u00B7 ${FolioStrings.SHARE_FOOTER}"
+    return listOf(note, card.asText(), footer)
+        .filter { it.isNotBlank() }
+        .joinToString("\n\n")
 }
 
 /** A filename a reader will recognise in their gallery months later. */
@@ -309,10 +353,8 @@ private fun Destination(@DrawableRes icon: Int, label: String, onClick: () -> Un
 }
 
 @Composable
-private fun QuoteCard(card: ShareCard.Quote) {
-    Box(
-        Modifier.fillMaxSize().background(CoverGradient.brush(card.bookId)),
-    ) {
+private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
+    Box(Modifier.fillMaxSize().background(palette.brush)) {
         Column(
             Modifier.fillMaxSize().padding(18.dp),
             verticalArrangement = Arrangement.SpaceBetween,
@@ -320,15 +362,15 @@ private fun QuoteCard(card: ShareCard.Quote) {
             Column {
                 Text(
                     card.bookTitle,
-                    color = Color.White,
+                    color = palette.ink,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelSmall,
                 )
-                card.author?.let {
+                card.author?.takeIf { it.isNotBlank() }?.let {
                     Text(
                         it,
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = palette.muted,
                         style = MaterialTheme.typography.labelSmall,
                     )
                 }
@@ -336,7 +378,7 @@ private fun QuoteCard(card: ShareCard.Quote) {
 
             Text(
                 text = "“${card.text.take(180)}”",
-                color = Color.White,
+                color = palette.ink,
                 fontFamily = SourceSerif,
                 fontStyle = FontStyle.Italic,
                 maxLines = 8,
@@ -345,28 +387,26 @@ private fun QuoteCard(card: ShareCard.Quote) {
             )
 
             Column {
-                Text(
-                    card.chapterLabel,
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelSmall,
-                )
-                Spacer(Modifier.height(8.dp))
-                Wordmark()
+                card.chapterLabel.takeIf { it.isNotBlank() }?.let {
+                    Text(it, color = palette.muted, style = MaterialTheme.typography.labelSmall)
+                    Spacer(Modifier.height(8.dp))
+                }
+                Wordmark(palette)
             }
         }
     }
 }
 
 @Composable
-private fun StreakCard(card: ShareCard.Streak) {
-    Box(Modifier.fillMaxSize().background(Folio.colors.ink)) {
+private fun StreakCard(card: ShareCard.Streak, palette: CardPalette) {
+    Box(Modifier.fillMaxSize().background(palette.brush)) {
         Column(
             Modifier.fillMaxSize().padding(18.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 "Reading Streak",
-                color = Color.White.copy(alpha = 0.7f),
+                color = palette.muted,
                 style = MaterialTheme.typography.labelSmall,
             )
 
@@ -374,13 +414,13 @@ private fun StreakCard(card: ShareCard.Streak) {
                 modifier = Modifier.fillMaxWidth()) {
                 Text(
                     "${card.days}",
-                    color = Color.White,
+                    color = palette.ink,
                     fontFamily = SourceSerif,
                     style = MaterialTheme.typography.displayLarge,
                 )
                 Text(
                     if (card.days == 1) "day" else "days",
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = palette.muted,
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(14.dp))
@@ -392,32 +432,91 @@ private fun StreakCard(card: ShareCard.Streak) {
                                 .size(width = 8.dp, height = 20.dp)
                                 .clip(FolioShapes.chip)
                                 .background(
-                                    if (met) Color.White
-                                    else Color.White.copy(alpha = 0.22f)
+                                    if (met) palette.ink
+                                    else palette.ink.copy(alpha = 0.22f)
                                 ),
                         )
                     }
                 }
             }
 
-            Wordmark()
+            Wordmark(palette)
         }
     }
 }
 
+/**
+ * The card's footer: what this is, and how to get it.
+ *
+ * The tagline used to sit here, which is lovely and tells a stranger nothing they can
+ * act on. A shared card is the only piece of Folio most people will ever see, so the
+ * second line is an invitation instead. It lives in [FolioStrings.SHARE_FOOTER]
+ * beside the text share's own footer, so a passage posted as words and the same
+ * passage posted as a picture say the same thing — and so it becomes a store link the
+ * day there is one to point at, in a single edit.
+ */
 @Composable
-private fun Wordmark() {
+private fun Wordmark(palette: CardPalette) {
     Column {
         Text(
-            "Folio",
-            color = Color.White,
+            FolioStrings.APP_NAME,
+            color = palette.ink,
             fontFamily = SourceSerif,
             style = MaterialTheme.typography.titleMedium,
         )
         Text(
-            "A quiet place to read.",
-            color = Color.White.copy(alpha = 0.6f),
+            FolioStrings.SHARE_FOOTER,
+            color = palette.muted,
             style = MaterialTheme.typography.labelSmall,
         )
     }
+}
+
+/**
+ * How much larger the shared picture is than the preview.
+ *
+ * Two, not more: the card is captured from a live composable, and every step up
+ * costs memory on the way to a PNG for a picture nobody zooms into.
+ */
+private const val EXPORT_SCALE = 2f
+
+/** A card belongs to a book, or to no book at all — a streak has no cover. */
+private fun bookIdOf(card: ShareCard): String? = when (card) {
+    is ShareCard.Quote -> card.bookId
+    is ShareCard.Streak -> null
+}
+
+/**
+ * One style to pick from.
+ *
+ * Drawn as the palette itself rather than labelled: the swatch is the answer to the
+ * question being asked, and six words would crowd a sheet that is mostly picture. A
+ * ring marks the chosen one, and the name travels in the semantics so a screen reader
+ * hears "Sepia" rather than "button".
+ */
+@Composable
+private fun Swatch(
+    style: ShareCardStyle,
+    bookId: String?,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = Folio.colors
+    val palette = style.palette(bookId)
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 5.dp)
+            .size(38.dp)
+            .clip(CircleShape)
+            .selectable(selected = selected, onClick = onClick)
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) colors.ink else colors.border,
+                shape = CircleShape,
+            )
+            .padding(if (selected) 4.dp else 3.dp)
+            .clip(CircleShape)
+            .background(palette.brush)
+            .semantics { contentDescription = style.label },
+    )
 }

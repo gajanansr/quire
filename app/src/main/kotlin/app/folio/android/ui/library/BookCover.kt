@@ -138,6 +138,18 @@ object CoverGradient {
         if (LocalFolioTheme.current == FolioThemeName.EINK) greyscale(bookId)
         else of(bookId)
 
+    /**
+     * The book's two colours, for a picture that leaves the app.
+     *
+     * The one sanctioned exception to [brush]'s rule, and named so it reads as a
+     * decision rather than a call site that forgot. A share card is not shown in
+     * Folio's palette — it is shown in somebody else's feed — and a reader who
+     * picked "Cover" over the five theme styles asked for the book's colours, not
+     * their own theme's. Everything drawn *inside* the app still has to go through
+     * [brush], which is why [of] stays private.
+     */
+    fun colorsFor(bookId: String): Pair<Color, Color> = palette[indexOf(bookId)]
+
     private fun of(bookId: String): Brush {
         val (start, end) = palette[indexOf(bookId)]
         return Brush.linearGradient(listOf(start, end))

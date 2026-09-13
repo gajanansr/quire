@@ -42,6 +42,8 @@ data class ReaderState(
     val loading: Boolean = true,
     val bookId: String = "",
     val bookTitle: String = "",
+    /** Named on a share card, which the Reader had no way to fill in before. */
+    val bookAuthor: String? = null,
     val chapterIndex: Int = 0,
     val chapterCount: Int = 0,
     val chapterTitle: String? = null,

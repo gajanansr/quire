@@ -24,9 +24,9 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import app.folio.android.data.BookRepository
 import app.folio.android.data.HabitRepository
 import app.folio.android.habit.SessionTracker
-import app.folio.android.share.ShareIntents
 import app.folio.android.share.Sharing
 import app.folio.android.ui.FolioStrings
+import app.folio.android.ui.share.ShareCard
 import app.folio.android.ui.theme.FolioThemeName
 import app.folio.android.ui.theme.ReaderFont
 import app.folio.core.model.Chapter
@@ -61,6 +61,14 @@ fun ReaderHost(
     theme: FolioThemeName,
     onThemeChange: (FolioThemeName) -> Unit,
     onExit: () -> Unit,
+    /**
+     * Hands a chosen passage up to the share sheet.
+     *
+     * The Reader used to fire a plain-text intent of its own, which meant the card
+     * — the thing anyone would actually post — was reachable only from the bookmark
+     * list, at the far end of the journey from where the passage was chosen.
+     */
+    onShareQuote: (ShareCard.Quote) -> Unit = {},
     /** Fired when a flush pushes the reader over their daily goal. */
     onGoalReached: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -136,6 +144,7 @@ fun ReaderHost(
             state.copy(
                 bookId = bookId,
                 bookTitle = entity.title,
+                bookAuthor = entity.author,
                 chapterCount = entity.chapterCount,
                 bookTotalChars = entity.totalChars,
             ),
@@ -317,20 +326,9 @@ fun ReaderHost(
                 }
             },
             onSharePage = {
-                // No selection: share the page the reader is looking at. The same
-                // envelope a chosen passage travels in, so both read alike.
-                Sharing.start(
-                    context,
-                    ShareIntents.text(
-                        buildString {
-                            append('\u201C').append(state.currentPageSnippet.trim()).append('\u201D')
-                            if (state.bookTitle.isNotBlank()) {
-                                append("\n\n\u2014 ").append(state.bookTitle)
-                            }
-                        },
-                        FolioStrings.SHARE,
-                    ),
-                )
+                // No selection: offer the page the reader is looking at. The same
+                // sheet a chosen passage opens, so both routes look alike.
+                onShareQuote(quoteOf(state, state.currentPageSnippet))
             },
             onFinish = { persist(); onExit() },
             onSelectionStart = { state = ReaderTransitions.selectionStarted(state, it) },
@@ -355,18 +353,11 @@ fun ReaderHost(
                 }
             },
             onShareSelection = {
-                val snapshot = state
-                Sharing.start(
-                    context,
-                    ShareIntents.text(
-                        passageOf(snapshot),
-                        FolioStrings.SHARE,
-                    ),
-                )
+                onShareQuote(quoteOf(state, state.selectedText))
                 state = ReaderTransitions.selectionCleared(state)
             },
             onCopySelection = {
-                Sharing.copy(context, FolioStrings.SHARE, passageOf(state))
+                Sharing.copy(context, FolioStrings.SHARE, state.selectedText.trim())
                 state = ReaderTransitions.selectionCleared(state)
             },
         )
@@ -405,12 +396,17 @@ fun ReaderHost(
 }
 
 /**
- * A chosen passage, with the book it came from.
+ * A passage, as the share sheet wants it.
  *
- * Built here rather than in the share sheet because a passage shared straight from
- * the reader never passes through one — and it should read the same either way.
+ * One function for both routes — a chosen selection and the page under it — so the
+ * card names the book, the author and the chapter the same way whichever the reader
+ * used to get there.
  */
-private fun passageOf(state: ReaderState): String = buildString {
-    append('\u201C').append(state.selectedText.trim()).append('\u201D')
-    if (state.bookTitle.isNotBlank()) append("\n\n\u2014 ").append(state.bookTitle)
-}
+private fun quoteOf(state: ReaderState, text: String) = ShareCard.Quote(
+    bookId = state.bookId,
+    bookTitle = state.bookTitle,
+    author = state.bookAuthor,
+    text = text.trim(),
+    chapterLabel = state.chapterTitle?.takeIf { it.isNotBlank() }
+        ?: "Chapter ${state.chapterIndex + 1}",
+)

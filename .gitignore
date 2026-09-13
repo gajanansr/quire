@@ -8,3 +8,6 @@ captures/
 .cxx/
 core/src/test/resources/generated/
 app/src/test/resources/generated/
+
+# Subagent worktrees live here; they are separate checkouts, not content.
+.claude/worktrees/

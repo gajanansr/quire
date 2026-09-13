@@ -58,11 +58,11 @@ bookmark list, which is the wrong end of the journey.
 **Files:** `ui/reader/ReaderHost.kt`, `ui/reader/ReaderState.kt`,
 `ui/nav/FolioRoot.kt`
 
-- [ ] `ReaderHost` gains `onShareQuote: (ShareCard.Quote) -> Unit`; `FolioRoot`
+- [x] `ReaderHost` gains `onShareQuote: (ShareCard.Quote) -> Unit`; `FolioRoot`
       supplies it by setting the same `shareCard` state the bookmark list sets.
-- [ ] Both the selection's Share and the chrome's Share route through it, so the
+- [x] Both the selection's Share and the chrome's Share route through it, so the
       reader gets the same sheet whether they chose words or shared the page.
-- [ ] `ReaderState` carries the author, since a card names one and the Reader did not
+- [x] `ReaderState` carries the author, since a card names one and the Reader did not
       have it.
 
 ### Task 3: The card's look can be switched
@@ -70,12 +70,12 @@ bookmark list, which is the wrong end of the journey.
 **Files:** `ui/share/ShareCardStyle.kt` (create), `ui/share/ShareSheet.kt`,
 `test/ui/share/ShareCardStyleTest.kt` (create)
 
-- [ ] `ShareCardStyle` — Cover, plus Folio's five palettes. Cover keeps the book's own
+- [x] `ShareCardStyle` — Cover, plus Folio's five palettes. Cover keeps the book's own
       gradient; the rest resolve through `FolioColors.of`, so the card is never a
       sixth palette invented for one screen.
-- [ ] A row of swatches under the card; picking one restyles it, and the capture takes
+- [x] A row of swatches under the card; picking one restyles it, and the capture takes
       whatever is on screen, so the picture and the preview cannot disagree.
-- [ ] Test: every style resolves to a background and an ink colour that clear
+- [x] Test: every style resolves to a background and an ink colour that clear
       **4.5:1** contrast. A quote nobody can read is not a share card, and E-ink's
       palette in particular is near-black on near-white and must stay that way.
 
@@ -83,7 +83,7 @@ bookmark list, which is the wrong end of the journey.
 
 **Files:** `ui/share/ShareSheet.kt`, `ui/FolioStrings.kt`
 
-- [ ] The card's footer becomes the wordmark plus a call to action, in one constant so
+- [x] The card's footer becomes the wordmark plus a call to action, in one constant so
       it can become a real store link the day there is one to point at.
-- [ ] The same line travels on the text share, so a passage sent as words and a
+- [x] The same line travels on the text share, so a passage sent as words and a
       passage sent as a picture say the same thing.

@@ -213,6 +213,7 @@ fun FolioRoot(
                     theme = theme,
                     onThemeChange = onThemeChange,
                     onExit = { readingBookId = null },
+                    onShareQuote = { shareCard = it },
                     modifier = Modifier.fillMaxSize(),
                 )
 
