@@ -1343,6 +1343,15 @@ lands *inside* the list, resolves to a genuine chapter, and the reminder announc
 chapter two's real title to someone sitting on page two. A range check cannot see it.
 The guard is now `candidate.reflowFailed` asked *before* the lookup.
 
+That one line is sufficient rather than lucky, and the argument runs from the other
+end: `PagePosition.of` has exactly one call site in main (`FolioRoot`, inside the
+`originalPdf != null` branch), that branch is reachable only through
+`onReadOriginal`, and `BookDetailsScreen` offers `onReadOriginal` only under
+`if (state.reflowFailed)`. So every page-unit write to `reading_progress` comes from
+a `reflowFailed` book, and the guard is a strict superset of the cases that need it.
+Worth writing down, because the next person to read that `when` will wonder whether
+it is a special case or a rule.
+
 `BookInProgress.chapterLabel` is nullable, and when there is no chapter to name the
 copy falls back to the lines that never name one, so the book is still named.
 
