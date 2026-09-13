@@ -47,6 +47,15 @@ data class HabitSummary(
  */
 class HabitRepository(
     private val db: FolioDatabase,
+    /**
+     * Called after any write that changes what a home-screen widget shows.
+     *
+     * A callback rather than a context this class holds: the repository has no
+     * business knowing widgets exist, and a test can count the calls. It sits ahead
+     * of the clock parameters deliberately — those are the ones passed as trailing
+     * lambdas, and a callback in the last position would silently swallow one.
+     */
+    private val onDataChanged: () -> Unit = {},
     private val zone: () -> ZoneId = { ZoneId.systemDefault() },
     private val nowMs: () -> Long = System::currentTimeMillis,
 ) {
@@ -119,6 +128,9 @@ class HabitRepository(
                 )
             )
         }
+        // After the writes, not before: a refresh that races the transaction reads
+        // the old row and looks exactly like a widget that did not update.
+        onDataChanged()
     }
 
     suspend fun settings(): AppSettingsEntity =
@@ -130,6 +142,9 @@ class HabitRepository(
     suspend fun setDailyGoal(minutes: Int) {
         require(minutes in GOAL_OPTIONS) { "unsupported goal: $minutes" }
         db.settings().put(settings().copy(dailyGoalMinutes = minutes, onboarded = true))
+        // The habit widget prints the goal. A goal changed in Settings and left
+        // stale on the home screen is two answers to one question on one phone.
+        onDataChanged()
     }
 
     suspend fun setTheme(name: String) {
@@ -147,11 +162,13 @@ class HabitRepository(
     suspend fun recordBookFinished() {
         val current = settings()
         db.settings().put(current.copy(booksFinished = current.booksFinished + 1))
+        onDataChanged()
     }
 
     suspend fun recordChapterFinished() {
         val current = settings()
         db.settings().put(current.copy(chaptersFinished = current.chaptersFinished + 1))
+        onDataChanged()
     }
 
     companion object {

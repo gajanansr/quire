@@ -206,17 +206,24 @@ draw anything, and writing it twice and extracting it afterwards would be worse.
 **Files:** `data/HabitRepository.kt`, `data/BookRepository.kt`, `FolioApp.kt`,
 `widget/FolioWidgets.kt`, `test/widget/WidgetRefreshTest.kt` (create)
 
-- [ ] Test first: recording minutes, finishing a book, finishing a chapter, saving a
-      book, saving progress and deleting a book each notify exactly once. A widget
-      that is right only after half an hour is a widget nobody trusts.
-- [ ] Both repositories take `onDataChanged: () -> Unit = {}`, defaulted so every
+- [x] Test first: recording minutes, changing the daily goal, finishing a book,
+      finishing a chapter, saving a book, opening one, saving progress and deleting a
+      book each notify exactly once — and a session that credited nothing notifies
+      nothing. A widget that is right only after half an hour is a widget nobody
+      trusts.
+- [x] Both repositories take `onDataChanged: () -> Unit = {}`, defaulted so every
       existing caller and test is untouched, and call it after the write commits —
       after, because a refresh that races the transaction reads the old row and looks
-      like the widget simply did not update.
-- [ ] `FolioGraph` wires both to `FolioWidgets.refresh(app)`, which broadcasts
+      like the widget simply did not update. It goes **before** the clock parameter
+      in both, not after: `BookRepository(db, store) { clock }` passes the clock as a
+      trailing lambda, and a `() -> Unit` in the last position would have silently
+      swallowed it and left several tests running on the wall clock.
+- [x] `FolioGraph` wires both to `FolioWidgets.refresh(app)`, which broadcasts
       `ACTION_APPWIDGET_UPDATE` to both providers with their installed ids. No
-      widgets installed means no ids and nothing sent.
-- [ ] Test: `FolioWidgets.refresh` with no widgets installed sends nothing and throws
+      widgets installed means no ids and nothing sent. The graph dispatches it off
+      the caller's thread: the Reader persists from a main-thread coroutine, and
+      asking the AppWidgetManager what is pinned is a binder call.
+- [x] Test: `FolioWidgets.refresh` with no widgets installed sends nothing and throws
       nothing — the common case, since most readers will install neither.
 
 ### Task 8: Record it

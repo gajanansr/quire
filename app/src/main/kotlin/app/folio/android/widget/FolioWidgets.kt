@@ -1,6 +1,9 @@
 package app.folio.android.widget
 
 import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import app.folio.android.MainActivity
@@ -17,9 +20,13 @@ import app.folio.android.ui.nav.HabitScreen
  * in their extras as the same intent, so a shared request code would have the second
  * widget built silently inherit the first one's destination.
  */
-enum class FolioWidget(val requestCode: Int, val opens: HabitScreen?) {
-    HABIT(requestCode = 1, opens = HabitScreen.STREAK),
-    STATS(requestCode = 2, opens = null),
+enum class FolioWidget(
+    val requestCode: Int,
+    val opens: HabitScreen?,
+    val provider: Class<out AppWidgetProvider>,
+) {
+    HABIT(requestCode = 1, opens = HabitScreen.STREAK, provider = HabitWidgetProvider::class.java),
+    STATS(requestCode = 2, opens = null, provider = StatsWidgetProvider::class.java),
 }
 
 /**
@@ -69,4 +76,33 @@ object FolioWidgets {
         val name = intent?.getStringExtra(EXTRA_HABIT_SCREEN) ?: return null
         return HabitScreen.entries.firstOrNull { it.name == name }
     }
+
+    /**
+     * Redraws whichever widgets the reader has actually pinned.
+     *
+     * The platform's shortest update period is thirty minutes, which is a reasonable
+     * backstop for the calendar turning over and useless for the thing that really
+     * moves these numbers — someone reading. So the repositories announce their
+     * writes and this turns each announcement into the same broadcast the system
+     * would have sent.
+     *
+     * Nothing is sent when nothing is installed, which is the common case: most
+     * readers will pin neither widget, and every write would otherwise fire two
+     * broadcasts into the void.
+     */
+    fun refresh(context: Context) {
+        val manager = AppWidgetManager.getInstance(context) ?: return
+        FolioWidget.entries.forEach { widget ->
+            val ids = manager.getAppWidgetIds(ComponentName(context, widget.provider))
+            if (ids != null && ids.isNotEmpty()) {
+                context.sendBroadcast(refreshIntent(context, widget, ids))
+            }
+        }
+    }
+
+    /** Separated from [refresh] so the broadcast's shape can be asserted. */
+    fun refreshIntent(context: Context, widget: FolioWidget, ids: IntArray): Intent =
+        Intent(context, widget.provider)
+            .setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
 }

@@ -39,6 +39,16 @@ data class LibraryBook(
 class BookRepository(
     private val db: FolioDatabase,
     private val store: BookStore,
+    /**
+     * Called after any write that changes what a home-screen widget shows.
+     *
+     * A callback rather than a context this class holds: the repository has no
+     * business knowing widgets exist, and a test can count the calls. It sits ahead
+     * of [now] deliberately — callers pass the clock as a trailing lambda, and a
+     * callback in the last position would silently swallow one and leave every test
+     * running on the wall clock.
+     */
+    private val onDataChanged: () -> Unit = {},
     private val now: () -> Long = System::currentTimeMillis,
 ) {
 
@@ -80,6 +90,7 @@ class BookRepository(
                 lastOpenedAt = db.books().find(book.id)?.lastOpenedAt,
             )
         )
+        onDataChanged()
     }
 
     suspend fun find(id: String): BookEntity? = db.books().find(id)
@@ -95,6 +106,8 @@ class BookRepository(
 
     suspend fun markOpened(bookId: String) {
         db.books().touch(bookId, now())
+        // Which book is "the one you're reading" is exactly this ordering.
+        onDataChanged()
     }
 
     suspend fun saveProgress(bookId: String, position: ReadingPosition, progress: Double) {
@@ -108,6 +121,11 @@ class BookRepository(
                 updatedAt = now(),
             )
         )
+        // The Reader persists on dispose, so this is usually once a session — but
+        // the scanned-PDF viewer saves its page as it turns, which is why the
+        // listener is expected to be cheap and to do its own work off the caller's
+        // thread rather than assume it is called rarely.
+        onDataChanged()
     }
 
     // ------------------------------------------------------------- bookmarks
@@ -207,6 +225,7 @@ class BookRepository(
         db.bookmarks().deleteFor(bookId)
         db.books().delete(bookId)
         store.delete(bookId)
+        onDataChanged()
     }
 
     companion object {
