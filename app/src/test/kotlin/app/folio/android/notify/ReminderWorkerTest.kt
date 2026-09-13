@@ -149,6 +149,41 @@ class ReminderWorkerTest {
     }
 
     @Test
+    fun `a reader with the book open right now is not interrupted`() = runBlocking {
+        // No recorded minutes at all, because the session has not ended — minutes
+        // are only written on leaving the Reader or on the app backgrounding. The
+        // page turn a moment ago is the only evidence that someone is reading, and
+        // without it the phone buzzes in their hands.
+        books.save(book("b1", "The Left Hand of Darkness"))
+        books.markOpened("b1")
+        books.saveProgress("b1", ReadingPosition(1, 0, 0), progress = 0.42)
+        habits.setRemindersEnabled(true)
+
+        run()
+
+        assertTrue("Folio interrupted someone mid-chapter: ${shade()}", shade().isEmpty())
+        assertEquals(
+            "a day nobody was reminded on was marked as reminded",
+            -1L,
+            habits.settings().lastReminderDay,
+        )
+    }
+
+    @Test
+    fun `a book put down earlier does not silence the evening`() = runBlocking {
+        books.save(book("b1", "The Left Hand of Darkness"))
+        books.markOpened("b1")
+        books.saveProgress("b1", ReadingPosition(1, 0, 0), progress = 0.42)
+        habits.setRemindersEnabled(true)
+        // Still inside the delivery window, well outside the "in hand" one.
+        nowMs += 60 * 60_000L
+
+        run()
+
+        assertEquals("a reader who stopped an hour ago got nothing", 1, shade().size)
+    }
+
+    @Test
     fun `a clean day at the chosen time gets one reminder`() = runBlocking {
         habits.setRemindersEnabled(true)
 
@@ -275,6 +310,8 @@ class ReminderWorkerTest {
         books.markOpened("b1")
         books.saveProgress("b1", ReadingPosition(1, 0, 0), progress = 0.42)
         habits.setRemindersEnabled(true)
+        // Put down an hour ago, so this is a reminder rather than an interruption.
+        nowMs += 60 * 60_000L
 
         run()
 
@@ -291,7 +328,9 @@ class ReminderWorkerTest {
 
         // Walked day by day so every variant of the copy is exercised against real
         // stored data, not only the one today happens to select.
-        val named = (0..5).map { offset ->
+        // From day one onwards: on day zero the page was turned moments ago, and a
+        // reader mid-chapter is deliberately left alone.
+        val named = (1..6).map { offset ->
             nowMs = date.plusDays(offset.toLong()).atTime(20, 5)
                 .atZone(zone).toInstant().toEpochMilli()
             habits.recordReminderSent(-1L)
@@ -320,6 +359,7 @@ class ReminderWorkerTest {
         books.markOpened("done")
         books.saveProgress("done", ReadingPosition(1, 0, 0), progress = 1.0)
         habits.setRemindersEnabled(true)
+        nowMs += 60 * 60_000L
 
         run()
 

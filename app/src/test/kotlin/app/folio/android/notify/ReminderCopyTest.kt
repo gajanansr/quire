@@ -39,6 +39,7 @@ class ReminderCopyTest {
         lastReminderDay = today - 1,
         minuteOfDay = 20 * 60,
         reminderMinuteOfDay = 20 * 60,
+        minutesSinceLastPageTurn = null,
         book = book,
     )
 

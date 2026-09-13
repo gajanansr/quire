@@ -73,6 +73,17 @@ interface ProgressDao {
 
     @Query("DELETE FROM reading_progress WHERE bookId = :bookId")
     suspend fun deleteFor(bookId: String)
+
+    /**
+     * When the reader last turned a page, across the whole library.
+     *
+     * Nullable: no row means nobody has read anything yet. Written on every page
+     * turn because that is when the position is saved, which makes it the freshest
+     * evidence of reading there is — recorded minutes only appear when a session
+     * ends.
+     */
+    @Query("SELECT MAX(updatedAt) FROM reading_progress")
+    suspend fun lastUpdatedAt(): Long?
 }
 
 @Dao

@@ -47,6 +47,11 @@ class ReminderWorker(
             lastReminderDay = settings.lastReminderDay,
             minuteOfDay = minuteOfDay,
             reminderMinuteOfDay = settings.reminderMinuteOfDay,
+            minutesSinceLastPageTurn = books.lastPageTurnAt()
+                // Coerced at zero because a clock that moved backwards would
+                // otherwise produce a negative age, which reads as "long ago" and
+                // would let a reminder through to someone mid-chapter.
+                ?.let { ((nowMs() - it) / 60_000L).coerceAtLeast(0L).toInt() },
             book = bookInProgress(),
         )
 

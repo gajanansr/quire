@@ -31,6 +31,7 @@ class RemindersTest {
         lastReminderDay: Long = today - 4,
         minuteOfDay: Int = 20 * 60,
         reminderMinuteOfDay: Int = 20 * 60,
+        minutesSinceLastPageTurn: Int? = null,
         book: BookInProgress? = null,
     ) = ReminderFacts(
         remindersEnabled = remindersEnabled,
@@ -44,6 +45,7 @@ class RemindersTest {
         lastReminderDay = lastReminderDay,
         minuteOfDay = minuteOfDay,
         reminderMinuteOfDay = reminderMinuteOfDay,
+        minutesSinceLastPageTurn = minutesSinceLastPageTurn,
         book = book,
     )
 
@@ -97,6 +99,41 @@ class RemindersTest {
         assertEquals(
             Silence.ALREADY_READ_TODAY,
             silence(facts(minutesToday = 25, currentStreak = 9)),
+        )
+    }
+
+    @Test
+    fun `a reader with the book open right now is not interrupted`() {
+        // The subtle version of the same rule, and the one that would actually have
+        // shipped. Minutes reach the day rollup only when a *session ends* — on
+        // leaving the Reader, or on the app going to the background. Someone ten
+        // minutes into their first session of the day therefore still has zero
+        // recorded minutes, and every check above would wave the reminder through
+        // while the phone is in their hands and the book is on the screen.
+        //
+        // The signal is the last page turn, which is written on every turn because
+        // the reading position is saved there.
+        assertEquals(
+            Silence.READING_RIGHT_NOW,
+            silence(facts(minutesSinceLastPageTurn = 0)),
+        )
+        assertEquals(
+            Silence.READING_RIGHT_NOW,
+            silence(facts(minutesSinceLastPageTurn = Reminders.ACTIVE_WITHIN_MINUTES - 1)),
+        )
+    }
+
+    @Test
+    fun `a book put down earlier is not mistaken for one in hand`() {
+        assertEquals(
+            ReminderKind.DAILY,
+            kind(facts(minutesSinceLastPageTurn = Reminders.ACTIVE_WITHIN_MINUTES)),
+        )
+        assertEquals(ReminderKind.DAILY, kind(facts(minutesSinceLastPageTurn = 600)))
+        assertEquals(
+            "a reader who has never turned a page was treated as mid-chapter",
+            ReminderKind.DAILY,
+            kind(facts(minutesSinceLastPageTurn = null)),
         )
     }
 
@@ -284,6 +321,7 @@ class RemindersTest {
             dailyEnabled = false,
             streakEnabled = false,
             minuteOfDay = 3 * 60,
+            minutesSinceLastPageTurn = 0,
         )
         assertEquals(Silence.REMINDERS_OFF, silence(everythingWrong))
         assertEquals(
@@ -295,23 +333,31 @@ class RemindersTest {
             silence(everythingWrong.copy(remindersEnabled = true, canPost = true)),
         )
         assertEquals(
+            Silence.READING_RIGHT_NOW,
+            silence(everythingWrong.copy(
+                remindersEnabled = true, canPost = true, minutesToday = 0,
+            )),
+        )
+        assertEquals(
             Silence.ALREADY_SENT_TODAY,
             silence(everythingWrong.copy(
                 remindersEnabled = true, canPost = true, minutesToday = 0,
+                minutesSinceLastPageTurn = null,
             )),
         )
         assertEquals(
             Silence.NO_KIND_ENABLED,
             silence(everythingWrong.copy(
                 remindersEnabled = true, canPost = true, minutesToday = 0,
-                lastReminderDay = today - 1,
+                minutesSinceLastPageTurn = null, lastReminderDay = today - 1,
             )),
         )
         assertEquals(
             Silence.OUTSIDE_WINDOW,
             silence(everythingWrong.copy(
                 remindersEnabled = true, canPost = true, minutesToday = 0,
-                lastReminderDay = today - 1, dailyEnabled = true,
+                minutesSinceLastPageTurn = null, lastReminderDay = today - 1,
+                dailyEnabled = true,
             )),
         )
     }
@@ -328,6 +374,7 @@ class RemindersTest {
             "master switch" to ready.copy(remindersEnabled = false),
             "permission" to ready.copy(canPost = false),
             "read today" to ready.copy(minutesToday = 1),
+            "reading right now" to ready.copy(minutesSinceLastPageTurn = 0),
             "already sent" to ready.copy(lastReminderDay = today),
             "both kinds off" to ready.copy(dailyEnabled = false, streakEnabled = false),
             "too early" to ready.copy(minuteOfDay = 0),

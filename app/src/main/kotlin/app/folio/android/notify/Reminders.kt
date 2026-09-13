@@ -30,6 +30,7 @@ enum class Silence {
     REMINDERS_OFF,
     CANNOT_POST,
     ALREADY_READ_TODAY,
+    READING_RIGHT_NOW,
     ALREADY_SENT_TODAY,
     NO_KIND_ENABLED,
     OUTSIDE_WINDOW,
@@ -71,6 +72,15 @@ data class ReminderFacts(
     val lastReminderDay: Long,
     val minuteOfDay: Int,
     val reminderMinuteOfDay: Int,
+    /**
+     * How long since the reader last turned a page, or null if they never have.
+     *
+     * Needed because [minutesToday] lags reality: minutes reach the day rollup only
+     * when a *session ends*, so a reader ten minutes into their first session of the
+     * day still shows zero. A page turn writes the reading position immediately, so
+     * this is the one signal that says "the book is on the screen right now".
+     */
+    val minutesSinceLastPageTurn: Int?,
     val book: BookInProgress?,
 )
 
@@ -94,6 +104,19 @@ object Reminders {
      * number exists to prevent.
      */
     const val DELIVERY_WINDOW_MINUTES = 180
+
+    /**
+     * How recently a page turn means the book is still in the reader's hands.
+     *
+     * Generously longer than the two-minute idle timeout the session accumulator
+     * uses, because the two answer different questions and the costs are not
+     * symmetric. Being too generous costs at most one skipped evening — and costs
+     * nothing at all in practice, since a reader who really did stop will have
+     * their minutes recorded the moment the session flushes. Being too strict costs
+     * a phone buzzing at someone in the middle of a chapter, which is the single
+     * thing this whole feature is built to avoid.
+     */
+    const val ACTIVE_WITHIN_MINUTES = 10
 
     const val MINUTES_PER_DAY = 24 * 60
 
@@ -126,6 +149,15 @@ object Reminders {
         // notification that fits a partly-read day is one pointing out the
         // shortfall — which is precisely the nagging this feature exists to avoid.
         if (facts.minutesToday > 0) return ReminderDecision.Silent(Silence.ALREADY_READ_TODAY)
+
+        // The same rule, for the reader the rule above cannot see. Recorded minutes
+        // lag by a whole session, so someone who started reading twenty minutes ago
+        // and has not yet put the book down still reads as having read nothing —
+        // and a notification would arrive on the page they are looking at.
+        val sinceTurn = facts.minutesSinceLastPageTurn
+        if (sinceTurn != null && sinceTurn < ACTIVE_WITHIN_MINUTES) {
+            return ReminderDecision.Silent(Silence.READING_RIGHT_NOW)
+        }
 
         // `>=` rather than `==`: a device whose clock or timezone moves backwards
         // can report a last-sent day in the future, and equality would read that as
