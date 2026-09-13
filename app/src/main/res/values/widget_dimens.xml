@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Folio's own card radius, from FolioShapes.card. On API 31 and above this is
+      overridden with the launcher's own widget radius: Android 12 clips every widget
+      to that radius itself, so a card drawn with a smaller one would have its
+      corners cut twice and look chipped rather than rounded.
+    -->
+    <dimen name="widget_corner_radius">17dp</dimen>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12 clips widgets to this radius; matching it is the difference
+         between a rounded card and one with chipped corners. -->
+    <dimen name="widget_corner_radius">@android:dimen/system_app_widget_background_radius</dimen>
+</resources>

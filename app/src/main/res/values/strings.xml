@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings that have to be resources.
+
+  Everything a reader sees inside the app lives in `ui/FolioStrings.kt`, where the
+  copy can be diffed against the handoff in one place. These cannot: the widget
+  picker reads a receiver's label and an appwidget-provider's description out of the
+  package manager, long before any Kotlin runs. The sentences the widgets compute at
+  runtime are still decided in `widget/WidgetState.kt`, next to the rules that choose
+  them.
+-->
+<resources>
+    <string name="widget_habit_label">Reading Streak</string>
+    <string name="widget_habit_description">Your streak, the minutes you have read today, and the week so far.</string>
+</resources>

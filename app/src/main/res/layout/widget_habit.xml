@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The habit widget, laid out the way the Library's habit card is: the streak, the
+  day's minutes against the goal, then the week.
+
+  Only classes the platform marks @RemoteView may appear here — LinearLayout,
+  TextView, ImageView and friends. A plain <View>, used elsewhere for a hairline, is
+  rejected at apply() time with no error the reader ever sees, which is why the seven
+  bars are ImageViews.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_habit_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_card"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/widget_habit_flame"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="8dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_flame" />
+
+        <!--
+          Auto-sized because the same slot holds "7 days" and "Start a reading
+          habit". A fixed 22sp would ellipsise the invitation on a four-cell widget,
+          turning the one line a new reader ever sees into "Start a reading…".
+        -->
+        <TextView
+            android:id="@+id/widget_habit_headline"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:autoSizeMaxTextSize="24sp"
+            android:autoSizeMinTextSize="14sp"
+            android:autoSizeStepGranularity="1sp"
+            android:autoSizeTextType="uniform"
+            android:ellipsize="end"
+            android:fontFamily="@font/source_serif_regular"
+            android:maxLines="1"
+            android:textColor="@color/widget_ink" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_habit_detail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/work_sans_regular"
+        android:maxLines="1"
+        android:textColor="@color/widget_muted"
+        android:textSize="13sp" />
+
+    <!-- The seven days. Their contentDescription is set by the provider, because
+         seven unlabelled images is what a screen reader would otherwise announce. -->
+    <LinearLayout
+        android:id="@+id/widget_habit_week"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/widget_day_0"
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="4dp"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY"
+            android:src="@drawable/widget_day_bar" />
+
+        <ImageView
+            android:id="@+id/widget_day_1"
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="4dp"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY"
+            android:src="@drawable/widget_day_bar" />
+
+        <ImageView
+            android:id="@+id/widget_day_2"
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="4dp"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY"
+            android:src="@drawable/widget_day_bar" />
+
+        <ImageView
+            android:id="@+id/widget_day_3"
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="4dp"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY"
+            android:src="@drawable/widget_day_bar" />
+
+        <ImageView
+            android:id="@+id/widget_day_4"
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="4dp"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY"
+            android:src="@drawable/widget_day_bar" />
+
+        <ImageView
+            android:id="@+id/widget_day_5"
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="4dp"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY"
+            android:src="@drawable/widget_day_bar" />
+
+        <ImageView
+            android:id="@+id/widget_day_6"
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY"
+            android:src="@drawable/widget_day_bar" />
+    </LinearLayout>
+</LinearLayout>

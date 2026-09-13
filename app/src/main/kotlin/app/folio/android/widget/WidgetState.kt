@@ -47,6 +47,13 @@ data class HabitWidgetState(
     val headline: String,
     val detail: String,
     val week: List<DayBar>,
+    /**
+     * What the strip says out loud.
+     *
+     * Seven unlabelled images is what a screen reader would otherwise announce, so
+     * the one fact the bars carry is also said in words.
+     */
+    val weekDescription: String,
     /** Whether the flame is drawn in the accent colour rather than the border one. */
     val lit: Boolean,
 )
@@ -79,10 +86,16 @@ fun habitWidget(snapshot: WidgetSnapshot): HabitWidgetState {
         else -> "${habits.goalMinutes} minutes a day"
     }
 
+    val week = habits.week()
+    val read = week.count { it.minutes > 0 }
+
     return HabitWidgetState(
         headline = headline,
         detail = detail,
-        week = habits.week().map { day -> bar(day.minutes, habits.goalMinutes) },
+        week = week.map { day -> bar(day.minutes, habits.goalMinutes) },
+        weekDescription =
+            if (read == 0) "No reading in the last ${week.size} days"
+            else "Read $read of the last ${week.size} days",
         // A lit flame only once there is a streak to show, matching StreakScreen.
         // Drawing it in the accent colour on day zero congratulates someone for
         // nothing, which is the thing that makes a habit widget feel fake.

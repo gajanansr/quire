@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  One day of the week strip, the same rounded chip the Library's habit card draws.
+
+  Solid white on purpose: the provider tints it with setColorFilter, whose default
+  SRC_ATOP blend reproduces the tint exactly over white and would tint anything else
+  towards the colour underneath. The alpha is set at the same moment, which is how a
+  four-minute day comes out lighter than a full one.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FFFFFFFF" />
+    <corners android:radius="3dp" />
+</shape>

@@ -135,7 +135,7 @@ draw anything, and writing it twice and extracting it afterwards would be worse.
 `test/widget/AppWidgetInfoAssertions.kt` (create, shared with Task 5),
 `test/widget/HabitWidgetTest.kt` (create)
 
-- [ ] Test first: the provider is declared and exported with an
+- [x] Test first: the provider is declared and exported with an
       `APPWIDGET_UPDATE` filter and an `android.appwidget.provider` meta-data; the
       referenced `widget_habit_info` declares `minWidth`, `minHeight`,
       `minResizeWidth`, `minResizeHeight`, `targetCellWidth`, `targetCellHeight`,
@@ -143,20 +143,20 @@ draw anything, and writing it twice and extracting it afterwards would be worse.
       `widgetCategory`, `resizeMode` and `updatePeriodMillis`; `RemoteViews` built
       from a known `HabitWidgetState` inflates and carries that state's headline,
       detail and seven day bars.
-- [ ] A shared `FolioWidgetProvider` base: `goAsync()`, load on `Dispatchers.IO`,
+- [x] A shared `FolioWidgetProvider` base: `goAsync()`, load on `Dispatchers.IO`,
       apply, and finish the broadcast in a `finally` — a `PendingResult` that is
       never finished is an ANR and then a dropped update.
-- [ ] Layout: a rounded `widget_card` ground in `widget_bg`, a flame, the
+- [x] Layout: a rounded `widget_card` ground in `widget_bg`, a flame, the
       headline, the detail line, and seven `ImageView` bars with fixed ids
       `widget_day_0`…`widget_day_6`. Each bar is tinted by
       `setInt(id, "setColorFilter", …)` and `setInt(id, "setImageAlpha", …)` — both
       remotable `ImageView` methods, which is the only reason seven bars can be
       drawn without `addView`.
-- [ ] `updatePeriodMillis` 1800000. The habit widget is the one whose content changes
+- [x] `updatePeriodMillis` 1800000. The habit widget is the one whose content changes
       with nothing happening: at midnight "minutes today" resets and a streak can
       break. Half an hour is the platform floor and the right backstop; Task 7 is
       what makes it current the rest of the time.
-- [ ] Sizes: `targetCellWidth` 4, `targetCellHeight` 2, `minWidth` 250dp,
+- [x] Sizes: `targetCellWidth` 4, `targetCellHeight` 2, `minWidth` 250dp,
       `minHeight` 110dp, resizable both ways down to 180×110dp and up to 360×180dp.
 
 ### Task 5: The stats widget

@@ -144,6 +144,26 @@ class WidgetStateTest {
     }
 
     @Test
+    fun `the week strip describes itself for a screen reader`() {
+        // Seven untitled images is what TalkBack would otherwise read out. The bars
+        // carry the one fact worth hearing, so it is said in words.
+        assertEquals(
+            "No reading in the last 7 days",
+            habitWidget(snapshot()).weekDescription,
+        )
+        assertEquals(
+            "Read 1 of the last 7 days",
+            habitWidget(snapshot(summary(days = listOf(day(0, 10))))).weekDescription,
+        )
+        assertEquals(
+            "Read 2 of the last 7 days",
+            habitWidget(
+                snapshot(summary(days = listOf(day(-3, 4), day(0, 10))))
+            ).weekDescription,
+        )
+    }
+
+    @Test
     fun `the flame is lit only when there is a streak`() {
         assertTrue(habitWidget(snapshot(summary(streak = 1))).lit)
         assertFalse(habitWidget(snapshot(summary(streak = 0, longest = 30))).lit)
