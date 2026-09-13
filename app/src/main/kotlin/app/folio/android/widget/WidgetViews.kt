@@ -92,8 +92,12 @@ fun habitViews(
     views.setTextColor(R.id.widget_habit_headline, palette.ink)
     views.setTextViewText(R.id.widget_habit_detail, state.detail)
     views.setTextColor(R.id.widget_habit_detail, palette.muted)
+    // Unlit is muted, not the border colour the unread day bars use. Both say "not
+    // yet", but a field of seven faint bars reads as a week with nothing in it while
+    // one faint icon reads as a drawing that failed to load — and on Night the border
+    // colour is four steps from the card it sits on.
     views.paint(
-        R.id.widget_habit_flame, if (state.lit) palette.accent else palette.edge,
+        R.id.widget_habit_flame, if (state.lit) palette.accent else palette.muted,
     )
 
     // setColorFilter and setImageAlpha are the two remotable methods an ImageView

@@ -65,7 +65,7 @@ data class HabitWidgetState(
      * the one fact the bars carry is also said in words.
      */
     val weekDescription: String,
-    /** Whether the flame is drawn in the accent colour rather than the border one. */
+    /** Whether the flame is drawn in the accent colour rather than the muted one. */
     val lit: Boolean,
 )
 

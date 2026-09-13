@@ -83,14 +83,17 @@
                 <!--
                   The same slot holds "7 days" and "Start a reading habit", so it
                   autosizes: a fixed 24sp would ellipsise the invitation into "Start
-                  a reading…", which is the one line a new reader ever sees.
+                  a reading…", which is the one line a new reader ever sees. The
+                  floor is 12sp rather than 14sp because the invitation is the
+                  longest string this slot ever holds and 180dp is the narrowest box
+                  a reader can drag the widget to — the two meet exactly there.
                 -->
                 <TextView
                     android:id="@+id/widget_habit_headline"
                     android:layout_width="match_parent"
                     android:layout_height="30dp"
                     android:autoSizeMaxTextSize="24sp"
-                    android:autoSizeMinTextSize="14sp"
+                    android:autoSizeMinTextSize="12sp"
                     android:autoSizeStepGranularity="1sp"
                     android:autoSizeTextType="uniform"
                     android:ellipsize="end"

@@ -1,22 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The Paper palette, for a widget in a light launcher.
+  The Paper palette, for a widget before it has been told anything.
 
-  Hard-coded because a widget is inflated in the launcher's process: FolioTheme does
-  not exist there, and the row holding the reader's chosen theme is in a database
-  that process cannot open. A resource qualifier is the only theming a widget gets,
-  and it can tell light from dark and nothing else — so Sepia, E-ink and Black stay
-  inside the app, where the reader chose them.
+  These are no longer how the widgets are themed. A widget now reads the reader's
+  chosen theme out of the database in the same pass it reads the streak, and every
+  colour on it is set at update time — see `widget/WidgetPalette.kt`. What is left
+  for a resource qualifier is the two moments it is still the only thing available:
 
-  Converted from the handoff's OKLCH tokens by the same transform FolioColors uses.
-  WidgetColorTest pins these to the tokens so the widget cannot keep an old accent
-  on someone's home screen while the app moves on.
+  - **`initialLayout`.** The launcher inflates the layout and draws it once, the
+    instant a widget is dropped on the home screen, before any broadcast has been
+    delivered. Without these the card would be that first frame in whatever colours
+    a bare TextView defaults to.
+  - **The picker previews.** `widget_*_preview.xml` is a catalogue entry with no
+    reader behind it and no database to open.
+
+  Light and dark is all a qualifier can distinguish, so Paper is the light one and
+  Night the dark one — the same two the app defaults to. Converted from the handoff's
+  OKLCH tokens by the same transform FolioColors uses, and WidgetColorTest pins them
+  so the first frame cannot drift away from the theme that replaces it.
 -->
 <resources>
     <!-- Paper.bg      oklch(0.985 0.006 70)  — the page the card is cut from -->
     <color name="widget_bg">#FFFDF9F6</color>
-    <!-- Paper.bgAlt   oklch(0.955 0.013 65)  — tiles and the progress track -->
-    <color name="widget_bg_alt">#FFF7EFE7</color>
     <!-- Paper.ink     oklch(0.22 0.03 255) -->
     <color name="widget_ink">#FF111B28</color>
     <!-- Paper.muted   oklch(0.55 0.02 255) -->

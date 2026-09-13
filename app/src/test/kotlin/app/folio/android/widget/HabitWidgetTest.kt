@@ -142,7 +142,10 @@ class HabitWidgetTest {
         }
         val paper = widgetPalette(FolioThemeName.PAPER)
         assertEquals(tint(paper.accent), flame(true))
-        assertEquals(tint(paper.edge), flame(false))
+        // Muted rather than the border colour the unread bars take: one faint icon
+        // reads as a drawing that failed to load, where seven faint bars read as a
+        // week with nothing in it.
+        assertEquals(tint(paper.muted), flame(false))
     }
 
     /** What `ImageView.setColorFilter(int)` builds: SRC_ATOP over the white shape. */
