@@ -9,6 +9,7 @@ import app.quire.core.paginate.TypographySettings
 import app.quire.core.paginate.pageContaining
 import app.quire.core.paginate.startPosition
 import app.quire.core.reading.Selection
+import app.quire.core.reading.SelectionEdge
 import app.quire.core.reading.TextAnchor
 import app.quire.core.reading.TextSpan
 
@@ -93,8 +94,24 @@ data class ReaderState(
      * gestures step aside, or a drag to extend it would turn the page instead.
      */
     val selection: TextSpan? = null,
-    /** Where the long press landed; the drag moves the other end. */
-    val selectionAnchor: TextAnchor? = null,
+    /**
+     * The word the long press landed on.
+     *
+     * Kept whole rather than as a single anchor, because a sweep has to grow *out of*
+     * it in both directions. Holding only the word's start — which is what this used
+     * to be — meant sweeping backwards selected up to that start and the pressed word
+     * quietly dropped out of its own selection.
+     */
+    val selectionOrigin: TextSpan? = null,
+    /**
+     * Which handle the finger is holding, and null when it is holding neither.
+     *
+     * The other end is the anchor and must not move for as long as this is set. It
+     * can change mid-drag: dragging one handle past the other makes the held handle
+     * the opposite end, and the state has to agree with the finger or the next move
+     * pins the wrong side.
+     */
+    val selectionEdge: SelectionEdge? = null,
     /** Saved highlights for the open chapter, drawn on whichever page shows them. */
     val highlights: List<TextSpan> = emptyList(),
     /**
@@ -342,23 +359,83 @@ object ReaderTransitions {
 
         val start = TextAnchor(at.blockIndex, word.first)
         val end = TextAnchor(at.blockIndex, word.last + 1)
+        val origin = TextSpan.of(start, end)
         return state.copy(
-            selection = TextSpan.of(start, end),
-            selectionAnchor = start,
+            selection = origin,
+            selectionOrigin = origin,
+            selectionEdge = null,
             // Chrome would cover the passage being chosen.
             chromeVisible = false,
         )
     }
 
-    /** A drag after the press: the fixed end stays, the other follows the finger. */
+    /**
+     * A drag while the press is still held: the pressed word stays in, and the
+     * selection grows out to whole words in the direction of travel.
+     *
+     * Word granularity here and character granularity on the handles is not an
+     * inconsistency, it is the division of labour Android uses. A moving thumb cannot
+     * aim at a letter, so a character-accurate sweep reads as jitter; a reader reaches
+     * for a handle precisely when they want the letter the sweep overshot.
+     */
     fun selectionExtended(state: ReaderState, to: TextAnchor): ReaderState {
-        val from = state.selectionAnchor ?: return state
-        return state.copy(selection = TextSpan.of(from, to))
+        val origin = state.selectionOrigin ?: return state
+        val texts = state.chapter?.blockTexts ?: return state
+        return state.copy(selection = Selection.sweptTo(texts, origin, to))
+    }
+
+    /**
+     * The reader has taken hold of one of the handles.
+     *
+     * Chrome goes, for the same reason a long press takes it away: the top and bottom
+     * bars are exactly where a selection near the edge of the page lives.
+     */
+    fun handleGrabbed(state: ReaderState, edge: SelectionEdge): ReaderState =
+        if (state.selection == null) state
+        else state.copy(selectionEdge = edge, chromeVisible = false)
+
+    /**
+     * A held handle following the finger, character by character.
+     *
+     * Both halves of the answer are used: the new span, and which end the finger is
+     * now on — those differ the moment a handle is dragged past its partner.
+     */
+    fun handleMoved(state: ReaderState, to: TextAnchor): ReaderState {
+        val span = state.selection ?: return state
+        val edge = state.selectionEdge ?: return state
+        val dragged = Selection.movingEdge(span, edge, to)
+        return state.copy(selection = dragged.span, selectionEdge = dragged.edge)
+    }
+
+    /** The finger lifted. The passage stays exactly where it was left. */
+    fun handleReleased(state: ReaderState): ReaderState =
+        if (state.selectionEdge == null) state else state.copy(selectionEdge = null)
+
+    /**
+     * A tap while a passage is selected.
+     *
+     * A tap on the passage itself keeps it. That is not politeness: the handles put
+     * two controls on top of the selected words, so the selected words are exactly
+     * where a thumb goes, and clearing on that tap is the specific way the old
+     * behaviour destroyed work with no way back. A tap anywhere else clears, which is
+     * what every other Android app does and what a reader will try first.
+     *
+     * A null [at] is a tap the page could not resolve — a margin, or a gap below the
+     * last paragraph — and clears.
+     */
+    fun tappedWhileSelecting(state: ReaderState, at: TextAnchor?): ReaderState {
+        val span = state.selection ?: return state
+        return if (at != null && at in span) state else selectionCleared(state)
     }
 
     fun selectionCleared(state: ReaderState): ReaderState =
-        if (state.selection == null && state.selectionAnchor == null) state
-        else state.copy(selection = null, selectionAnchor = null)
+        if (state.selection == null && state.selectionOrigin == null &&
+            state.selectionEdge == null
+        ) {
+            state
+        } else {
+            state.copy(selection = null, selectionOrigin = null, selectionEdge = null)
+        }
 
     fun withOverlay(state: ReaderState, overlay: ReaderOverlay): ReaderState =
         state.copy(overlay = overlay, chromeVisible = overlay != ReaderOverlay.NONE || state.chromeVisible)

@@ -21,6 +21,15 @@ data class TextSpan(val start: TextAnchor, val end: TextAnchor) {
 
     val isEmpty: Boolean get() = start == end
 
+    /**
+     * Whether [at] is one of the characters this span covers.
+     *
+     * The end is exclusive, as it is everywhere else in this model. This is what
+     * decides whether a tap landed on the selected passage or beside it, and so
+     * whether that tap keeps the selection or throws it away.
+     */
+    operator fun contains(at: TextAnchor): Boolean = at >= start && at < end
+
     companion object {
         fun of(a: TextAnchor, b: TextAnchor): TextSpan =
             if (a <= b) TextSpan(a, b) else TextSpan(b, a)
@@ -128,4 +137,82 @@ object Selection {
             text.substring(lo, hi).takeIf { it.isNotBlank() }
         }.joinToString("\n\n") { it.trim() }
     }
+
+    /**
+     * One end of [span] moved to [to], the other left exactly where it is.
+     *
+     * This is what a grabbed handle does, and it is character-accurate on purpose:
+     * the handles are the only way to say "one letter further", and a reader reaches
+     * for them precisely because the word-sized sweep overshot.
+     *
+     * Two cases have to be right or the selection appears to break under the finger.
+     * Dragging a handle *past* the other one swaps which end is held rather than
+     * stopping dead at the crossing point — the finger is already past it by the time
+     * the crossing is detected, so refusing to follow reads as the app seizing up.
+     * And a drag exactly onto the anchor is refused outright: an empty span makes
+     * `hasSelection` false, which would take the handles and the action bar off
+     * screen mid-gesture, looking like the selection had been destroyed.
+     */
+    fun movingEdge(span: TextSpan, edge: SelectionEdge, to: TextAnchor): SelectionDrag {
+        val anchor = if (edge == SelectionEdge.START) span.end else span.start
+        if (to == anchor) return SelectionDrag(span, edge)
+        val held = if (to < anchor) SelectionEdge.START else SelectionEdge.END
+        return SelectionDrag(TextSpan.of(anchor, to), held)
+    }
+
+    /**
+     * [at], pushed out to the near edge of whatever word it is inside.
+     *
+     * [towardsEnd] is the direction the finger is travelling: going forward takes the
+     * word's end, going back takes its start, so the same point means two different
+     * things depending on which way the reader is sweeping. That is the whole reason
+     * a word-granular sweep feels like Android's — the selection only ever grows in
+     * the direction of travel.
+     *
+     * An offset in whitespace is left alone. Snapping it would swallow the next word
+     * before the finger had reached it, which is the specific overshoot that makes a
+     * word-snapping selection feel greedy.
+     */
+    fun snappedToWord(
+        blockTexts: List<String>,
+        at: TextAnchor,
+        towardsEnd: Boolean,
+    ): TextAnchor {
+        val text = blockTexts.getOrNull(at.blockIndex) ?: return at
+        val offset = at.charOffset.coerceIn(0, text.length)
+        val word = WordBoundary.expand(text, offset)
+        if (word.isEmpty()) return TextAnchor(at.blockIndex, offset)
+        return TextAnchor(at.blockIndex, if (towardsEnd) word.last + 1 else word.first)
+    }
+
+    /**
+     * The selection produced by sweeping from the pressed word [origin] out to [to].
+     *
+     * The pressed word is always part of the result, in both directions. The old
+     * model anchored on that word's *start*, so sweeping backwards selected up to the
+     * start and the word under the finger silently dropped out of its own selection.
+     */
+    fun sweptTo(blockTexts: List<String>, origin: TextSpan, to: TextAnchor): TextSpan {
+        val snapped = snappedToWord(blockTexts, to, towardsEnd = to >= origin.end)
+        return TextSpan(minOf(origin.start, snapped), maxOf(origin.end, snapped))
+    }
 }
+
+/**
+ * Which end of a live selection a drag is holding.
+ *
+ * The old model had no name for this because there was only one answer: the long
+ * press pinned the start and the far end followed the finger. A selection with
+ * grabbable handles has two answers, and the whole of [Selection.movingEdge] is
+ * keeping them straight.
+ */
+enum class SelectionEdge { START, END }
+
+/**
+ * A selection mid-drag: where it is now, and which end the finger still holds.
+ *
+ * The edge comes back out because it can change during the drag — dragging one
+ * handle past the other makes it the *other* end — and the caller has to keep
+ * holding the handle the finger is actually on.
+ */
+data class SelectionDrag(val span: TextSpan, val edge: SelectionEdge)

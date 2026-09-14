@@ -345,7 +345,13 @@ fun ReaderHost(
             onFinish = { persist(); onExit() },
             onSelectionStart = { state = ReaderTransitions.selectionStarted(state, it) },
             onSelectionExtend = { state = ReaderTransitions.selectionExtended(state, it) },
-            onSelectionClear = { state = ReaderTransitions.selectionCleared(state) },
+            // A tap on the chosen words keeps them; a tap anywhere else lets go.
+            // Clearing on every tap is how a reader lost a passage they had just
+            // spent two handle drags getting right.
+            onSelectionTap = { state = ReaderTransitions.tappedWhileSelecting(state, it) },
+            onHandleGrab = { state = ReaderTransitions.handleGrabbed(state, it) },
+            onHandleMove = { state = ReaderTransitions.handleMoved(state, it) },
+            onHandleRelease = { state = ReaderTransitions.handleReleased(state) },
             onHighlight = {
                 val snapshot = state
                 val span = snapshot.selection
