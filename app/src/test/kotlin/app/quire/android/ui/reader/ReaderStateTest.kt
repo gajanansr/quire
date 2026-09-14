@@ -71,6 +71,75 @@ class ReaderStateTest {
         assertNull(ReaderTransitions.previousPage(state()))
     }
 
+    // ------------------------------------------- page turns made during pagination
+
+    /** A chapter long enough to have somewhere to turn to. */
+    private fun longState() = state(text = lorem.repeat(200))
+
+    /** The Reader as it is while a long chapter is still being laid out. */
+    private fun stillPaginating() = longState().copy(pages = emptyList(), pageIndex = 0)
+
+    @Test
+    fun `a page turn asked for before there were pages is honoured when they arrive`() {
+        // Reported from a real phone: on a large book, "initially page change doesn't
+        // work at all". With no pages, nextPage reports that this is the last one,
+        // which the Reader read as a chapter boundary and abandoned — and the chapter
+        // count was not loaded either, so the tap simply vanished.
+        val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = true)
+        assertEquals("nothing to turn to yet", 0, queued.pageIndex)
+
+        val settled = ReaderTransitions.repaginated(queued, longState().pages, queued.preferences)
+        assertEquals("the tap was thrown away", 1, settled.pageIndex)
+        assertEquals("the turn was applied twice", 0, settled.pendingTurns)
+    }
+
+    @Test
+    fun `three taps during pagination land three pages on`() {
+        var s = stillPaginating()
+        repeat(3) { s = ReaderTransitions.queuedTurn(s, forward = true) }
+        val settled = ReaderTransitions.repaginated(s, longState().pages, s.preferences)
+        assertEquals(3, settled.pageIndex)
+    }
+
+    @Test
+    fun `taps that cancel out leave the reader where they were`() {
+        var s = stillPaginating()
+        s = ReaderTransitions.queuedTurn(s, forward = true)
+        s = ReaderTransitions.queuedTurn(s, forward = false)
+        val settled = ReaderTransitions.repaginated(s, longState().pages, s.preferences)
+        assertEquals(0, settled.pageIndex)
+    }
+
+    @Test
+    fun `turning back before there are pages does not go past the start`() {
+        val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = false)
+        val settled = ReaderTransitions.repaginated(queued, longState().pages, queued.preferences)
+        assertEquals(0, settled.pageIndex)
+    }
+
+    @Test
+    fun `a queued turn does not run past the end of the chapter`() {
+        // Clamped inside the chapter on purpose. A tap made while the reader could
+        // not see what they were turning is not evidence that they wanted the next
+        // chapter, and loading one from a queue would move them somewhere they never
+        // chose.
+        var s = stillPaginating()
+        repeat(500) { s = ReaderTransitions.queuedTurn(s, forward = true) }
+        val pages = longState().pages
+        val settled = ReaderTransitions.repaginated(s, pages, s.preferences)
+        assertEquals(pages.lastIndex, settled.pageIndex)
+        assertEquals(0, settled.pendingTurns)
+    }
+
+    @Test
+    fun `opening a chapter applies a turn queued while it was loading`() {
+        val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = true)
+        val chapter = queued.chapter!!
+        val settled = ReaderTransitions.openedChapter(queued, chapter, longState().pages, at = null)
+        assertEquals(1, settled.pageIndex)
+        assertEquals(0, settled.pendingTurns)
+    }
+
     @Test
     fun `book boundaries are recognised`() {
         val s = state()

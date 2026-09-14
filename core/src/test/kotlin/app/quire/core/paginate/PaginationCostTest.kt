@@ -3,7 +3,9 @@ package app.quire.core.paginate
 import app.quire.core.model.Chapter
 import app.quire.core.model.ContentBlock
 import app.quire.core.model.InlineSpan
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /** Counts what the paginator actually asks the measurer to lay out. */
@@ -151,6 +153,33 @@ class PaginationCostTest {
         assertTrue(
             perBlock < 12.0,
             "read each block ${"%.0f".format(perBlock)} times to paginate it once",
+        )
+    }
+
+    // ------------------------------------------------------ work that is not wanted
+
+    @Test
+    fun `a superseded pagination abandons the chapter instead of finishing it`() {
+        // paginate is an ordinary function called inside withContext(Default), so
+        // cancelling the coroutine around it does not stop it. A reader stepping the
+        // type size four times had four layouts of the same long chapter competing
+        // for the same cores, three of them already thrown away — which is the type
+        // control appearing to do nothing and then settling on whichever finished
+        // last rather than on what was asked for.
+        val whole = CountingMeasurer()
+        Paginator(whole).paginate(oneBlock(400_000), viewport, settings)
+
+        val abandoned = CountingMeasurer()
+        var pagesSoFar = 0
+        assertFailsWith<CancellationException> {
+            Paginator(abandoned).paginate(oneBlock(400_000), viewport, settings) {
+                pagesSoFar++ < 2
+            }
+        }
+        assertTrue(
+            abandoned.charsMeasured < whole.charsMeasured / 10,
+            "kept laying out ${abandoned.charsMeasured} of ${whole.charsMeasured} " +
+                "characters after being superseded",
         )
     }
 

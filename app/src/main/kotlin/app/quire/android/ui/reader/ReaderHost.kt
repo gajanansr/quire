@@ -33,10 +33,10 @@ import app.quire.core.model.Chapter
 import app.quire.core.model.ChapterRef
 import app.quire.core.model.ReadingPosition
 import app.quire.core.paginate.Page
-import app.quire.core.paginate.ChapterOpening
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.Viewport
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -86,6 +86,18 @@ fun ReaderHost(
     var contents by remember(bookId) { mutableStateOf<List<ChapterRef>>(emptyList()) }
     var bookmarked by remember(bookId) { mutableStateOf(false) }
 
+    /**
+     * Whether the reader's saved typography has arrived from the database.
+     *
+     * Pagination waits for it. It used to race it: the viewport is reported as soon
+     * as the page is laid out, while the settings are a suspending read, so a long
+     * chapter could be laid out at the default 19sp serif and then drawn at the saved
+     * 22sp Lora — pages measured for one size, rendered at another, and nothing to
+     * repaginate them until the reader touched the type stepper themselves. Waiting
+     * costs one database read; getting it wrong costs the whole chapter's layout.
+     */
+    var typographyLoaded by remember(bookId) { mutableStateOf(false) }
+
     val composeMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val fontResolver = LocalFontFamilyResolver.current
@@ -96,58 +108,32 @@ fun ReaderHost(
     val measurer = remember(state.preferences.font, density, fontResolver) {
         ComposeTextMeasurer(composeMeasurer, density, state.preferences.font.family())
     }
-    val paginator = remember(measurer) { Paginator(measurer) }
+    // Kept across type-size changes, so the pages laid out at the size the reader
+    // stepped away from are still there when they step back.
     val pageCache = remember(bookId) { PageCache() }
+    val chapterPaginator = remember(measurer, pageCache) {
+        ChapterPaginator(Paginator(measurer), pageCache)
+    }
 
-    // sp -> px for this screen. The paginator reasons in device pixels because the
-    // viewport does.
+    // sp -> px and dp -> px for this screen. The paginator reasons in device pixels
+    // because the viewport does.
     val pixelsPerSp = with(density) { 1.sp.toPx() }
+    val pixelsPerDp = with(density) { 1.dp.toPx() }
 
-    /**
-     * Paginates, or returns what was paginated before.
-     *
-     * Every caller has to key on the same things or the cache is worse than none,
-     * so the key is built here rather than at each site.
-     */
-    suspend fun pagesFor(
-        chapter: Chapter,
-        prefs: ReaderPreferences,
-        inset: Float,
-        paginate: suspend () -> List<Page>,
-    ): List<Page> {
-        val key = PageCache.Key(chapter.index, viewport, prefs.toSettings(pixelsPerSp), inset)
-        pageCache.get(key)?.let { return it }
-        return paginate().also { pageCache.put(key, it) }
-    }
+    suspend fun pagesFor(chapter: Chapter, request: PaginationRequest): List<Page> =
+        chapterPaginator.pagesFor(chapter, request)
 
-    /**
-     * Height the chapter header will take on the first page.
-     *
-     * Estimated rather than measured: it is label, title and spacing at known
-     * sizes, and measuring it would mean composing before paginating. Erring
-     * generous leaves a little whitespace; erring short clips the last line.
-     */
-    fun headerInsetPx(): Float {
-        if (!state.showsChapterHeader) return 0f
-        val body = state.preferences.fontSizeSp * ReaderPreferences.LINE_HEIGHT
-        // The sink is the space a chapter opens below — a proportion of the page,
-        // because the gap that looks generous on a phone is a rounding error on a
-        // tablet. The rest is label, title and the air beneath them.
-        return ChapterOpening.sinkPx(viewport.heightPx) +
-            with(density) { body.sp.toPx() * 1.2f + body.sp.toPx() * 2.4f + 30.dp.toPx() }
-    }
+    fun requestFor(chapter: Chapter, prefs: ReaderPreferences) =
+        ReaderLayout.requestFor(chapter, viewport, prefs, pixelsPerSp, pixelsPerDp)
 
     suspend fun loadChapter(index: Int, at: ReadingPosition?) {
         val entity = repository.find(bookId) ?: return
         val chapter: Chapter = repository.loadChapter(bookId, index) ?: return
-        val inset = headerInsetPx()
-        val pages = pagesFor(chapter, state.preferences, inset) {
-            withContext(Dispatchers.Default) {
-                paginator.paginate(
-                    chapter, viewport, state.preferences.toSettings(pixelsPerSp), inset,
-                )
-            }
-        }
+        // The request is built from the chapter just loaded, not from the one being
+        // left. Built from the outgoing state, the header inset was decided by the
+        // previous chapter at the reader's previous page index — nearly always zero —
+        // while the renderer drew a header the pagination had made no room for.
+        val pages = pagesFor(chapter, requestFor(chapter, state.preferences))
         state = ReaderTransitions.openedChapter(
             state.copy(
                 bookId = bookId,
@@ -160,26 +146,35 @@ fun ReaderHost(
         )
     }
 
-    // Open at the saved position once the viewport is known: paginating against a
-    // zero-sized viewport would produce pages that are immediately thrown away.
-    LaunchedEffect(bookId, viewport) {
-        if (viewport.widthPx <= 0f || viewport.heightPx <= 0f) return@LaunchedEffect
-        if (state.chapter == null) {
-            val saved = repository.progressOf(bookId)
-            loadChapter(saved.chapterIndex, saved)
-            tracker.record()
-        } else {
-            // The viewport changed — a rotation, or the first real measurement.
-            val chapter = state.chapter ?: return@LaunchedEffect
-            val inset = headerInsetPx()
-            val pages = pagesFor(chapter, state.preferences, inset) {
-                withContext(Dispatchers.Default) {
-                    paginator.paginate(
-                        chapter, viewport, state.preferences.toSettings(pixelsPerSp), inset,
-                    )
-                }
+    /**
+     * The one place a chapter is paginated.
+     *
+     * Keyed on everything page breaks depend on, so Compose restarts it exactly when
+     * they change and cancels the run it replaces. There were two paths before — this
+     * effect and `applyPreferences` — which neither cancelled each other nor agreed
+     * on the cache key, so a reader stepping the type size left several paginations
+     * of the same long chapter running at once, racing to write the state. Whichever
+     * finished last won, whatever size it had been asked for. That is the type
+     * control doing nothing for a few seconds and then settling.
+     *
+     * Gated on the viewport being real — pages laid out against a zero-sized box are
+     * thrown away immediately — and on the saved typography having arrived.
+     */
+    val layoutSettings = state.preferences.toSettings(pixelsPerSp)
+    LaunchedEffect(bookId, viewport, layoutSettings, typographyLoaded) {
+        when (val step = ReaderLayout.stepFor(state, viewport, typographyLoaded)) {
+            PaginationStep.Wait -> Unit
+
+            PaginationStep.Open -> {
+                val saved = repository.progressOf(bookId)
+                loadChapter(saved.chapterIndex, saved)
+                tracker.record()
             }
-            state = ReaderTransitions.repaginated(state, pages, state.preferences)
+
+            is PaginationStep.Repaginate -> {
+                val pages = pagesFor(step.chapter, requestFor(step.chapter, state.preferences))
+                state = ReaderTransitions.repaginated(state, pages, state.preferences)
+            }
         }
     }
 
@@ -188,27 +183,19 @@ fun ReaderHost(
     }
 
     /**
-     * Re-pages after a typography change, keeping the reader in place.
+     * Records a typography change and lets the one pagination effect react to it.
      *
-     * Runs off the main thread and applies the new pages in one state update, so
-     * changing type size never shows a half-laid-out page.
+     * It used to paginate here as well, in a coroutine of its own that nothing
+     * cancelled. Four taps on the size stepper launched four layouts of the same long
+     * chapter, all live at once, each writing the state when it finished — so the
+     * size that stuck was whichever finished last, not whichever was asked for last.
+     * Setting the preference and letting the keyed effect restart gives cancellation
+     * of the superseded run for free, and leaves one place that knows how a chapter
+     * is laid out.
      */
     fun applyPreferences(next: ReaderPreferences) {
-        val chapter = state.chapter
-        if (chapter == null || viewport.widthPx <= 0f) {
-            state = state.copy(preferences = next)
-            return
-        }
+        state = state.copy(preferences = next)
         scope.launch {
-            val inset = if (state.showsChapterHeader) headerInsetPx() else 0f
-            val pages = pagesFor(chapter, next, inset) {
-                withContext(Dispatchers.Default) {
-                    Paginator(
-                        ComposeTextMeasurer(composeMeasurer, density, next.font.family()),
-                    ).paginate(chapter, viewport, next.toSettings(pixelsPerSp), inset)
-                }
-            }
-            state = ReaderTransitions.repaginated(state, pages, next)
             habitRepository.setReaderPreferences(
                 font = next.font.name, sizeSp = next.fontSizeSp, justify = next.justify,
             )
@@ -262,6 +249,17 @@ fun ReaderHost(
     }
 
     fun turn(forward: Boolean) {
+        // Nothing paginated yet. Remember the turn rather than dropping it: with no
+        // pages, "next page" reports that this is the last one, which the chapter
+        // boundary branch below then abandoned because the chapter count was not
+        // loaded either. On a book large enough to take seconds, that was every tap
+        // the reader made until pagination finished, silently doing nothing.
+        if (state.pages.isEmpty()) {
+            state = ReaderTransitions.queuedTurn(state, forward)
+            tracker.record()
+            return
+        }
+
         val next = if (forward) ReaderTransitions.nextPage(state)
         else ReaderTransitions.previousPage(state)
 
@@ -302,7 +300,8 @@ fun ReaderHost(
     LaunchedEffect(bookId) { contents = repository.chapterIndex(bookId) }
 
     // Typography is a setting, not a session preference: someone who chose Lora at
-    // 22pt should not have to choose it again next time they open a book.
+    // 22pt should not have to choose it again next time they open a book. Pagination
+    // waits on the flag this sets — see [typographyLoaded].
     LaunchedEffect(bookId) {
         val saved = habitRepository.settings()
         state = state.copy(
@@ -313,6 +312,7 @@ fun ReaderHost(
                 justify = saved.readerJustify,
             )
         )
+        typographyLoaded = true
     }
 
     Box(modifier = modifier.fillMaxSize()) {

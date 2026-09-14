@@ -3,6 +3,7 @@ package app.quire.core.paginate
 import app.quire.core.model.Chapter
 import app.quire.core.model.ContentBlock
 import app.quire.core.model.ReadingPosition
+import kotlin.coroutines.cancellation.CancellationException
 
 /** A run of one block's characters placed on a page. */
 data class PageSlice(
@@ -65,12 +66,22 @@ class Paginator(private val measurer: TextMeasurer) {
      *   header. Pagination has to budget for anything sharing the text's box: given
      *   the full height it packs more lines than will fit and the last one is
      *   clipped, which looks like text simply going missing.
+     * @param isActive asked once per finished page, and pagination abandons the
+     *   chapter the moment it answers false. This is an ordinary function called
+     *   inside `withContext(Dispatchers.Default)`, so cancelling the coroutine around
+     *   it does not stop it: a reader stepping the type size four times had four
+     *   paginations of a long chapter competing for the same cores, three of which
+     *   would be thrown away. Abandoning throws rather than returning the pages so
+     *   far, because a short page list is indistinguishable from a short chapter and
+     *   would be cached, and resolving a reading position against it would move the
+     *   reader somewhere they have never been.
      */
     fun paginate(
         chapter: Chapter,
         viewport: Viewport,
         settings: TypographySettings,
         firstPageInsetPx: Float = 0f,
+        isActive: () -> Boolean = { true },
     ): List<Page> {
         if (viewport.widthPx <= 0f || viewport.heightPx <= 0f) return listOf(Page(emptyList()))
 
@@ -85,6 +96,9 @@ class Paginator(private val measurer: TextMeasurer) {
         var charsPerLine = ASSUMED_CHARS_PER_LINE
 
         fun flush() {
+            // Once per page: often enough that a superseded run stops within a frame
+            // or two, rarely enough to cost nothing when nothing is superseding it.
+            if (!isActive()) throw CancellationException("pagination superseded")
             pages += Page(current)
             current = mutableListOf()
             used = 0f

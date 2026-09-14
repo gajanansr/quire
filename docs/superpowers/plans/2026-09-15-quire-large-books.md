@@ -83,7 +83,8 @@ remove.
 - [x] **Step 1: Write the failing cost test.** A `CountingBlocks` list counts
   `get`; the test asserts reads per block stays bounded and does not grow with N.
 - [x] **Step 2: Run it and watch it fail** — 2,005 reads per block at N=4,000, and
-  505 → 2,005 as the chapter goes from 1,000 blocks to 4,000.
+  505 → 2,005 as the chapter goes from 1,000 blocks to 4,000 (the test's own
+  fixture, one read per block above the table's slightly different one).
 - [x] **Step 3:** Give `ChapterOpening` an `openingIndex(blocks): Int` that stops at
   the first paragraph rather than walking the chapter, and asks its spans whether
   they hold a non-space character rather than joining them into a string to ask.
@@ -119,24 +120,32 @@ decided by chapter K−1:
 - Modify: `app/src/main/kotlin/app/quire/android/ui/reader/ReaderHost.kt`
 - Test: `app/src/test/kotlin/app/quire/android/ui/reader/ReaderStateTest.kt`
 
-- [ ] **Step 1:** Failing test: the header decision for a chapter about to be opened
+- [x] **Step 1:** Failing test: the header decision for a chapter about to be opened
   must not depend on the page index of the chapter being left.
-- [ ] **Step 2:** Extract `ReaderLayout.headerInsetPx(chapter, pageIndex, viewport,
-  prefs, pixelsPerSp, pixelsPerDp)` — a pure function of the chapter it is for.
-  `showsChapterHeader` becomes `showsHeaderFor(chapter, pageIndex, title)`.
-- [ ] **Step 3:** `loadChapter` computes the inset for the chapter it just loaded.
-- [ ] **Step 4:** `./scripts/check.sh` green (including `MeasureMatchesRenderTest`).
+- [x] **Step 2:** `ReaderLayout.requestFor(chapter, viewport, prefs, pixelsPerSp,
+  pixelsPerDp)` returns a `PaginationRequest` that carries the inset *and* the cache
+  key, so the two can no longer be built differently at two sites. The inset is
+  always the one for that chapter's page zero, because that is the only page the
+  renderer ever draws a header on. `showsChapterHeaderFor(chapter, pageIndex)` is a
+  free function, answerable about a chapter that is not open yet.
+- [x] **Step 3:** `loadChapter` builds the request from the chapter it just loaded.
+- [x] **Step 4:** `./scripts/check.sh` green (including `MeasureMatchesRenderTest`).
   Commit.
 
 ### Task B2: Opening a large book paginates it twice, at the wrong type size
 
 **Problem.** Two independent faults with one symptom.
 
-1. `LaunchedEffect(bookId, viewport)` restarts on every viewport change. The
-   viewport is reported from inside `statusBarsPadding()`/`navigationBarsPadding()`,
-   and window insets are not known at first layout — so the box reports one height,
-   then a smaller one. Two different keys, two full paginations of the same chapter,
-   the second cancelling the first only at its next suspension point.
+1. **The cache could never hit.** `pagesFor` keyed on an inset taken from the *open
+   state*, whose page index is wherever the reader is standing —
+   `showsChapterHeader` is false on every page but the first, so the inset was the
+   full header height while the reader was on page one and zero everywhere else.
+   Every repagination after the first therefore looked the chapter up under a key
+   nothing had been stored against, and laid it out again. Two entries per chapter,
+   in a three-entry cache. (A second suspected doubling — the viewport being reported
+   once before window insets land and once after — could not be confirmed without a
+   device, so the fix does not claim it: what it does is make sure that if it does
+   happen, the second run cancels the first rather than racing it.)
 2. `LaunchedEffect(bookId)` loads the reader's saved typography from the database,
    and nothing repaginates when it lands. If it lands after the first pagination the
    pages are laid out at the default 19sp serif while the renderer draws them at the
@@ -155,16 +164,24 @@ place where the cache key is built.
 
 **Files:**
 - Modify: `app/src/main/kotlin/app/quire/android/ui/reader/ReaderHost.kt`
-- Modify: `app/src/main/kotlin/app/quire/android/ui/reader/ReaderState.kt`
-- Test: `app/src/test/kotlin/app/quire/android/ui/reader/ReaderPaginationPlanTest.kt` (create)
+- Create: `app/src/main/kotlin/app/quire/android/ui/reader/ReaderLayout.kt`
+- Test: `app/src/test/kotlin/app/quire/android/ui/reader/ReaderLayoutTest.kt` (create)
 
-- [ ] **Step 1:** Failing test: a scripted open — zero viewport, saved preferences
-  arriving late, two viewport readings — must paginate the chapter once, at the
-  saved type size, not twice and not at the default.
-- [ ] **Step 2:** Extract the schedule as a pure `ReaderPagination.plan(...)`
-  returning what to do (nothing / load / repaginate) so the test can drive it.
-- [ ] **Step 3:** Rewire `ReaderHost` onto it; delete the second pagination path.
-- [ ] **Step 4:** `./scripts/check.sh` green. Commit.
+- [x] **Step 1:** Tests over the open sequence: nothing is paginated before the box
+  is measured, nothing before the saved typography has arrived, the saved chapter is
+  opened once both are known, and a later change repaginates the chapter in hand
+  rather than reopening it. Plus the cost side, driven through the real
+  `ChapterPaginator` with a counting measurer: opening lays a chapter out once, a
+  type-size change lays out the chapter the reader is in and no other, and stepping
+  back to a size already seen costs nothing.
+- [x] **Step 2:** `PaginationStep` and `ReaderLayout.stepFor(state, viewport,
+  typographyLoaded)` hold the schedule; `ChapterPaginator` holds the cache lookup,
+  the dispatcher hop and the liveness probe. Both are what the composable calls, so
+  the tests drive the real code rather than a copy of it.
+- [x] **Step 3:** `ReaderHost` is one `LaunchedEffect` keyed on `bookId`, the
+  viewport, the typography settings and whether the settings have loaded;
+  `applyPreferences` only records the preference. The second pagination path is gone.
+- [x] **Step 4:** `./scripts/check.sh` green. Commit.
 
 ### Task B3: A page turn during pagination is thrown away
 
@@ -183,14 +200,14 @@ finished — which is what "initially page change doesn't work at all" is.
 - Modify: `app/src/main/kotlin/app/quire/android/ui/reader/ReaderHost.kt`
 - Test: `app/src/test/kotlin/app/quire/android/ui/reader/ReaderStateTest.kt`
 
-- [ ] **Step 1:** Failing test: a turn requested with no pages is honoured when
+- [x] **Step 1:** Failing test: a turn requested with no pages is honoured when
   pages arrive; three turns forward land on page 3; a turn back from page 0 is not
   queued into a negative index.
-- [ ] **Step 2:** `pendingTurns` on `ReaderState`, `queuedTurn` and an application
+- [x] **Step 2:** `pendingTurns` on `ReaderState`, `queuedTurn` and an application
   inside `repaginated`/`openedChapter`.
-- [ ] **Step 3:** `ReaderHost.turn` queues instead of dropping while
+- [x] **Step 3:** `ReaderHost.turn` queues instead of dropping while
   `pages.isEmpty()`.
-- [ ] **Step 4:** `./scripts/check.sh` green. Commit.
+- [x] **Step 4:** `./scripts/check.sh` green. Commit.
 
 ### Task B4: A superseded pagination runs to the end anyway
 
@@ -205,14 +222,14 @@ open, but a reader dragging the type stepper makes one per step.
 - Modify: `app/src/main/kotlin/app/quire/android/ui/reader/ReaderHost.kt`
 - Test: `core/src/test/kotlin/app/quire/core/paginate/PaginationCostTest.kt`
 
-- [ ] **Step 1:** Failing test: a pagination told it is superseded after one page
+- [x] **Step 1:** Failing test: a pagination told it is superseded after one page
   stops there, rather than measuring the rest of the chapter.
-- [ ] **Step 2:** An `isActive: () -> Boolean = { true }` probe checked once per
+- [x] **Step 2:** An `isActive: () -> Boolean = { true }` probe checked once per
   page, throwing `CancellationException` — never returning partial pages, because a
   short page list would be indistinguishable from a short chapter and would move the
   reader's position.
-- [ ] **Step 3:** `ReaderHost` passes the coroutine's own liveness.
-- [ ] **Step 4:** `./scripts/check.sh` green. Commit.
+- [x] **Step 3:** `ReaderHost` passes the coroutine's own liveness.
+- [x] **Step 4:** `./scripts/check.sh` green. Commit.
 
 ---
 

@@ -24,6 +24,22 @@ enum class ReaderOverlay { NONE, CONTENTS, TYPOGRAPHY, BOOKMARK }
  */
 fun chapterLabelFor(index: Int): String = "Chapter ${index + 1}"
 
+/**
+ * Whether the Reader draws its header above [chapter] on page [pageIndex].
+ *
+ * A free function, not only a property of the open state, because the question has
+ * to be answerable about a chapter that is *not* open yet: the paginator has to
+ * budget the header's height into the first page before the chapter it is
+ * paginating reaches the state. Asking the open state answered for the chapter being
+ * left, at the page index the reader was standing on — see [ReaderLayout].
+ */
+fun showsChapterHeaderFor(chapter: Chapter?, pageIndex: Int): Boolean {
+    if (pageIndex != 0) return false
+    val ch = chapter ?: return true
+    // The label of the chapter being asked about, not of whichever is open.
+    return !ChapterHeading.repeatsHeader(ch.blockTexts, ch.title, chapterLabelFor(ch.index))
+}
+
 data class ReaderPreferences(
     val font: ReaderFont = ReaderFont.SERIF,
     val fontSizeSp: Float = 19f,
@@ -75,6 +91,16 @@ data class ReaderState(
     val selectionAnchor: TextAnchor? = null,
     /** Saved highlights for the open chapter, drawn on whichever page shows them. */
     val highlights: List<TextSpan> = emptyList(),
+    /**
+     * Page turns asked for before there were any pages to turn, net of direction.
+     *
+     * A large book spends seconds being paginated, and every tap in that window used
+     * to vanish: with no pages, "next page" reports that this is the last one, which
+     * the Reader read as a chapter boundary and abandoned. The reader taps, nothing
+     * moves, and the first tap that works is the first one after pagination finished
+     * — which is what "initially page change doesn't work at all" was.
+     */
+    val pendingTurns: Int = 0,
 ) {
     val pageCount: Int get() = pages.size
 
@@ -122,25 +148,7 @@ data class ReaderState(
      * characters was not enough on a real book.
      */
     val showsChapterHeader: Boolean
-        get() = showsHeaderFor(chapter, pageIndex)
-
-    /**
-     * The same question about a chapter that is not open yet.
-     *
-     * Load-bearing, and the reason this is a function rather than only the property:
-     * the first page's header inset has to be budgeted for the chapter being
-     * *loaded*, and asking [showsChapterHeader] before that chapter reaches the
-     * state answers for the one being left — at its page index, which is usually not
-     * zero. Budgeting no inset for a page that then draws a header is how the
-     * paginator packs the header's height in extra lines and the renderer clips them.
-     */
-    fun showsHeaderFor(chapter: Chapter?, pageIndex: Int): Boolean {
-        if (pageIndex != 0) return false
-        val ch = chapter ?: return true
-        // The label of the chapter being asked about, not of the one in state: this
-        // is asked about chapters that are not open yet.
-        return !ChapterHeading.repeatsHeader(ch.blockTexts, ch.title, chapterLabelFor(ch.index))
-    }
+        get() = showsChapterHeaderFor(chapter, pageIndex)
 
     val hasSelection: Boolean get() = selection != null && selection.isEmpty.not()
 
@@ -224,6 +232,32 @@ object ReaderTransitions {
         if (state.atFirstPage) null else state.copy(pageIndex = state.pageIndex - 1)
 
     /**
+     * Remembers a page turn asked for while there was nothing to turn.
+     *
+     * Kept as a count and a direction rather than a queue of events: what the reader
+     * means by three taps during a long pagination is "three pages on", and replaying
+     * three separate turns against a page list that arrives all at once means the
+     * same thing.
+     */
+    fun queuedTurn(state: ReaderState, forward: Boolean): ReaderState =
+        state.copy(pendingTurns = state.pendingTurns + if (forward) 1 else -1)
+
+    /**
+     * Applies the turns that were asked for before the pages existed.
+     *
+     * Clamped inside the chapter rather than carried across a boundary. A tap made
+     * while the reader could not see what they were turning is not evidence that they
+     * wanted the next chapter, and loading one from a queue would move them somewhere
+     * they never chose.
+     */
+    private fun withPendingTurnsApplied(state: ReaderState): ReaderState {
+        if (state.pendingTurns == 0) return state
+        if (state.pages.isEmpty()) return state
+        val target = (state.pageIndex + state.pendingTurns).coerceIn(0, state.pages.lastIndex)
+        return state.copy(pageIndex = target, pendingTurns = 0)
+    }
+
+    /**
      * Re-pages after a typography change, keeping the reader where they were.
      *
      * The page index is meaningless across a repagination — this is the moment the
@@ -235,10 +269,13 @@ object ReaderTransitions {
         preferences: ReaderPreferences,
     ): ReaderState {
         val anchor = state.position
-        return state.copy(
-            pages = pages,
-            pageIndex = pages.pageContaining(anchor).coerceIn(0, (pages.size - 1).coerceAtLeast(0)),
-            preferences = preferences,
+        return withPendingTurnsApplied(
+            state.copy(
+                pages = pages,
+                pageIndex = pages.pageContaining(anchor)
+                    .coerceIn(0, (pages.size - 1).coerceAtLeast(0)),
+                preferences = preferences,
+            )
         )
     }
 
@@ -248,13 +285,15 @@ object ReaderTransitions {
         chapter: Chapter,
         pages: List<Page>,
         at: ReadingPosition?,
-    ): ReaderState = state.copy(
-        loading = false,
-        chapterIndex = chapter.index,
-        chapterTitle = chapter.title,
-        chapter = chapter,
-        pages = pages,
-        pageIndex = at?.let { pages.pageContaining(it) } ?: 0,
+    ): ReaderState = withPendingTurnsApplied(
+        state.copy(
+            loading = false,
+            chapterIndex = chapter.index,
+            chapterTitle = chapter.title,
+            chapter = chapter,
+            pages = pages,
+            pageIndex = at?.let { pages.pageContaining(it) } ?: 0,
+        )
     )
 
     fun withChrome(state: ReaderState, visible: Boolean): ReaderState =
