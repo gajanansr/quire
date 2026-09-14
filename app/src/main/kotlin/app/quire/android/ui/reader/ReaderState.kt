@@ -6,6 +6,7 @@ import app.quire.core.model.ReadingPosition
 import app.quire.core.paginate.ChapterHeading
 import app.quire.core.paginate.Page
 import app.quire.core.paginate.TypographySettings
+import app.quire.core.paginate.Viewport
 import app.quire.core.paginate.startPosition
 import app.quire.core.reading.ReadingEstimates
 import app.quire.core.reading.Selection
@@ -13,6 +14,22 @@ import app.quire.core.reading.SelectionEdge
 import app.quire.core.reading.TextAnchor
 import app.quire.core.reading.TextSpan
 import kotlin.math.roundToInt
+
+/**
+ * What a window's pages were measured against.
+ *
+ * Pages measured at one type size or one viewport are wrong at another — not merely
+ * ugly: reading position is resolved by finding which page holds a character offset,
+ * so a page list that does not belong to the current typography puts the reader on
+ * the wrong page, and the renderer draws more lines than were budgeted and clips the
+ * last one off.
+ *
+ * Carried on the state so the Reader can ask **"are the pages in hand still the right
+ * pages?"** before it extends them. Without it, a reader who tapped A+ while near the
+ * end of the window had the extension — laid out at the new size — appended to pages
+ * laid out at the old one, and whichever coroutine finished last won.
+ */
+data class LayoutKey(val viewport: Viewport, val settings: TypographySettings)
 
 /** Which overlay, if any, is covering the page. */
 enum class ReaderOverlay { NONE, CONTENTS, TYPOGRAPHY, BOOKMARK }
@@ -110,6 +127,8 @@ data class ReaderState(
      */
     val windowStart: TextAnchor = TextAnchor(0, 0),
     val windowNext: TextAnchor? = null,
+    /** What [pages] were measured against, or null before anything has been. */
+    val windowLayout: LayoutKey? = null,
     val chromeVisible: Boolean = false,
     val overlay: ReaderOverlay = ReaderOverlay.NONE,
     val preferences: ReaderPreferences = ReaderPreferences(),
@@ -329,11 +348,12 @@ data class ReaderState(
  * the page list it indexes is how a reader ends up on a page they have never seen,
  * and separate copies at four call sites is four chances to update three of them.
  */
-private fun ReaderState.withWindow(window: WindowedPages) = copy(
+private fun ReaderState.withWindow(window: WindowedPages, layout: LayoutKey?) = copy(
     pages = window.pages,
     pageIndex = window.pageIndex.coerceIn(0, (window.pages.size - 1).coerceAtLeast(0)),
     windowStart = window.start,
     windowNext = window.next,
+    windowLayout = layout,
 )
 
 object ReaderTransitions {
@@ -393,9 +413,12 @@ object ReaderTransitions {
         chapter: Chapter?,
         window: WindowedPages,
         preferences: ReaderPreferences,
+        layout: LayoutKey?,
     ): ReaderState {
         if (state.chapter !== chapter) return state.copy(preferences = preferences)
-        return withPendingTurnsApplied(state.withWindow(window).copy(preferences = preferences))
+        return withPendingTurnsApplied(
+            state.withWindow(window, layout).copy(preferences = preferences),
+        )
     }
 
     /**
@@ -412,9 +435,10 @@ object ReaderTransitions {
         state: ReaderState,
         chapter: Chapter?,
         window: WindowedPages,
+        layout: LayoutKey?,
     ): ReaderState {
         if (state.chapter !== chapter) return state
-        return state.withWindow(window)
+        return state.withWindow(window, layout)
     }
 
     /**
@@ -432,13 +456,14 @@ object ReaderTransitions {
         chapter: Chapter,
         window: WindowedPages,
         at: ReadingPosition?,
+        layout: LayoutKey? = null,
     ): ReaderState {
         val opened = state.copy(
             loading = false,
             chapterIndex = chapter.index,
             chapterTitle = chapter.title,
             chapter = chapter,
-        ).withWindow(window)
+        ).withWindow(window, layout)
         return if (at == null) opened.copy(pendingTurns = 0)
         else withPendingTurnsApplied(opened)
     }

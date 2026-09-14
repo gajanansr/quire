@@ -198,6 +198,55 @@ class ReaderLayoutTest {
         }
     }
 
+    // ------------------------------------------------- when the pages may be grown
+
+    private fun windowedState(
+        sizeSp: Float = 19f,
+        laidOutAt: Float? = sizeSp,
+        view: Viewport = viewport,
+    ): ReaderState {
+        val chapter = headedChapter()
+        return ReaderState(
+            chapter = chapter,
+            chapterIndex = chapter.index,
+            preferences = ReaderPreferences(fontSizeSp = sizeSp),
+            windowLayout = laidOutAt?.let {
+                LayoutKey(view, ReaderPreferences(fontSizeSp = it).toSettings(density))
+            },
+        )
+    }
+
+    private fun settings(sizeSp: Float) = ReaderPreferences(fontSizeSp = sizeSp).toSettings(density)
+
+    @Test
+    fun `pages measured against what is on screen may be grown`() {
+        assertTrue(ReaderLayout.mayGrowWindow(windowedState(), viewport, settings(19f)))
+    }
+
+    @Test
+    fun `pages measured at another type size may not be grown`() {
+        // The fault this exists for: extending a window after a type-size change but
+        // before the repagination lands appends pages laid out at the new size to
+        // pages laid out at the old one. The reader then stands on a page list that is
+        // half one measurement and half another — the renderer draws more lines than
+        // were budgeted, and their character offset resolves against breaks that do
+        // not exist.
+        val stale = windowedState(sizeSp = 22f, laidOutAt = 19f)
+        assertFalse(ReaderLayout.mayGrowWindow(stale, viewport, settings(22f)))
+    }
+
+    @Test
+    fun `pages measured before a rotation may not be grown`() {
+        val turned = windowedState(view = Viewport(viewport.heightPx, viewport.widthPx))
+        assertFalse(ReaderLayout.mayGrowWindow(turned, viewport, settings(19f)))
+    }
+
+    @Test
+    fun `nothing may be grown before anything has been laid out`() {
+        assertFalse(ReaderLayout.mayGrowWindow(windowedState(laidOutAt = null), viewport, settings(19f)))
+        assertFalse(ReaderLayout.mayGrowWindow(ReaderState(), viewport, settings(19f)))
+    }
+
     // ------------------------------------------------------------- when it may run
 
     @Test

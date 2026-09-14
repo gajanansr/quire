@@ -131,6 +131,28 @@ object ReaderLayout {
     }
 
     /**
+     * Whether the pages in hand may be grown rather than thrown away.
+     *
+     * They may only when they were measured against what is on screen *now*. A window
+     * extended after a type-size change but before the repagination lands appends
+     * pages laid out at the new size to pages laid out at the old one, and the reader
+     * is then standing on a page list that is half one measurement and half another:
+     * the renderer draws more lines than the paginator budgeted, and `pageContaining`
+     * resolves their character offset against breaks that do not exist. That is the
+     * same class of fault as the four concurrent paginations of 2026-09-15, and it
+     * comes back the moment growth and repagination are two effects rather than one.
+     *
+     * A rule rather than an inline condition because there are two call sites — the
+     * prefetch and a reader outrunning it — and a rule that holds at one of them is
+     * not a rule.
+     */
+    fun mayGrowWindow(
+        state: ReaderState,
+        viewport: Viewport,
+        settings: TypographySettings,
+    ): Boolean = state.chapter != null && state.windowLayout == LayoutKey(viewport, settings)
+
+    /**
      * Height the chapter header will take on the first page.
      *
      * Estimated rather than measured: measuring it would mean composing before

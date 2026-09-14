@@ -168,7 +168,7 @@ fun ReaderHost(
                 chapterCount = entity.chapterCount,
                 bookTotalChars = entity.totalChars,
             ),
-            chapter, window, opensAt,
+            chapter, window, opensAt, LayoutKey(viewport, state.preferences.toSettings(pixelsPerSp)),
         )
     }
 
@@ -209,6 +209,7 @@ fun ReaderHost(
                 // this effect does not cancel.
                 state = ReaderTransitions.repaginated(
                     state, step.chapter, window, state.preferences,
+                    LayoutKey(viewport, layoutSettings),
                 )
             }
         }
@@ -226,14 +227,22 @@ fun ReaderHost(
      * extension rather than once, and so Compose cancels a run whose chapter,
      * viewport or typography has been replaced.
      */
-    val wantsMore = state.chapter != null && ReaderWindow.wantsForwardExtension(state.window)
-    LaunchedEffect(bookId, state.chapterIndex, state.windowNext, wantsMore, viewport, layoutSettings) {
+    val layoutKey = LayoutKey(viewport, layoutSettings)
+    // Only ever asked of a window that was measured against what is on screen now.
+    // Extending one that was not appends pages laid out at the new type size to pages
+    // laid out at the old, and the reader is then on a page list that half of the app
+    // disagrees with — the exact shape of fault the single keyed effect was introduced
+    // to remove. The repagination above puts this right within one run, and the effect
+    // restarts when it does.
+    val wantsMore = ReaderLayout.mayGrowWindow(state, viewport, layoutSettings) &&
+        ReaderWindow.wantsForwardExtension(state.window)
+    LaunchedEffect(bookId, state.chapterIndex, state.windowNext, wantsMore, layoutKey) {
         if (!wantsMore || !typographyLoaded) return@LaunchedEffect
         val chapter = state.chapter ?: return@LaunchedEffect
         val extended = ReaderWindow.extendedForward(
             state.window, layFor(chapter, state.preferences),
         )
-        state = ReaderTransitions.windowed(state, chapter, extended)
+        state = ReaderTransitions.windowed(state, chapter, extended, layoutKey)
     }
 
     suspend fun persistNow() {
@@ -335,6 +344,14 @@ fun ReaderHost(
         // book that has only one.
         val chapter = state.chapter
         if (chapter != null && !(if (forward) state.atChapterEnd else state.atChapterStart)) {
+            // The pages in hand are about to be replaced by a repagination, so growing
+            // them would mix two type sizes in one page list. Remember the tap instead
+            // of swallowing it — `repaginated` applies it when the new pages land.
+            if (!ReaderLayout.mayGrowWindow(state, viewport, layoutSettings)) {
+                state = ReaderTransitions.queuedTurn(state, forward)
+                tracker.record()
+                return
+            }
             scope.launch {
                 val grown = if (forward) {
                     // Normally already done by the prefetch effect; this is the reader
@@ -346,7 +363,9 @@ fun ReaderHost(
                         layFor(chapter, state.preferences),
                     )
                 }
-                state = ReaderTransitions.windowed(state, chapter, grown)
+                state = ReaderTransitions.windowed(
+                    state, chapter, grown, LayoutKey(viewport, layoutSettings),
+                )
                 // Forward across a seam still has to take the step the reader asked
                 // for; `turnedBack` has already taken it, by choosing which page of
                 // the re-anchored window to stand on.
