@@ -528,3 +528,94 @@ jarsigner -verify app/build/outputs/bundle/release/app-release.aab
 # 5. Upload app-release.aab, paste the release notes, re-confirm Data safety,
 #    read the pre-launch report, roll out.
 ```
+
+---
+
+## Releasing from GitHub Actions
+
+`/.github/workflows/release.yml` builds, signs, verifies and uploads. It runs **only
+when you start it by hand** — Actions → Release → Run workflow — because publishing is
+a decision, not a consequence of pushing code. It defaults to the **internal** track
+and to **dry run**, so the first thing it can do is nothing irreversible.
+
+### The constraint that catches everyone
+
+**The Google Play Developer API cannot create an app's first release.** The very first
+bundle must be uploaded through the Play Console by hand. Until that has happened, the
+workflow's upload step will fail however correct its credentials are. Do the first
+release manually, then this owns the pipe.
+
+### What you supply, once
+
+Four secrets for signing, one for Play. Settings → Secrets and variables → Actions.
+
+| Secret | What it is |
+|---|---|
+| `QUIRE_KEYSTORE_BASE64` | the upload keystore, base64 encoded |
+| `QUIRE_KEYSTORE_PASSWORD` | its store password |
+| `QUIRE_KEY_ALIAS` | `quire-upload` |
+| `QUIRE_KEY_PASSWORD` | the key password |
+| `PLAY_SERVICE_ACCOUNT_JSON` | the whole service-account JSON, pasted |
+
+Encode the keystore with:
+
+```bash
+base64 -i ~/keys/quire-upload.jks | pbcopy
+```
+
+`base64` on macOS emits one long line, which is what the workflow expects. Paste it
+straight in; do not wrap it.
+
+### The Play service account
+
+1. Play Console → **Setup → API access** → link or create a Google Cloud project.
+2. In Google Cloud, create a **service account**, then a **JSON key** for it.
+3. Back in Play Console → API access → grant that account access to this app, with
+   **Release apps to testing tracks** and, when you want it, **Release to production**.
+4. Paste the JSON into `PLAY_SERVICE_ACCOUNT_JSON`.
+
+Grant it access to *this app only*, not the whole account. A leaked key that can
+publish one app is a bad day; one that can publish everything is a worse one.
+
+### Running it
+
+| Input | |
+|---|---|
+| **track** | `internal` (default), `alpha`, `beta`, `production` |
+| **versionName** | e.g. `0.2.0`. Blank keeps what is in `build.gradle.kts` |
+| **versionCode** | must be **higher than anything already uploaded** — Play rejects a repeat, and the number can never be reused |
+| **rollout** | e.g. `0.1` for a 10% staged production rollout. Blank ships to everyone |
+| **dryRun** | on by default: builds, signs and verifies, uploads nothing |
+
+A run with `dryRun` on is the honest rehearsal — it proves the secrets, the signature
+and the listing before anything reaches a reader. Do that first, every time the
+pipeline changes.
+
+### What it does, in order
+
+1. Fails immediately if a secret is missing, naming which — rather than after a
+   six-minute build, as a Gradle error about a null keystore.
+2. Runs `./scripts/check.sh`. **Nothing ships red.**
+3. Runs `./scripts/check-listing.sh`, so a listing that would be rejected at upload is
+   caught before the upload.
+4. Builds the bundle with the version you gave it.
+5. **Verifies the signature** with `jarsigner` before offering the artifact to anyone.
+6. Keeps the `.aab` as a build artifact for 90 days, whether or not it uploaded.
+7. Uploads to the chosen track, taking release notes from
+   `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` — so the words on the
+   store page are reviewed the same way the code is. **Write that file before you run.**
+8. Tags the commit and creates a GitHub Release with the bundle attached.
+
+### Before you rely on it
+
+**Pin `r0adkll/upload-google-play` to a commit SHA rather than `@v1`.** A moving tag on
+a third-party action is a supply-chain hole, and that step is the one place in this
+repository that holds both the signing key and the Play credentials. Replace the tag
+with the SHA of the release you have read.
+
+### R8
+
+Still off. `-PquireMinify=true` takes the bundle from 17 MB to 11 MB and is not enabled
+because a wrongly shrunk PdfBox does not crash — it returns an empty text layer, so a
+PDF imports "successfully" with no words in it. Enable it only after §9's device test,
+and the workflow will pick up the mapping file automatically.
