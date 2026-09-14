@@ -491,12 +491,18 @@ object ReaderTransitions {
      * anywhere else closes — so there is no state in which a tap does nothing and the
      * reader is left prodding at a row of swatches that will not go away.
      *
+     * A second tap on the mark that is already open closes it, which is the gesture a
+     * reader will try before they try tapping the page — the options appeared under
+     * their finger, so their finger is where they look to put them away.
+     *
      * Chrome goes with it, for the same reason a long press takes it away: the bars
      * are exactly where the options sit when the mark is near an edge of the page.
      */
-    fun highlightTapped(state: ReaderState, id: Long?): ReaderState =
-        if (state.editingHighlightId == id) state
-        else state.copy(editingHighlightId = id, chromeVisible = false)
+    fun highlightTapped(state: ReaderState, id: Long?): ReaderState {
+        val next = if (id != null && id == state.editingHighlightId) null else id
+        return if (state.editingHighlightId == next) state
+        else state.copy(editingHighlightId = next, chromeVisible = false)
+    }
 
     /**
      * The reader chose a colour for the mark they had open.

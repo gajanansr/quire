@@ -491,6 +491,21 @@ class ReaderStateTest {
     }
 
     @Test
+    fun `tapping the same mark again closes its options`() {
+        // The gesture a reader tries first. The options appeared under their finger,
+        // so their finger is where they look to put them away — and without this the
+        // second tap does nothing at all, which reads as the app having frozen.
+        val open = ReaderTransitions.highlightTapped(marked(4), 4)
+        assertNull(ReaderTransitions.highlightTapped(open, 4).editingHighlightId)
+    }
+
+    @Test
+    fun `tapping a different mark moves to it rather than closing`() {
+        val open = ReaderTransitions.highlightTapped(marked(4, 9), 4)
+        assertEquals(9L, ReaderTransitions.highlightTapped(open, 9).editingHighlightId)
+    }
+
+    @Test
     fun `opening the options puts the chrome away`() {
         // Both live at the foot of the page. Two bars there at once is the page
         // covered by its own controls, which is the thing this Reader exists not to
