@@ -9,6 +9,7 @@ import app.quire.core.paginate.Measured
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.TextMeasurer
 import app.quire.core.paginate.Viewport
+import app.quire.android.ui.theme.QuireTypography
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -329,6 +330,28 @@ class ReaderLayoutTest {
         val narrow = ReaderLayout.titleLines(title, 400f, density)
         val wide = ReaderLayout.titleLines(title, 1600f, density)
         assertTrue("a narrower column did not wrap more", narrow >= wide)
+    }
+
+    @Test
+    fun `the inset's constants are the theme's own`() {
+        // The one thing that makes the arithmetic above trustworthy. The paginator
+        // budgets the header from numbers written down here; the Reader draws it from
+        // the theme. Restyling the header without changing both is how a page comes to
+        // be laid out for less than it draws, and the surplus is clipped off the bottom
+        // with no error anywhere — so restyling has to fail this instead.
+        assertEquals(
+            "labelSmall's line height moved; the header budget did not",
+            14f, QuireTypography.labelSmall.lineHeight.value, 0.01f,
+        )
+        assertEquals(
+            "headlineLarge's line height moved; the header budget did not",
+            ReaderLayout.TITLE_LINE_SP, QuireTypography.headlineLarge.lineHeight.value, 0.01f,
+        )
+        assertEquals(
+            "headlineLarge's type size moved; the title wrap estimate did not",
+            ReaderLayout.TITLE_SIZE_SP, QuireTypography.headlineLarge.fontSize.value, 0.01f,
+        )
+        assertEquals(ReaderLayout.LABEL_LINE_SP, 14f, 0.01f)
     }
 
     @Test

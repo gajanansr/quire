@@ -60,8 +60,8 @@ object ReaderLayout {
      * 15sp it budgeted 8sp less than a two-line title draws. Short means the last
      * line of the chapter's first page is clipped away, silently.
      *
-     * `ReaderThemeTest` pins these against the theme, so restyling the header fails a
-     * test rather than losing the bottom of a page.
+     * `ReaderLayoutTest` pins these against `QuireTypography`, so restyling the header
+     * fails a test rather than losing the bottom of a page.
      */
     internal const val LABEL_LINE_SP = 14f
 

@@ -282,3 +282,34 @@ written*, never of *whether it is the same string*.
   before and after are recorded in `PROGRESS.md`.
 - `MeasureMatchesRenderTest` and `ResumeLoopTest` are green and unweakened.
 - `PROGRESS.md` carries the entry.
+
+---
+
+## Task R1: Review pass
+
+Hawk reviewed the branch and returned request-changes. Three real faults, two of
+them sharper than anything the plan had found.
+
+- [x] **Pages for one chapter written onto another.** `Repaginate` captures its
+  chapter before suspending and re-reads `state` after; the Contents sheet loads a
+  chapter in a coroutine the effect does not cancel. `repaginated` now takes the
+  chapter the pages were laid out for and discards them otherwise — the guard in the
+  transition, not at the call site, because no call site may skip it. This is a
+  reading-position corruption: the bad offset reaches the progress row on dispose.
+- [x] **The header inset under-budgeted and clipped page one.** It was a multiple of
+  the *body* line height; the header is theme type at fixed sizes (`labelSmall` 14sp,
+  `headlineLarge` 34sp) plus two dp gaps. Short by 8sp at 15sp with a two-line title.
+  Rebuilt as arithmetic over what `ReaderScreen` draws, with the title's wrap count
+  the only estimate — rounded up, floored at two, capped at four. Pinned against
+  `QuireTypography` so restyling fails a test.
+- [x] **A queued turn followed the reader into a chapter they chose.** Honoured now
+  only when opening *at* a position, which is the book resuming rather than a jump.
+- [x] No chapter means no chapter header (the loading screen said "Chapter 1").
+- [x] `openingIndex` hoisted out of the render loop as well as the paginator's.
+- [x] Two dead imports in `ReaderHost`.
+- [x] **Declined:** `try/finally` around the settings read to guarantee
+  `typographyLoaded`. It would fire on cancellation too — paginating at default
+  typography exactly while the effect is torn down — and degrading properly would mean
+  swallowing a database error, which this codebase does not do. The throw already
+  takes the Recomposer with it, so the `finally` buys nothing before the crash.
+- [x] `./scripts/check.sh` green. Commit.

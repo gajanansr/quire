@@ -2021,6 +2021,10 @@ chapter 12, because the header answered "yes" for a chapter that did not exist y
 and waiting for the typography lengthened that window. And finding where a chapter opens
 is now hoisted out of the render loop as well as the paginator's.
 
+The header's measurements are now pinned against `QuireTypography` by a test, so
+restyling the header fails the gate instead of quietly clipping the page it heads —
+which is the same trick `BlockStyles` plays for every other kind of block.
+
 One finding was declined. `typographyLoaded` has no failure path, and wrapping the
 settings read in `finally` would set it on *cancellation* too — paginating the book at
 default typography precisely when the effect was being torn down. Degrading properly
@@ -2030,4 +2034,4 @@ would mean swallowing a database error, which this codebase does not do.
 JVM test can state; none of them was fixed against a stopwatch, because there is no
 phone here. The 276-page book is the check.
 
-Gates: 848 JVM tests (357 `:core` + 491 `:app`), 0 failures. 55 added.
+Gates: 849 JVM tests (357 `:core` + 492 `:app`), 0 failures. 56 added.
