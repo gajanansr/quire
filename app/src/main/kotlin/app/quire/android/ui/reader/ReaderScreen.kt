@@ -103,7 +103,6 @@ fun ReaderScreen(
     onFinish: () -> Unit,
     onSelectionStart: (TextAnchor) -> Unit = {},
     onSelectionExtend: (TextAnchor) -> Unit = {},
-    onSelectionClear: () -> Unit = {},
     /** A tap while a passage is chosen: the anchor decides whether it survives. */
     onSelectionTap: (TextAnchor?) -> Unit = {},
     onHandleGrab: (SelectionEdge) -> Unit = {},

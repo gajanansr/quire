@@ -137,7 +137,4 @@ class PageTextMap {
     private fun bands(): List<Band> = entries.values.map {
         Band(it.blockIndex, it.topLeft.y, it.topLeft.y + it.size.height)
     }
-
-    /** The text of the block a point lands in, for expanding a press to a word. */
-    fun blockAt(point: Offset): Int? = anchorAt(point)?.blockIndex
 }
