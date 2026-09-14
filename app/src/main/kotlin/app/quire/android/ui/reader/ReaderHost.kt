@@ -411,11 +411,18 @@ fun ReaderHost(
                         // the lay-out finishes, for the same reason the prefetch does.
                         val more = ReaderWindow.extensionFor(base, layFor(chapter, prefs, view))
                         val now = state.window
-                        if (more != null && now.next == base.next) {
-                            state = ReaderTransitions.windowed(
-                                state, chapter, ReaderWindow.appended(now, more), key,
-                            )
-                        }
+                        // The current window unchanged when something else grew it
+                        // first, rather than skipping the transition: `windowed` is
+                        // also where taps queued during this run are applied, and
+                        // leaving them queued would spring them on the reader at the
+                        // next window event instead.
+                        val grown =
+                            if (more != null && now.next == base.next) {
+                                ReaderWindow.appended(now, more)
+                            } else {
+                                now
+                            }
+                        state = ReaderTransitions.windowed(state, chapter, grown, key)
                         // The step the reader asked for, taken against whatever the
                         // window is now — so a tap is still honoured when something
                         // else grew it first.
