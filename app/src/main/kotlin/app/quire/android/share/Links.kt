@@ -107,5 +107,5 @@ object QuireLinks {
  * they otherwise would at exactly the moment it matters — the first update.
  */
 object QuireRelease {
-    const val VERSION_NAME = "0.1.0"
+    const val VERSION_NAME = "0.2.0"
 }

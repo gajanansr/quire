@@ -19,8 +19,8 @@ plugins {
  * it without a commit: -PquireVersionCode / QUIRE_VERSION_CODE override, and the
  * literal below stays the human-readable default.
  */
-val defaultVersionCode = 1
-val defaultVersionName = "0.1.0"
+val defaultVersionCode = 2
+val defaultVersionName = "0.2.0"
 
 fun overridden(property: String, environment: String): String? =
     (providers.gradleProperty(property).orNull ?: System.getenv(environment))
