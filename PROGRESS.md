@@ -1934,16 +1934,32 @@ drag and brightness drag were three pointer-input modifiers each guessing on its
 they are one `awaitEachGesture` loop that classifies the drag once, from the first
 movement past touch slop, and then holds that classification — re-deciding every
 frame makes a diagonal drag flicker between turning and dimming. Ties go to the page
-turn, which is the commoner intent and the recoverable one. The long press needs no
-threshold of its own: Compose's detector cancels itself when the pointer passes slop.
-Handle drags are innermost and consume, which is the whole of their disambiguation.
+turn, which is the commoner intent and the recoverable one. Handle drags are innermost
+and consume, which is the whole of their disambiguation.
 
-**Two conflicts a detector could not have found on its own.** A long press on the
-right edge swept down the page *and* dimmed the screen, because the two look
-identical to anything watching only movement; a sweep in progress now stands the drag
-loop down, since a long press has already declared itself by being held. And a press
-held past the long-press timeout is no longer also a tap, so a long press that starts
-a selection cannot immediately clear it.
+**The long press is the one detector that cannot judge for itself, and I got that
+backwards.** Three comments and a plan bullet said Compose's long-press detector
+self-cancels past touch slop. It does not. `awaitLongPressOrCancellation` in
+foundation 1.12.1 watches only consumption, out-of-bounds and pointer-up — I
+disassembled it rather than argue from memory — and its timer is wall-clock, so it
+expires happily under a finger that has been sweeping for half a second. Nothing
+consumed a page-turn drag, so **a slow swipe popped a selection under the thumb
+mid-swipe and swallowed the page turn**. In practice Android apps are saved from this
+by `draggable` consuming past slop; this hand-rolled loop had to do the same. It now
+consumes the moment it has classified anything at all, `DragIntent.NONE` included.
+
+A wrong sentence that reads as a mechanism is worse than an admitted guess: it stops
+anyone checking. Recorded in full in the plan.
+
+**Three more conflicts of the same family.** A long press on the right edge swept the
+passage *and* dimmed the screen, since the two look identical to anything watching
+only movement — a sweep in progress now stands the drag loop down, because a long
+press has already declared itself by being held. A press held past the timeout is no
+longer also a tap, so a long press cannot immediately clear the selection it just
+made. And both hand-rolled loops now clean up in a `finally`: changing a pointer
+input's keys resets it by throwing straight through the block, so a repagination
+while a handle was held left the "a handle is held" flag set and **disabled
+long-press selection for the rest of the session**, silently.
 
 **Brightness.** A vertical drag on the right fifth moves the Reader window's own
 `screenBrightness`. The system setting is never written — that would need
@@ -1962,6 +1978,21 @@ worst one available — opening a book in daylight onto a screen dimmed for a da
 room, with the cure a gesture the reader cannot see to make. No settings column, so
 no Room migration, which also keeps out of the way of the schema work running in
 parallel.
+
+**And it is held in a plain `remember`, because `rememberSaveable` was quietly the
+persistence this decision rules out.** A rotation destroys the activity; `QuireRoot`
+holds the open book in a plain `remember`, so the reader comes back to the Library and
+the Reader never composes to consume the saved value. `SaveableStateRegistryImpl`
+re-saves an unconsumed entry on every save after that, so it lives on — and the next
+book opened, hours later, would have inherited a level chosen in another room. The
+exact failure the paragraph above says the design avoids, arrived at by the back door.
+
+**One more stale-state bug, found in the same pass.** `PageTextMap` was keyed on the
+page *number*. A typography change re-pages and lands the reader on the same index
+more often than not — always on a chapter's first page — so the map was reused with
+rows for blocks that had fallen off the page. A press low on the page could resolve
+into a block that was no longer on screen, light up, and **save a highlight against
+text the reader never touched**. Keyed on the page itself now.
 
 **860 JVM tests, 0 failures** — 67 new: 11 in `:core` for the selection model, and 56
 in `:app` across handle geometry, reader transitions, the brightness ramp and gesture

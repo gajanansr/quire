@@ -186,9 +186,19 @@ reader whose page turns when they meant to dim it.
 - [x] Ties go to the page turn. It is the commoner intent and the recoverable one.
 - [x] Tap, page-turn drag and brightness drag collapse into a single
       `awaitEachGesture` loop, so they cannot race each other.
-- [x] The long press keeps its own detector, which self-cancels the moment the
-      pointer travels past slop — that is what keeps a brightness drag from also
-      starting a selection, and it is a mechanism rather than a timing accident.
+- [x] The long press keeps its own detector, and the drag loop consumes as soon as it
+      has classified anything — that is what keeps a page-turn or brightness drag from
+      also starting a selection.
+
+      **This bullet was written wrong and the code followed it.** It said the
+      long-press detector self-cancels past touch slop. It does not:
+      `awaitLongPressOrCancellation` in foundation 1.12.1 watches only consumption,
+      out-of-bounds and pointer-up, and its timer is wall-clock, so it fires under a
+      finger that has been sweeping for half a second. Nothing consumed a page-turn
+      drag, so a slow swipe popped a selection mid-swipe and lost the page turn.
+      Consumption is the cancellation the detector *does* listen for; a `dragging`
+      flag says the same thing a second way. Recorded because the wrong version of
+      this sentence was in three comments as well, and read as a mechanism.
 - [x] Handle drags are innermost and consume, so they win over all of the above.
 - [x] Test: the axis decision at the boundaries, the edge strip, the slop threshold,
       and that a drag beginning off the right edge never dims.
