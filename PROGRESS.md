@@ -2306,7 +2306,7 @@ classification. No new dependencies, no version bumps, no manifest change.
 
 `agent/highlight-colours`, plan at
 `docs/superpowers/plans/2026-09-15-quire-highlight-colours.md`, six tasks, all ticked.
-**1052 JVM tests, 0 failures**, 47 of them new. No new dependencies, no version bumps,
+**1054 JVM tests, 0 failures**, 47 of them new. No new dependencies, no version bumps,
 no manifest change.
 
 Asked for on a real phone: *"the highlighter should have options and less opacity and
