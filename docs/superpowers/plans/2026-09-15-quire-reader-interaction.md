@@ -199,3 +199,25 @@ reader whose page turns when they meant to dim it.
       the finger lifts. No number, no dialog, nothing that survives the gesture.
 - [x] Test: the fade is time-driven and has nothing to assert; the level it draws is
       `ScreenBrightness`'s value, already tested.
+
+### Task 9: The hit test was aiming a status bar too high (found while building)
+
+Not planned, and the largest single cause of the complaint. A block registers
+`positionInRoot()`; a touch arrives in the coordinates of the composable that caught
+it. `QuireRoot` wraps the whole app in a `statusBarsPadding()`, so the Reader's
+surface begins a status bar below the root and the two spaces were never the same.
+Every touch was compared against text positions 70–140px taller than itself, so a
+long press took a word one to three lines above the finger.
+
+Handles cannot rescue a hit test that is aiming at the wrong line, which is why this
+belongs at the front of the list rather than at the end of it.
+
+**Files:** `ui/reader/PageTextMap.kt`, `ui/reader/ReaderScreen.kt`
+
+- [x] `PageTextMap.origin` holds where the page sits in the root, set from the Box
+      that catches the touches, and everything the map answers is stated in the page's
+      own coordinates.
+- [x] Setting it bumps `revision`, so a selection made before the origin was known is
+      re-measured rather than left drawing its handles in the wrong place.
+- [x] No test: there is no decision here to test, only two coordinate spaces that had
+      to be made one. It is first on the list of things to check with a finger.
