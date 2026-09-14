@@ -1,5 +1,6 @@
 package app.quire.android.ui.share
 
+import app.quire.android.ui.theme.ReaderFont
 import kotlin.math.floor
 
 /**
@@ -103,6 +104,21 @@ internal object QuoteFit {
     /** How many characters a line holds, at this size, on a card this wide. */
     fun charactersPerLine(fontSizeSp: Float, cardWidthDp: Float): Float =
         CardMetrics.of(cardWidthDp).contentWidthDp / (fontSizeSp * CHAR_EM)
+
+    /**
+     * Whether a passage set in [font] should be italic.
+     *
+     * A quote wants an italic, but only where there is one to use. Source Serif ships
+     * `source_serif_italic` and the platform's own family has a real italic face;
+     * Lora and Work Sans are bundled upright only, and Compose fills that gap by
+     * shearing the upright. A synthetic oblique at card sizes reads as a rendering
+     * fault rather than as a quotation, which is worse than an upright passage
+     * already sitting inside quotation marks.
+     */
+    fun isItalic(font: ReaderFont): Boolean = when (font) {
+        ReaderFont.SERIF, ReaderFont.SYSTEM -> true
+        ReaderFont.LORA, ReaderFont.SANS -> false
+    }
 
     fun of(passage: String, cardWidthDp: Float = REFERENCE_WIDTH_DP): Fit {
         val trimmed = passage.trim()

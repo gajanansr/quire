@@ -3,6 +3,7 @@ package app.quire.android.ui.share
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import app.quire.android.ui.theme.ReaderFont
 import org.junit.Test
 import kotlin.math.ceil
 
@@ -145,6 +146,19 @@ class QuoteFitTest {
         // the largest tier is what the reader was looking at when they said so.
         val fit = QuoteFit.of("Bagels, and how you pronounce them.", WIDTH)
         assertTrue("set at ${fit.fontSizeSp}sp on a ${WIDTH}dp card", fit.fontSizeSp < 20f)
+    }
+
+    @Test
+    fun `a passage is only italic in a face that ships an italic`() {
+        // The card is set in whatever the reader chose in the typography sheet, and
+        // only two of those four faces have an italic of their own. Where there is
+        // none Compose fills the gap by shearing the upright, and a synthetic oblique
+        // at card sizes reads as a rendering fault rather than as a quotation — which
+        // is worse than an upright quote inside quotation marks.
+        assertTrue("Source Serif ships an italic", QuoteFit.isItalic(ReaderFont.SERIF))
+        assertTrue("the platform face has a real italic", QuoteFit.isItalic(ReaderFont.SYSTEM))
+        assertFalse("Lora is bundled upright only", QuoteFit.isItalic(ReaderFont.LORA))
+        assertFalse("Work Sans is bundled upright only", QuoteFit.isItalic(ReaderFont.SANS))
     }
 
     /**

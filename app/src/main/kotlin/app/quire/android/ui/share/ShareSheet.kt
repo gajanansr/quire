@@ -60,6 +60,7 @@ import app.quire.android.ui.theme.Quire
 import app.quire.android.ui.theme.QuireIcon
 import app.quire.android.ui.theme.QuireIcons
 import app.quire.android.ui.theme.QuireShapes
+import app.quire.android.ui.theme.ReaderFont
 import app.quire.android.ui.theme.SourceSerif
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -73,6 +74,20 @@ sealed interface ShareCard {
         val author: String?,
         val text: String,
         val chapterLabel: String,
+        /**
+         * The face the reader was reading this passage in.
+         *
+         * A quote card is *their* passage, so it is set in the face they chose in the
+         * typography sheet rather than in whatever the card was hardcoded to. It
+         * travels on the card rather than as a parameter of the sheet because the
+         * sheet is hosted in `QuireRoot`, which has no reader and no business knowing
+         * about reading preferences — and because the only route that has an answer is
+         * the Reader, which is also the only route that builds this.
+         *
+         * [ReaderFont.SERIF] for the routes with no reader at all: a book's
+         * description from Book Details, and a saved bookmark.
+         */
+        val font: ReaderFont = ReaderFont.SERIF,
     ) : ShareCard
 
     data class Streak(
@@ -443,8 +458,17 @@ private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
                 Text(
                     text = "“${fit.text}”",
                     color = palette.ink,
-                    fontFamily = SourceSerif,
-                    fontStyle = FontStyle.Italic,
+                    // The reader's own face, not the card's. A quote card is their
+                    // passage; setting it in a face they did not choose makes it a
+                    // picture of Quire's opinion instead. The wordmark below stays
+                    // Source Serif — that is Quire's mark, and a brand line that
+                    // changes typeface with a preference is not a brand line.
+                    fontFamily = card.font.family(),
+                    fontStyle = if (QuoteFit.isItalic(card.font)) {
+                        FontStyle.Italic
+                    } else {
+                        FontStyle.Normal
+                    },
                     fontSize = with(density) { fit.fontSizeSp.dp.toSp() },
                     lineHeight = with(density) {
                         (fit.fontSizeSp * QuoteFit.LINE_HEIGHT).dp.toSp()

@@ -422,4 +422,7 @@ private fun quoteOf(state: ReaderState, text: String) = ShareCard.Quote(
     chapterLabel = state.chapterTitle
         ?.takeIf { it.isNotBlank() && !it.trim().all { c -> c.isDigit() } }
         ?: "Chapter ${state.chapterIndex + 1}",
+    // The card is set in the face the reader is reading in. This is the only route to
+    // the share sheet that has an answer; the others take the default.
+    font = state.preferences.font,
 )

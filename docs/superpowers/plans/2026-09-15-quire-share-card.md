@@ -144,11 +144,11 @@ an italic.
 **Files:** `ui/share/ShareSheet.kt`, `ui/share/QuoteFit.kt`,
 `ui/reader/ReaderHost.kt`, `test/ui/share/QuoteFitTest.kt`
 
-- [ ] `ShareCard.Quote` carries the `ReaderFont` it was chosen in, defaulting to
+- [x] `ShareCard.Quote` carries the `ReaderFont` it was chosen in, defaulting to
       `SERIF` for the routes that have no reader — a book's description, a bookmark.
-- [ ] `ReaderHost.quoteOf` fills it from `state.preferences.font`. One line; nothing
+- [x] `ReaderHost.quoteOf` fills it from `state.preferences.font`. One line; nothing
       else in `ReaderHost` or `QuireRoot` moves.
-- [ ] Test: `QuoteFit.isItalic` is true only for the face that ships an italic.
+- [x] Test: `QuoteFit.isItalic` is true only for the face that ships an italic.
 
 ### Task 5: Save still behaves
 
