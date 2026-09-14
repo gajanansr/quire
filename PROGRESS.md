@@ -1923,6 +1923,11 @@ by the same books: the one-chapter TXT and the reflowed PDF are where N gets lar
 whole text to ask whether it was blank — `plainText` again, on a path `ReaderScreen`
 runs per drawn slice per recomposition.
 
+In milliseconds, on a warmed JVM with a trivial measurer, so this is the *scan* alone
+and sits on top of whatever real text measurement costs: 0.7 → 0.4 at 500 blocks,
+2.0 → 0.8 at 1,000, 6.3 → 1.5 at 2,000, and **20.0 → 1.8 at 4,000**. The curve is the
+point rather than the numbers.
+
 **Three scheduling faults, one symptom.**
 
 *The cache could never hit.* The first-page header inset was taken from the open
