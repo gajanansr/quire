@@ -3,9 +3,10 @@
 > **For agentic workers:** steps use checkbox (`- [x]`) syntax. Gate on
 > `./scripts/check.sh` before every commit. Never commit red.
 >
-> **Complete.** 420 `:core` + 659 `:app` tests, 0 failures. Reviewed, and seven
-> findings addressed — two of them blocking, both races between a page turn and a
-> lay-out. Nine things the plan did not foresee are corrected in place and marked:
+> **Complete.** 420 `:core` + 661 `:app` tests, 0 failures. Reviewed twice, and every
+> finding addressed — two blocking races between a page turn and a lay-out, and one
+> real hole in the identity theorem that a constructed fixture then failed on. Eleven
+> things the plan did not foresee are corrected in place and marked:
 >
 > 1. Where a backward seam puts the reader — the plan's answer skipped most of a page.
 > 2. The window anchor has to be snapped to a grid, or reopening walks the book
@@ -25,7 +26,11 @@
 > 8. The identity theorem has an unstated precondition in `measureWindow`'s doubling;
 >    it is pinned at 110 characters a line.
 > 9. A viewport shorter than one line of a mid-chapter block looped for ever. Fixing
->    it also closed the one hole that had been documented in the identity.
+>    it also closed one of the two holes in the identity.
+> 10. The other hole was real: `measureWindow`'s stop rule let the learned line length
+>    move a page break at a seam. The rule is fixed, not the fixture.
+> 11. Cashing a queued tap inside `windowed` let a background prefetch take a turn the
+>    reader made a dozen pages earlier. The tap path applies them itself now.
 
 **Goal:** *The Love Hypothesis* — a 315-page PDF with no usable outline, imported as
 **one chapter of 8,621 blocks and 565,896 characters** — must open at once and must
