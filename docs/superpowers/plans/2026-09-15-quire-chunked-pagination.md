@@ -3,7 +3,7 @@
 > **For agentic workers:** steps use checkbox (`- [x]`) syntax. Gate on
 > `./scripts/check.sh` before every commit. Never commit red.
 >
-> **Complete.** 418 `:core` + 653 `:app` tests, 0 failures. Five things the plan did
+> **Complete.** 418 `:core` + 656 `:app` tests, 0 failures. Five things the plan did
 > not foresee are corrected in place and marked:
 >
 > 1. Where a backward seam puts the reader — the plan's answer skipped most of a page.

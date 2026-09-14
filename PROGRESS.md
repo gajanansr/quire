@@ -2306,7 +2306,7 @@ classification. No new dependencies, no version bumps, no manifest change.
 
 `agent/chunked-pagination`, plan at
 `docs/superpowers/plans/2026-09-15-quire-chunked-pagination.md`, eight tasks, all
-ticked. **1,071 JVM tests (418 `:core` + 653 `:app`), 0 failures**, 64 added.
+ticked. **1,074 JVM tests (418 `:core` + 656 `:app`), 0 failures**, 67 added.
 
 *The Love Hypothesis*, a 315-page PDF, imports as **one chapter: 8,621 blocks,
 565,896 characters**. Its outline is unusable, so `ChapterDetector` correctly falls
