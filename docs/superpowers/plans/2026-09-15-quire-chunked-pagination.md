@@ -117,7 +117,7 @@ whole-chapter pagination is in at that boundary:
 | `spacing` | `0f` mid-block; `spacingAbovePx(isFirstOnPage = true)` = `0f` between blocks | `spacingAbovePx(isFirstOnPage = true)` = `0f` |
 | indent | suppressed for `startChar > 0` | same function, same arguments |
 | raised initial | suppressed for `startChar > 0` | same function, same arguments |
-| `charsPerLine` | learned | reset — changes how many `measure` calls, never where a line breaks* |
+| `charsPerLine` | learned | reset — changes how many `measure` calls, never where a line breaks (after the fix below) |
 
 Two edges need care and get it in Task 2:
 
@@ -137,13 +137,23 @@ Two edges need care and get it in Task 2:
   short for a single line terminates instead of hanging` bounds the run through
   `isActive`, so a regression fails the gate rather than hanging it.
 
-\* **Nearly unconditional, and a review found the condition.** `measureWindow` stops
-at the first window in its doubling sequence that overflows the page, so whether it
-reports `reachedEnd` — which gates the widow pull-back — depends on where the doubling
-lands. An assumed 80 characters a line sitting at 0.71–0.74 of the real figure can
-therefore break one page differently. Unreachable as shipped, because `Measure.widthPx`
-caps a column at 66 characters, but nothing in the code ties those two constants
-together. The theorem is now also run at 110 characters a line, inside that band.
+**The last row was false when the plan was written, and a review found it by reading.**
+`measureWindow` stopped at the first window in its doubling sequence that overflowed the
+page, so whether it reported `reachedEnd` — which is what gates the widow pull-back —
+depended on where the doubling landed, and the learned line length is the one thing a
+chunk starts fresh with. Argued to be unreachable as shipped, because `Measure.widthPx`
+caps a column at 66 characters while the estimate starts at 80. **Pinned anyway, and it
+failed on the first run**: a fixture at 110 characters a line whose every paragraph is
+exactly one line longer than a page had whole-chapter cutting a block at 24 lines and a
+fresh chunk at 25.
+
+Fixed in the rule rather than in the fixture. A window is returned only when it reached
+the end **or** shows at least `MIN_FRAGMENT_LINES` more lines than the page holds — a
+window one line past is precisely the case in which the widow decision needs to know
+what comes next, and one showing two or more past needs no widening because the
+remainder is already too big to pull back. One extra measurement in a narrow case, and
+the estimate cannot move a page break at all: the identity is unconditional rather than
+argued.
 
 `ChunkedPaginationTest` asserts the theorem directly: chunk the chapter at every
 budget from 1 page to 40, and compare the concatenated page list to
