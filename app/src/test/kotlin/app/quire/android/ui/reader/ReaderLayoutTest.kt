@@ -247,6 +247,31 @@ class ReaderLayoutTest {
         assertFalse(ReaderLayout.mayGrowWindow(ReaderState(), viewport, settings(19f)))
     }
 
+    @Test
+    fun `a re-anchored window is adopted only if the reader has not moved`() {
+        // A backward re-anchor re-tiles the text and chooses which page of the new
+        // tiling to stand on, against the window it started from. Two ways that went
+        // wrong: a reader who tapped back and then forward was dragged backwards past
+        // the page they had just turned to, and two quick taps back launched two runs
+        // from the same window — the same answer twice, so two taps moved them one
+        // page. Queued now, and applied on top of the run in flight.
+        val base = WindowedPages(TextAnchor(4, 0), pages(6), next = null, pageIndex = 0)
+        val standing = ReaderState(windowStart = base.start, pageIndex = 0)
+        assertTrue(ReaderLayout.mayAdoptReanchor(standing, base))
+        assertFalse(
+            "a turn made during the re-anchor was written back over",
+            ReaderLayout.mayAdoptReanchor(standing.copy(pageIndex = 1), base),
+        )
+        assertFalse(
+            "a window replaced during the re-anchor was written back over",
+            ReaderLayout.mayAdoptReanchor(standing.copy(windowStart = TextAnchor(9, 0)), base),
+        )
+    }
+
+    private fun pages(n: Int) = List(n) { app.quire.core.paginate.Page(
+        listOf(app.quire.core.paginate.PageSlice(it, 0, 10)),
+    ) }
+
     // ------------------------------------------------------------- when it may run
 
     @Test

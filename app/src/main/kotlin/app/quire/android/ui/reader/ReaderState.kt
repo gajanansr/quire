@@ -416,8 +416,16 @@ object ReaderTransitions {
         layout: LayoutKey?,
     ): ReaderState {
         if (state.chapter !== chapter) return state.copy(preferences = preferences)
+        // Placed against the state this lands in, not the one the lay-out started
+        // from. The window carries the page index it was *built* for, and laying one
+        // out takes long enough for a reader to turn a page meanwhile — writing that
+        // index back put them silently where they were when it began. On `main` this
+        // was `pages.pageContaining(state.position)` for the same reason, and losing
+        // it while moving to windows was a regression rather than a change.
+        val placed =
+            if (chapter == null) window else ReaderWindow.placedAt(chapter, window, state.position)
         return withPendingTurnsApplied(
-            state.withWindow(window, layout).copy(preferences = preferences),
+            state.withWindow(placed, layout).copy(preferences = preferences),
         )
     }
 
@@ -438,7 +446,12 @@ object ReaderTransitions {
         layout: LayoutKey?,
     ): ReaderState {
         if (state.chapter !== chapter) return state
-        return state.withWindow(window, layout)
+        // Turns made while this window was being laid out are applied on top of it.
+        // The page it puts the reader on is the answer to the tap that started the
+        // run; taps made *during* the run are queued rather than launching a second
+        // run of their own, because two runs from the same window compute the same
+        // answer and the second tap would do nothing at all.
+        return withPendingTurnsApplied(state.withWindow(window, layout))
     }
 
     /**

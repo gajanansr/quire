@@ -153,6 +153,27 @@ object ReaderLayout {
     ): Boolean = state.chapter != null && state.windowLayout == LayoutKey(viewport, settings)
 
     /**
+     * Whether a re-anchored window may be adopted.
+     *
+     * Only when the reader has not moved since it was started. A backward re-anchor
+     * re-tiles the text and chooses which page of the new tiling to stand on, and
+     * that choice was made against the window it began from — so it cannot be rebased
+     * onto a different one the way an append can. Two things made it wrong to write
+     * back regardless:
+     *
+     * - A reader who tapped back and then *forward* while the re-anchor ran was
+     *   dragged backwards past the page they had just turned to.
+     * - Two quick taps back launched two runs from the same window, which computed the
+     *   same answer, so two taps moved the reader one page. They are queued now, and
+     *   `ReaderTransitions.windowed` applies them on top of the run that is in flight.
+     *
+     * Dropping it costs the tap nothing the reader can see: the window is unchanged,
+     * so the next tap starts the same run again from where they now are.
+     */
+    fun mayAdoptReanchor(state: ReaderState, base: WindowedPages): Boolean =
+        state.windowStart == base.start && state.pageIndex == base.pageIndex
+
+    /**
      * Height the chapter header will take on the first page.
      *
      * Estimated rather than measured: measuring it would mean composing before

@@ -56,17 +56,21 @@ class ReaderStateTest {
     }
 
     /**
-     * A freshly laid-out page list, with the reader put back on their own sentence.
+     * A freshly laid-out page list, as one arrives from a repagination.
      *
-     * What `ReaderWindow` does for real: the page index is meaningless across a
-     * repagination, so it is derived from the character offset every time.
+     * **Page zero, deliberately.** A window carries the index it was *built* for, and
+     * `repaginated` must not trust it: laying a long chapter out takes long enough for
+     * the reader to turn a page meanwhile, and writing the stale index back puts them
+     * where they were when it started. Handing these tests a finished page index would
+     * make every one of them assert only that `repaginated` copies a number it was
+     * given — which is what they briefly did, and it is precisely the property that
+     * had regressed.
      */
     private fun ReaderState.windowOf(
         newPages: List<Page>,
-        at: ReadingPosition = position,
         start: TextAnchor = windowStart,
         next: TextAnchor? = windowNext,
-    ) = WindowedPages(start, newPages, next, newPages.pageContaining(at))
+    ) = WindowedPages(start, newPages, next, pageIndex = 0)
 
     // ------------------------------------------------------------- page turns
 
@@ -155,8 +159,7 @@ class ReaderStateTest {
         val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = true)
         val chapter = queued.chapter!!
         val settled = ReaderTransitions.openedChapter(
-            queued, chapter, queued.windowOf(longState().pages, at = ReadingPosition.START),
-            at = ReadingPosition.START,
+            queued, chapter, queued.windowOf(longState().pages), at = ReadingPosition.START,
         )
         assertEquals(1, settled.pageIndex)
         assertEquals(0, settled.pendingTurns)
@@ -295,6 +298,42 @@ class ReaderStateTest {
     }
 
     @Test
+    fun `taps made while a window was growing are applied when it lands`() {
+        // A tap at the edge of the window starts one run. Taps made while it is in
+        // flight do not start more — two runs from the same window compute the same
+        // answer, so the second tap would move the reader nowhere. They are queued,
+        // and the window that arrives applies them on top of the page it chose.
+        val s = state(text = lorem.repeat(200))
+        var waiting = ReaderTransitions.queuedTurn(s, forward = true)
+        waiting = ReaderTransitions.queuedTurn(waiting, forward = true)
+
+        val landed = ReaderTransitions.windowed(waiting, waiting.chapter, s.window, layout = null)
+
+        assertEquals("two taps during a run moved the reader one page", 2, landed.pageIndex)
+        assertEquals(0, landed.pendingTurns)
+    }
+
+    @Test
+    fun `a page turned while the chapter was being re-laid out is not reverted`() {
+        // Laying a long chapter out takes seconds, and the reader can turn a page in
+        // them — the pages in hand are still good, so the turn is taken at once. The
+        // window that then lands carries the page index it was *built* for, a second
+        // earlier, and adopting that index silently puts the reader back where they
+        // started. Resolved against the state it lands in instead.
+        val s = state(text = lorem.repeat(200))
+        val started = s.window
+        val turned = ReaderTransitions.nextPage(ReaderTransitions.nextPage(s)!!)!!
+        val where = turned.position
+
+        val late = ReaderTransitions.repaginated(
+            turned, turned.chapter, started, turned.preferences, layout = null,
+        )
+
+        assertEquals("the reader was dragged back two pages", where, late.position)
+        assertEquals(turned.pageIndex, late.pageIndex)
+    }
+
+    @Test
     fun `pages laid out for a chapter the reader has left are discarded`() {
         // Laying out a long chapter takes seconds, and the Contents sheet loads a
         // chapter in a coroutine the repagination effect does not cancel. Accepting
@@ -332,7 +371,7 @@ class ReaderStateTest {
             chosen, viewport, s.preferences.toSettings(pixelsPerSp = 1f),
         )
 
-        val after = ReaderTransitions.openedChapter(s, chosen, s.windowOf(pages, at = ReadingPosition.START), at = null)
+        val after = ReaderTransitions.openedChapter(s, chosen, s.windowOf(pages), at = null)
 
         assertEquals("the queued taps were carried into a chosen chapter", 0, after.pageIndex)
         assertEquals(0, after.pendingTurns)
@@ -393,7 +432,10 @@ class ReaderStateTest {
         val target = s.pages[2].slices.first()
         val at = ReadingPosition(0, target.blockIndex, target.startChar)
         val opened = ReaderTransitions.openedChapter(
-            ReaderState(), s.chapter!!, s.windowOf(s.pages, at = at), at,
+            ReaderState(), s.chapter!!,
+            // Opening resolves the place itself, before the state exists to resolve
+            // it against, so the window arrives already placed.
+            s.windowOf(s.pages).copy(pageIndex = s.pages.pageContaining(at)), at,
         )
         assertEquals(2, opened.pageIndex)
         assertFalse(opened.loading)
@@ -403,7 +445,7 @@ class ReaderStateTest {
     fun `opening a chapter with no saved position starts at the beginning`() {
         val s = state()
         val opened = ReaderTransitions.openedChapter(
-            ReaderState(), s.chapter!!, s.windowOf(s.pages, at = ReadingPosition.START), null,
+            ReaderState(), s.chapter!!, s.windowOf(s.pages), null,
         )
         assertEquals(0, opened.pageIndex)
         assertNotNull(opened.chapter)

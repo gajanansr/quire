@@ -227,6 +227,24 @@ object ReaderWindow {
         trimmedFront(w.copy(pages = w.pages + more.pages, next = more.next))
 
     /**
+     * The same pages, with the reader standing at [at].
+     *
+     * A window carries the page index it was *built* for, and laying one out takes
+     * long enough for that index to be stale before it lands — a reader who turns a
+     * page while a repagination runs would otherwise be put back where they started.
+     * So the index is resolved again, against the state the window is adopted into.
+     *
+     * By offset rather than through `pageContaining`, which falls back to page zero
+     * when it cannot place a position. A window is a *part* of the chapter, so "not
+     * in these pages" is now an ordinary answer rather than a corrupt one, and
+     * answering it with the chapter's beginning would throw the reader to the top of
+     * a window they had just read past. The last page beginning at or before them is
+     * the nearest honest answer, and the prefetch extends from there.
+     */
+    fun placedAt(chapter: Chapter, w: WindowedPages, at: ReadingPosition): WindowedPages =
+        w.copy(pageIndex = pageHolding(chapter, w.pages, chapter.offsetOf(at.blockIndex, at.charOffset)))
+
+    /**
      * A page turn backwards off the front of the window.
      *
      * This re-tiles the text from a new start, and it is the only operation here that
@@ -271,13 +289,20 @@ object ReaderWindow {
         // that landed the reader back on page zero would re-tile the chapter and give
         // them nothing for it, and the next tap would do it again.
         var reach = charsBehind.coerceAtLeast(1)
+        var last: WindowedPages? = null
         repeat(RE_ANCHOR_ATTEMPTS) {
             val start = startAt(chapter, was - reach)
             val out = laidOutFrom(chapter, start, was - 1, lay)
+            last = out
             if (out.pageIndex > 0 || start == TextAnchor(0, 0)) return out
             reach *= 2
         }
-        return w
+        // Every attempt left the reader on the window's first page, which means the
+        // estimate of what a page holds is far out. The last one is taken anyway
+        // rather than returning the window unchanged: it still begins before they did,
+        // so the tap moves them somewhere, and the next tap re-anchors again from
+        // there. A page turn that silently does nothing is the worse failure.
+        return last ?: w
     }
 
     // ------------------------------------------------------------- the plumbing

@@ -97,6 +97,15 @@ fun ReaderHost(
      */
     var typographyLoaded by remember(bookId) { mutableStateOf(false) }
 
+    /**
+     * Whether a window is being grown or re-anchored right now.
+     *
+     * A tap made while one is in flight is remembered rather than launching a second
+     * run: two runs started from the same window compute the same answer, so the
+     * second tap would move the reader nowhere. Queued, two taps move them two pages.
+     */
+    var growingWindow by remember(bookId) { mutableStateOf(false) }
+
     val composeMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val fontResolver = LocalFontFamilyResolver.current
@@ -126,7 +135,17 @@ fun ReaderHost(
      * dispatchers or device pixels — which is what lets every rule about where a
      * window starts and when it grows be tested on a JVM.
      */
-    fun layFor(chapter: Chapter, prefs: ReaderPreferences): suspend (TextAnchor, Int) -> PageWindow =
+    fun layFor(
+        chapter: Chapter,
+        prefs: ReaderPreferences,
+        /**
+         * Captured, not read per call. A single window is laid out in up to five
+         * runs; a rotation between two of them would concatenate pages set in two
+         * different columns into one list, and the reader's place is then resolved
+         * against breaks that belong to neither.
+         */
+        view: Viewport,
+    ): suspend (TextAnchor, Int) -> PageWindow =
         { from, maxPages ->
             chapterPaginator.windowFor(
                 chapter,
@@ -136,13 +155,13 @@ fun ReaderHost(
                 // — nearly always zero — while the renderer drew a header the
                 // pagination had made no room for.
                 ReaderLayout.requestFor(
-                    chapter, from, maxPages, viewport, prefs, pixelsPerSp, pixelsPerDp,
+                    chapter, from, maxPages, view, prefs, pixelsPerSp, pixelsPerDp,
                 ),
             )
         }
 
-    fun charsBehind(prefs: ReaderPreferences) =
-        ReaderWindow.charsBehind(viewport, prefs.toSettings(pixelsPerSp))
+    fun charsBehind(prefs: ReaderPreferences, view: Viewport) =
+        ReaderWindow.charsBehind(view, prefs.toSettings(pixelsPerSp))
 
     /**
      * @param atEnd open at the chapter's final character rather than at [at].
@@ -153,12 +172,19 @@ fun ReaderHost(
      *   it twice to work out where it ends is not a rounding error.
      */
     suspend fun loadChapter(index: Int, at: ReadingPosition?, atEnd: Boolean = false) {
+        // Read before the suspending work, and used for the lay-out *and* the key it
+        // is stamped with. Read again afterwards, a reader who stepped the type size
+        // while the chapter loaded would leave the state claiming pages match a
+        // typography they were never laid out for — which is the one thing LayoutKey
+        // exists to make impossible.
+        val prefs = state.preferences
+        val view = viewport
         val entity = repository.find(bookId) ?: return
         val chapter: Chapter = repository.loadChapter(bookId, index) ?: return
         val opensAt = if (!atEnd) at else chapter.cursorAt(chapter.textLength)
             .let { ReadingPosition(index, it.blockIndex, it.charOffset) }
         val window = ReaderWindow.openAt(
-            chapter, opensAt, charsBehind(state.preferences), layFor(chapter, state.preferences),
+            chapter, opensAt, charsBehind(prefs, view), layFor(chapter, prefs, view),
         )
         state = ReaderTransitions.openedChapter(
             state.copy(
@@ -168,7 +194,7 @@ fun ReaderHost(
                 chapterCount = entity.chapterCount,
                 bookTotalChars = entity.totalChars,
             ),
-            chapter, window, opensAt, LayoutKey(viewport, state.preferences.toSettings(pixelsPerSp)),
+            chapter, window, opensAt, LayoutKey(view, prefs.toSettings(pixelsPerSp)),
         )
     }
 
@@ -202,7 +228,8 @@ fun ReaderHost(
                 // around the reader: a start that moved on every tap of the stepper
                 // would re-tile the pages under them each time.
                 val window = ReaderWindow.relaidOut(
-                    step.chapter, state.window, layFor(step.chapter, state.preferences),
+                    step.chapter, state.window,
+                    layFor(step.chapter, state.preferences, viewport),
                 )
                 // Named, so `repaginated` can refuse pages laid out for a chapter the
                 // reader has since left: the Contents sheet loads one in a coroutine
@@ -240,8 +267,9 @@ fun ReaderHost(
         if (!wantsMore || !typographyLoaded) return@LaunchedEffect
         val chapter = state.chapter ?: return@LaunchedEffect
         val from = state.windowNext ?: return@LaunchedEffect
-        val more = ReaderWindow.extensionFor(state.window, layFor(chapter, state.preferences))
-            ?: return@LaunchedEffect
+        val more = ReaderWindow.extensionFor(
+            state.window, layFor(chapter, state.preferences, viewport),
+        ) ?: return@LaunchedEffect
         // Appended to the window as it is *now*, not as it was when the lay-out
         // started. The reader is three pages from the edge and reading, so they turn
         // pages while this runs; writing back the window captured before it would put
@@ -353,39 +381,61 @@ fun ReaderHost(
         // book that has only one.
         val chapter = state.chapter
         if (chapter != null && !(if (forward) state.atChapterEnd else state.atChapterStart)) {
-            // The pages in hand are about to be replaced by a repagination, so growing
-            // them would mix two type sizes in one page list. Remember the tap instead
-            // of swallowing it — `repaginated` applies it when the new pages land.
-            if (!ReaderLayout.mayGrowWindow(state, viewport, layoutSettings)) {
+            // Two reasons to remember the tap rather than act on it, and neither may
+            // swallow it — `windowed` and `repaginated` both apply what is queued.
+            //
+            // - The pages in hand are about to be replaced by a repagination, so
+            //   growing them would mix two type sizes in one page list.
+            // - A run is already in flight. A second tap would start a second run from
+            //   the *same* window, which computes the same answer — so two taps would
+            //   move the reader one page. Queued, they move them two.
+            if (growingWindow || !ReaderLayout.mayGrowWindow(state, viewport, layoutSettings)) {
                 state = ReaderTransitions.queuedTurn(state, forward)
                 tracker.record()
                 return
             }
+            // Read once and used throughout: the reader can step the type size or
+            // rotate the phone while this runs, and laying out against one viewport
+            // and stamping the result with another is how a window comes to claim
+            // pages it does not have.
+            val prefs = state.preferences
+            val view = viewport
+            val key = LayoutKey(view, layoutSettings)
+            growingWindow = true
             scope.launch {
-                val grown = if (forward) {
-                    // Normally already done by the prefetch effect; this is the reader
-                    // outrunning it. Appended to the window as it is when the lay-out
-                    // finishes, for the same reason the prefetch does.
-                    val from = state.windowNext
-                    val more = ReaderWindow.extensionFor(
-                        state.window, layFor(chapter, state.preferences),
-                    )
-                    val now = state.window
-                    if (more == null || now.next != from) now
-                    else ReaderWindow.appended(now, more)
-                } else {
-                    ReaderWindow.turnedBack(
-                        chapter, state.window, charsBehind(state.preferences),
-                        layFor(chapter, state.preferences),
-                    )
+                try {
+                    val base = state.window
+                    if (forward) {
+                        // Normally already done by the prefetch effect; this is the
+                        // reader outrunning it. Appended to the window as it is when
+                        // the lay-out finishes, for the same reason the prefetch does.
+                        val more = ReaderWindow.extensionFor(base, layFor(chapter, prefs, view))
+                        val now = state.window
+                        if (more != null && now.next == base.next) {
+                            state = ReaderTransitions.windowed(
+                                state, chapter, ReaderWindow.appended(now, more), key,
+                            )
+                        }
+                        // The step the reader asked for, taken against whatever the
+                        // window is now — so a tap is still honoured when something
+                        // else grew it first.
+                        ReaderTransitions.nextPage(state)?.let { state = it }
+                    } else {
+                        val back = ReaderWindow.turnedBack(
+                            chapter, base, charsBehind(prefs, view), layFor(chapter, prefs, view),
+                        )
+                        // A re-anchor cannot be rebased the way an append can: the page
+                        // it chose was chosen against the window it started from. If
+                        // the reader moved meanwhile, it is dropped rather than written
+                        // back over them — turning forward during a re-anchor used to
+                        // drag them backwards past where they had just gone.
+                        if (ReaderLayout.mayAdoptReanchor(state, base)) {
+                            state = ReaderTransitions.windowed(state, chapter, back, key)
+                        }
+                    }
+                } finally {
+                    growingWindow = false
                 }
-                state = ReaderTransitions.windowed(
-                    state, chapter, grown, LayoutKey(viewport, layoutSettings),
-                )
-                // Forward across a seam still has to take the step the reader asked
-                // for; `turnedBack` has already taken it, by choosing which page of
-                // the re-anchored window to stand on.
-                if (forward) ReaderTransitions.nextPage(state)?.let { state = it }
                 tracker.record()
                 persist()
             }
