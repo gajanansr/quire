@@ -101,6 +101,19 @@ data class AppSettingsEntity(
     val booksFinished: Int = 0,
     val chaptersFinished: Int = 0,
     val onboarded: Boolean = false,
+    /**
+     * Whether the reader has been through the opening guide.
+     *
+     * Separate from [onboarded], which is only set once a goal has been chosen. A
+     * reader who read the guide and then closed Quire before the goal picker would
+     * otherwise be shown the whole thing again on their next launch, and "never
+     * shown twice" would be true only for people who finished the flow in one
+     * sitting.
+     *
+     * [MIGRATION_6_7] seeds it from `onboarded`, so nobody already using Quire is
+     * greeted by a tour of an app they have had for months.
+     */
+    val guideSeen: Boolean = false,
 
     // ------------------------------------------------------------- reminders
 

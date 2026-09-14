@@ -139,7 +139,7 @@ interface SettingsDao {
         BookEntity::class, ReadingProgressEntity::class, BookmarkEntity::class,
         ReadingDayEntity::class, AppSettingsEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class QuireDatabase : RoomDatabase() {
@@ -150,6 +150,29 @@ abstract class QuireDatabase : RoomDatabase() {
     abstract fun settings(): SettingsDao
 
     companion object {
+        /**
+         * Adds the flag that says the opening guide has been through.
+         *
+         * Seeded from `onboarded` rather than left at its default, and that line is
+         * the whole point of the migration. The column's Kotlin default is `false`,
+         * which is right for a fresh install and catastrophic for an upgrade: every
+         * reader who has had Quire for months would open it after an update and be
+         * greeted by a three-page tour of an app they already know. `guideSeen =
+         * onboarded` says the true thing — anyone who got as far as choosing a goal
+         * has already been introduced.
+         *
+         * Separate from `onboarded` going forward because the two answer different
+         * questions. `onboarded` is only set once a goal is chosen; `guideSeen` is
+         * set the moment the guide is finished or skipped, so a reader who closes
+         * Quire in between is not shown the guide a second time.
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE app_settings ADD COLUMN guideSeen INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE app_settings SET guideSeen = onboarded")
+            }
+        }
+
         /**
          * Adds the reminder settings.
          *
