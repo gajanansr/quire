@@ -7,7 +7,6 @@ import app.quire.core.paginate.Page
 import app.quire.core.paginate.PageWindow
 import app.quire.core.paginate.TypographySettings
 import app.quire.core.paginate.Viewport
-import app.quire.core.paginate.pageContaining
 import app.quire.core.reading.TextAnchor
 
 /**
@@ -50,11 +49,10 @@ data class WindowedPages(
  *
  * The fourth, [turnedBack], is the one that re-tiles, and it cannot not — pages must
  * tile the text, so pages *before* a place have to end exactly at it, and pagination
- * only runs forwards. What it guarantees instead is that the reader is shown the page
- * whose text ends exactly where the page they were on began: nothing skipped, nothing
- * repeated, and no short page. It is also the only operation that never runs
- * speculatively, because moving a page under a reader who did not ask is the one
- * thing a prefetch must not do.
+ * only runs forwards. What it guarantees instead is that **nothing is skipped**: the
+ * page the reader is given begins before them and runs to at least where they were.
+ * It is also the only operation that never runs speculatively, because moving a page
+ * under a reader who did not ask is the one thing a prefetch must not do.
  */
 object ReaderWindow {
 
@@ -91,9 +89,9 @@ object ReaderWindow {
      * How far back a window starts, in characters.
      *
      * [PAGES_BEHIND] pages' worth, at an estimate of what a page holds. The estimate
-     * decides only where laying out begins; the reader is always placed by
-     * `pageContaining` against real page breaks, so an estimate that is out by a third
-     * costs a few pages of room and nothing else.
+     * decides only where laying out begins; the reader is always placed against real
+     * page breaks, so an estimate that is out by a third costs a few pages of room
+     * either way and nothing else.
      */
     fun charsBehind(viewport: Viewport, settings: TypographySettings): Int =
         PAGES_BEHIND * Measure.charsPerPage(viewport, settings)
@@ -126,8 +124,35 @@ object ReaderWindow {
     ): WindowedPages {
         val offset =
             if (at == null) 0 else chapter.offsetOf(at.blockIndex, at.charOffset)
-        val start = chapter.cursorAt((offset - charsBehind).coerceAtLeast(0))
+        val start = chapter.cursorAt(anchorOffset(offset, charsBehind))
         return laidOutFrom(chapter, start, offset, lay)
+    }
+
+    /**
+     * Where a window opened at [offset] starts, snapped to a grid.
+     *
+     * **The snap is what stops a book walking backwards.** Where the window starts
+     * decides where every page in it breaks, so a start taken as "exactly
+     * [charsBehind] before the reader" is a different start every time the reader is
+     * in a different place — and the place the Reader saves is the top of the page
+     * they were on. Reopen, and that saved place lands in the middle of a page of the
+     * new tiling, so the top of *that* page is a little earlier, and the next session
+     * saves that. Caught by `ResumeLoopTest`: a book reopened at (219, 480) came back
+     * at (218, 640), and every open would have taken it back another fraction of a
+     * page.
+     *
+     * Snapped, the anchor is the same for every place inside a band, so the tiling is
+     * the same, so a saved page top is still a page top and the reader does not move
+     * at all. It settles rather than drifts even at a band edge: one step of less than
+     * a page, into a band it is then well inside.
+     *
+     * Two bands back rather than one, so the reader sits between [PAGES_BEHIND] and
+     * one and a half times it into the window — room to turn back, and still inside
+     * one lay-out run.
+     */
+    internal fun anchorOffset(offset: Int, charsBehind: Int): Int {
+        val band = (charsBehind / ANCHOR_BANDS).coerceAtLeast(1)
+        return ((offset / band) - ANCHOR_BANDS).coerceAtLeast(0) * band
     }
 
     /**
@@ -226,6 +251,15 @@ object ReaderWindow {
 
     // ------------------------------------------------------------- the plumbing
 
+    /**
+     * How many grid bands back a window starts, and so how wide a band is.
+     *
+     * Two: the band is half of [charsBehind], and the reader lands one to one and a
+     * half [charsBehind] into the window. Wider bands drift less often but put the
+     * reader further from the start; this keeps them inside a single lay-out run.
+     */
+    private const val ANCHOR_BANDS = 2
+
     /** How many times a re-anchor reaches further back before giving up. */
     private const val RE_ANCHOR_ATTEMPTS = 4
 
@@ -256,26 +290,42 @@ object ReaderWindow {
             pages = pages + more.pages
             laid = more
         }
-        val cursor = chapter.cursorAt(offset)
         return WindowedPages(
             start = start,
             pages = pages,
             next = laid.next,
-            pageIndex = pages.pageContaining(
-                ReadingPosition(chapter.index, cursor.blockIndex, cursor.charOffset),
-            ).coerceIn(0, (pages.size - 1).coerceAtLeast(0)),
+            pageIndex = pageHolding(chapter, pages, offset),
         )
+    }
+
+    /**
+     * The page holding a chapter offset: the last one that begins at or before it.
+     *
+     * In offsets rather than through `pageContaining`, which asks whether a block and
+     * a character offset fall inside a slice and falls back to *the first page holding
+     * the block* when they do not. That fallback exists so a position saved before a
+     * book was reprocessed loses the place rather than crashing, and it is right for
+     * that — but it is wrong for the end of a chapter, where the offset is one past
+     * the last character and lands on no slice at all. Entering a chapter backwards
+     * asks for exactly that, and got the *first* page of a block spread over two
+     * instead of the last: turning back into a chapter landed a page short of its end.
+     */
+    private fun pageHolding(chapter: Chapter, pages: List<Page>, offset: Int): Int {
+        var index = 0
+        pages.forEachIndexed { i, page ->
+            val head = page.slices.firstOrNull() ?: return@forEachIndexed
+            if (chapter.offsetOf(head.blockIndex, head.startChar) <= offset) index = i
+        }
+        return index.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
     }
 
     /**
      * Whether a window running from [start] to [next] holds [offset].
      *
      * Asked in characters rather than by looking for the position in the pages,
-     * because `pageContaining` answers 0 both for "the first page" and for "not here
-     * at all" — it falls back rather than throwing, deliberately, so that a position
-     * saved before a book was reprocessed loses the place instead of crashing. Using
-     * that answer to decide whether to extend would stop extending at exactly the
-     * moment the reader was off the end.
+     * because [pageHolding] answers 0 both for "the first page" and for "before this
+     * window entirely". Using that answer to decide whether to extend would stop
+     * extending at exactly the moment the reader was off the end.
      */
     private fun covers(
         chapter: Chapter,

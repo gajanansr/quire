@@ -114,12 +114,35 @@ class ReaderWindowTest {
         // re-anchor — and re-anchoring is the one thing in this design a reader could
         // conceivably notice.
         val w = open(offset = 150_000)
-        // Not exactly PAGES_BEHIND: the distance back is chosen from an estimate of
-        // what a page holds, and the reader is then placed against real page breaks.
-        // What has to hold is that the room is of the right order.
+        // Stated in characters, not pages: how far back a window reaches is decided
+        // from an estimate of what a page holds, and the reader is then placed against
+        // real page breaks — so the page count depends on how far off the estimate is.
+        // What has to hold is the contract: at least `charsBehind` of the chapter is
+        // in hand behind the reader, and not wildly more.
+        val start = chapter.offsetOf(w.start.blockIndex, w.start.charOffset)
+        val behind = offsetOf(w) - start
+        assertTrue("only $behind characters behind the reader", behind >= charsBehind)
+        assertTrue("$behind characters behind the reader is far too many", behind < charsBehind * 2)
+        assertTrue("the reader is on the window's first page", w.pageIndex > 0)
+    }
+
+    @Test
+    fun `where a window starts does not follow the reader character by character`() {
+        // What stops a book walking backwards. Where a window starts decides where its
+        // pages break, and the Reader saves the top of the page it was on — so a start
+        // taken as "exactly so far before the reader" would be a different start every
+        // session, landing the saved place mid-page and saving a slightly earlier one.
+        // Snapped to a grid, every place in a band gives the same start, so the tiling
+        // is the same and the saved page top is still a page top.
+        val at = 150_000
+        val here = ReaderWindow.anchorOffset(at, charsBehind)
+        assertEquals(
+            "the anchor moved for a place a page away",
+            here, ReaderWindow.anchorOffset(at + 800, charsBehind),
+        )
         assertTrue(
-            "only ${w.pageIndex} pages behind the reader",
-            w.pageIndex in (ReaderWindow.PAGES_BEHIND / 2)..(ReaderWindow.PAGES_BEHIND * 2),
+            "the anchor is not at least charsBehind before the reader",
+            at - here >= charsBehind,
         )
     }
 
