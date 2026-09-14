@@ -91,6 +91,32 @@ interface BookmarkDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun add(bookmark: BookmarkEntity): Long
 
+    /**
+     * The bookmark already covering exactly this span, if there is one.
+     *
+     * All six coordinates, not just the start: a bookmark is a highlight of no width,
+     * so a highlight beginning where a bookmark sits is a different thing and must
+     * not be mistaken for it.
+     */
+    @Query(
+        """
+        SELECT * FROM bookmarks
+        WHERE bookId = :bookId
+          AND chapterIndex = :chapterIndex
+          AND blockIndex = :blockIndex AND charOffset = :charOffset
+          AND endBlockIndex = :endBlockIndex AND endCharOffset = :endCharOffset
+        LIMIT 1
+        """
+    )
+    suspend fun existing(
+        bookId: String,
+        chapterIndex: Int,
+        blockIndex: Int,
+        charOffset: Int,
+        endBlockIndex: Int,
+        endCharOffset: Int,
+    ): BookmarkEntity?
+
     @Query("SELECT * FROM bookmarks WHERE bookId = :bookId ORDER BY chapterIndex, blockIndex")
     fun observeFor(bookId: String): Flow<List<BookmarkEntity>>
 

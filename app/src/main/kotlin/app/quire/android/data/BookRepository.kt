@@ -141,7 +141,7 @@ class BookRepository(
         bookId: String,
         position: ReadingPosition,
         snippet: String,
-    ): Long = db.bookmarks().add(
+    ): Long = addOnce(
         BookmarkEntity(
             bookId = bookId,
             chapterIndex = position.chapterIndex,
@@ -151,6 +151,30 @@ class BookRepository(
             createdAt = now(),
         )
     )
+
+    /**
+     * Saves a mark, unless that exact mark is already saved.
+     *
+     * The Bookmark control is one tap in the reader's chrome and shows no state, so a
+     * reader unsure whether the first tap registered taps again — which is the common
+     * case, not the odd one. That used to add a second identical row, and the list
+     * then showed the same passage twice with no way to tell the copies apart.
+     *
+     * Returning the existing id rather than a new one matters: the caller reports
+     * "saved" either way, and handing back a fresh id for a row that was not created
+     * would be a lie any later lookup would trip over.
+     */
+    private suspend fun addOnce(mark: BookmarkEntity): Long {
+        val already = db.bookmarks().existing(
+            bookId = mark.bookId,
+            chapterIndex = mark.chapterIndex,
+            blockIndex = mark.blockIndex,
+            charOffset = mark.charOffset,
+            endBlockIndex = mark.endBlockIndex,
+            endCharOffset = mark.endCharOffset,
+        )
+        return already?.id ?: db.bookmarks().add(mark)
+    }
 
     /**
      * Saves a passage the reader chose.
@@ -164,7 +188,7 @@ class BookRepository(
         chapterIndex: Int,
         span: TextSpan,
         snippet: String,
-    ): Long = db.bookmarks().add(
+    ): Long = addOnce(
         BookmarkEntity(
             bookId = bookId,
             chapterIndex = chapterIndex,
