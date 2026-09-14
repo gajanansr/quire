@@ -112,7 +112,7 @@ whole-chapter pagination is in at that boundary:
 | `spacing` | `0f` mid-block; `spacingAbovePx(isFirstOnPage = true)` = `0f` between blocks | `spacingAbovePx(isFirstOnPage = true)` = `0f` |
 | indent | suppressed for `startChar > 0` | same function, same arguments |
 | raised initial | suppressed for `startChar > 0` | same function, same arguments |
-| `charsPerLine` | learned | reset — changes how many `measure` calls, never where a line breaks |
+| `charsPerLine` | learned | reset — changes how many `measure` calls, never where a line breaks* |
 
 Two edges need care and get it in Task 2:
 
@@ -121,12 +121,24 @@ Two edges need care and get it in Task 2:
   end on; a chunk that cannot see the next page cannot. So a chunk that is not at the
   chapter's end strips trailing headings from its last page and hands them to the
   next chunk as part of the carry — the same slices, moved the same way.
-- **The "not even one line fits" escape** is guarded by `pages.isEmpty()`, which is
-  true at the start of every chunk rather than only at the start of the chapter. It
-  is left exactly as it is: it exists to stop an infinite loop when the viewport is
-  shorter than a single line, and removing it for chunks would hang the Reader
-  instead of diverging on a viewport that is already unusable. Divergence is confined
-  to viewports too small to draw one line.
+- **The "not even one line fits" escape** was guarded by `pages.isEmpty()`, which is
+  true at the start of every chunk rather than only at the start of the chapter. The
+  plan proposed leaving it and documenting the divergence. **Corrected after review:**
+  that guard saved only the *chapter's* first page, so a viewport shorter than one
+  line of a later block — a level-one heading is 1.6× the body — flushed empty pages
+  for ever, and a chunk's budget cannot stop that because a chunk may not end on an
+  empty page. The escape is now about the page being empty and nothing else, which
+  ends the loop **and** removes the last hole in the identity below. `a viewport too
+  short for a single line terminates instead of hanging` bounds the run through
+  `isActive`, so a regression fails the gate rather than hanging it.
+
+\* **Nearly unconditional, and a review found the condition.** `measureWindow` stops
+at the first window in its doubling sequence that overflows the page, so whether it
+reports `reachedEnd` — which gates the widow pull-back — depends on where the doubling
+lands. An assumed 80 characters a line sitting at 0.71–0.74 of the real figure can
+therefore break one page differently. Unreachable as shipped, because `Measure.widthPx`
+caps a column at 66 characters, but nothing in the code ties those two constants
+together. The theorem is now also run at 110 characters a line, inside that band.
 
 `ChunkedPaginationTest` asserts the theorem directly: chunk the chapter at every
 budget from 1 page to 40, and compare the concatenated page list to
