@@ -48,6 +48,15 @@ sealed interface PaginationStep {
  */
 object ReaderLayout {
 
+    /** The label line, as a multiple of body line height. */
+    private const val LABEL_LINES = 1.2f
+
+    /** The title beneath it. Two lines' worth, because titles wrap. */
+    private const val TITLE_LINES = 2.4f
+
+    /** The air between the header and the text it introduces, in dp. */
+    private const val AIR_DP = 30f
+
     /**
      * Whether there is anything to paginate yet, and what.
      *
@@ -73,15 +82,6 @@ object ReaderLayout {
         val open = state.chapter ?: return PaginationStep.Open
         return PaginationStep.Repaginate(open)
     }
-
-    /** The label line, as a multiple of body line height. */
-    private const val LABEL_LINES = 1.2f
-
-    /** The title beneath it. Two lines' worth, because titles wrap. */
-    private const val TITLE_LINES = 2.4f
-
-    /** The air between the header and the text it introduces, in dp. */
-    private const val AIR_DP = 30f
 
     /**
      * Height the chapter header will take on the first page.
