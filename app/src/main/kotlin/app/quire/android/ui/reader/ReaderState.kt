@@ -126,6 +126,14 @@ data class ReaderState(
      */
     val highlightColour: HighlightColour = HighlightColour.DEFAULT,
     /**
+     * The mark whose options are open, by row id.
+     *
+     * The id and not the mark itself, so that the swatch row shows the colour the
+     * *database* now holds. Recolouring re-emits the chapter's highlights, and a copy
+     * held here would keep ringing the colour the reader just moved away from.
+     */
+    val editingHighlightId: Long? = null,
+    /**
      * Page turns asked for before there were any pages to turn, net of direction.
      *
      * A large book spends seconds being paginated, and every tap in that window used
@@ -180,6 +188,16 @@ data class ReaderState(
         get() = showsChapterHeaderFor(chapter, pageIndex)
 
     val hasSelection: Boolean get() = selection != null && selection.isEmpty.not()
+
+    /**
+     * The mark the options are open on, or null.
+     *
+     * Looked up rather than stored. A highlight removed from another screen — or by
+     * the Remove button itself — simply stops being found, which closes the options
+     * instead of leaving them pointing at a row that is gone.
+     */
+    val editingHighlight: SavedHighlight?
+        get() = editingHighlightId?.let { id -> highlights.firstOrNull { it.id == id } }
 
     /** The words the reader has chosen, ready to highlight, copy or share. */
     val selectedText: String
@@ -254,11 +272,21 @@ data class ReaderState(
 object ReaderTransitions {
 
     /** Advances one page, returning null when the next page is in another chapter. */
+    /**
+     * A turn also closes the options on a mark.
+     *
+     * The chapter's highlights are all in hand, not just this page's, so the options
+     * would otherwise survive the turn and sit at the foot of the next page offering
+     * to recolour a passage that is no longer on it. A swipe past an open picker is
+     * the common way to reach that state, since taps are taken by the picker itself.
+     */
     fun nextPage(state: ReaderState): ReaderState? =
-        if (state.atLastPage) null else state.copy(pageIndex = state.pageIndex + 1)
+        if (state.atLastPage) null
+        else state.copy(pageIndex = state.pageIndex + 1, editingHighlightId = null)
 
     fun previousPage(state: ReaderState): ReaderState? =
-        if (state.atFirstPage) null else state.copy(pageIndex = state.pageIndex - 1)
+        if (state.atFirstPage) null
+        else state.copy(pageIndex = state.pageIndex - 1, editingHighlightId = null)
 
     /**
      * Remembers a page turn asked for while there was nothing to turn.
@@ -344,6 +372,10 @@ object ReaderTransitions {
             chapter = chapter,
             pages = pages,
             pageIndex = at?.let { pages.pageContaining(it) } ?: 0,
+            // A row id from the chapter being left would resolve against this one's
+            // highlights, so the options would reopen on whichever mark happened to
+            // share the number.
+            editingHighlightId = null,
         )
         return if (at == null) opened.copy(pendingTurns = 0)
         else withPendingTurnsApplied(opened)
@@ -377,6 +409,9 @@ object ReaderTransitions {
             selectionEdge = null,
             // Chrome would cover the passage being chosen.
             chromeVisible = false,
+            // And so would the options: both bars live at the foot of the page, and
+            // two of them there at once is the page covered by its own controls.
+            editingHighlightId = null,
         )
     }
 
@@ -447,6 +482,47 @@ object ReaderTransitions {
         } else {
             state.copy(selection = null, selectionOrigin = null, selectionEdge = null)
         }
+
+    /**
+     * A tap on a saved highlight: open its options, or close whatever was open.
+     *
+     * One entry point for both, because they are one gesture. While the options are
+     * open every tap goes through here — a tap on another mark moves to it, and a tap
+     * anywhere else closes — so there is no state in which a tap does nothing and the
+     * reader is left prodding at a row of swatches that will not go away.
+     *
+     * Chrome goes with it, for the same reason a long press takes it away: the bars
+     * are exactly where the options sit when the mark is near an edge of the page.
+     */
+    fun highlightTapped(state: ReaderState, id: Long?): ReaderState =
+        if (state.editingHighlightId == id) state
+        else state.copy(editingHighlightId = id, chromeVisible = false)
+
+    /**
+     * The reader chose a colour for the mark they had open.
+     *
+     * It also becomes the colour the *next* highlight is made in. That is the whole
+     * of "choose the colour before you mark": the action bar keeps one Highlight
+     * button rather than six, and a reader who colour-codes sets the colour once on a
+     * mark they can see and every mark after it follows.
+     *
+     * The options stay open. A colour is a thing people compare — the reader has just
+     * put a wash over their own sentence and wants to look at it — and a picker that
+     * dismisses itself on the first tap makes trying the next one a fresh gesture.
+     */
+    fun highlightRecoloured(state: ReaderState, colour: HighlightColour): ReaderState =
+        state.copy(highlightColour = colour)
+
+    /**
+     * The chapter changed, so no mark from the old one can still be open.
+     *
+     * Turning a page does not close the options — the mark may well still be on
+     * screen — but leaving a chapter does: the id would resolve against a different
+     * chapter's highlights, which is how a reader ends up recolouring a passage they
+     * cannot see.
+     */
+    fun highlightOptionsClosed(state: ReaderState): ReaderState =
+        if (state.editingHighlightId == null) state else state.copy(editingHighlightId = null)
 
     fun withOverlay(state: ReaderState, overlay: ReaderOverlay): ReaderState =
         state.copy(overlay = overlay, chromeVisible = overlay != ReaderOverlay.NONE || state.chromeVisible)

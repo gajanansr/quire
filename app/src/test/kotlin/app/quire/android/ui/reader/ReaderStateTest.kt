@@ -1,5 +1,7 @@
 package app.quire.android.ui.reader
 
+import app.quire.android.data.SavedHighlight
+import app.quire.android.ui.theme.HighlightColour
 import app.quire.core.model.Chapter
 import app.quire.core.model.ContentBlock
 import app.quire.core.model.InlineSpan
@@ -9,6 +11,8 @@ import app.quire.core.paginate.Measured
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.TextMeasurer
 import app.quire.core.paginate.Viewport
+import app.quire.core.reading.TextAnchor
+import app.quire.core.reading.TextSpan
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -459,5 +463,115 @@ class ReaderStateTest {
         )
         assertEquals("Chapter 3", state.chapterLabel)
         assertFalse("Chapter 3 was drawn above Chapter 3", state.showsChapterHeader)
+    }
+
+    // ------------------------------------------------- the options on a mark
+
+    private fun highlight(id: Long, colour: HighlightColour = HighlightColour.KEEP) =
+        SavedHighlight(
+            id = id,
+            span = TextSpan(TextAnchor(0, id.toInt() * 10), TextAnchor(0, id.toInt() * 10 + 5)),
+            colour = colour,
+        )
+
+    private fun marked(vararg ids: Long) =
+        state().copy(highlights = ids.map { highlight(it) })
+
+    @Test
+    fun `tapping a mark opens its options`() {
+        val s = ReaderTransitions.highlightTapped(marked(4, 9), 9)
+        assertEquals(9L, s.editingHighlightId)
+        assertEquals(9L, s.editingHighlight?.id)
+    }
+
+    @Test
+    fun `a tap that missed every mark closes them`() {
+        val open = ReaderTransitions.highlightTapped(marked(4), 4)
+        assertNull(ReaderTransitions.highlightTapped(open, null).editingHighlightId)
+    }
+
+    @Test
+    fun `opening the options puts the chrome away`() {
+        // Both live at the foot of the page. Two bars there at once is the page
+        // covered by its own controls, which is the thing this Reader exists not to
+        // do.
+        val s = ReaderTransitions.highlightTapped(marked(4).copy(chromeVisible = true), 4)
+        assertFalse(s.chromeVisible)
+    }
+
+    @Test
+    fun `the options follow the row rather than a copy of it`() {
+        // Held by id on purpose. Recolouring re-emits the chapter's highlights, and a
+        // copy kept in the state would go on ringing the colour the reader has just
+        // moved away from.
+        val open = ReaderTransitions.highlightTapped(marked(4), 4)
+        val repainted = open.copy(highlights = listOf(highlight(4, HighlightColour.DOUBT)))
+        assertEquals(HighlightColour.DOUBT, repainted.editingHighlight?.colour)
+    }
+
+    @Test
+    fun `a mark that is gone closes its own options`() {
+        // Remove deletes the row; the flow re-emits without it. Looking the mark up
+        // rather than storing it is what turns "the row is gone" into "the options
+        // are closed" instead of a picker pointing at nothing.
+        val open = ReaderTransitions.highlightTapped(marked(4), 4)
+        assertNull(open.copy(highlights = emptyList()).editingHighlight)
+    }
+
+    @Test
+    fun `choosing a colour sets the one the next highlight takes`() {
+        // The whole of "choose before you mark", without a sixth button on the action
+        // bar: the reader sets the colour once on a mark they can see, and every mark
+        // after it follows.
+        val chosen = ReaderTransitions.highlightRecoloured(marked(4), HighlightColour.FACT)
+        assertEquals(HighlightColour.FACT, chosen.highlightColour)
+    }
+
+    @Test
+    fun `a fresh reader highlights in the default colour`() {
+        assertEquals(HighlightColour.DEFAULT, state().highlightColour)
+    }
+
+    @Test
+    fun `choosing a colour leaves the options open`() {
+        // A colour is a thing people compare. A picker that dismisses on the first
+        // tap makes trying the next one a whole new gesture.
+        val open = ReaderTransitions.highlightTapped(marked(4), 4)
+        val chosen = ReaderTransitions.highlightRecoloured(open, HighlightColour.LOVELY)
+        assertEquals(4L, chosen.editingHighlightId)
+    }
+
+    @Test
+    fun `starting a selection closes the options`() {
+        val open = ReaderTransitions.highlightTapped(marked(4), 4)
+        val selecting = ReaderTransitions.selectionStarted(open, TextAnchor(0, 5))
+        assertNotNull("the long press did not select", selecting.selection)
+        assertNull("the options stayed open under the selection", selecting.editingHighlightId)
+    }
+
+    @Test
+    fun `turning a page closes the options`() {
+        // The chapter's highlights are all in hand, not just this page's, so without
+        // this the picker survives the turn and sits at the foot of the next page
+        // offering to recolour a passage that is no longer on it. A swipe is how a
+        // reader reaches that state, since taps are taken by the picker itself.
+        val open = ReaderTransitions.highlightTapped(marked(4), 4)
+        assertNull(ReaderTransitions.nextPage(open)?.editingHighlightId)
+        val second = ReaderTransitions.nextPage(open)!!
+        assertNull(ReaderTransitions.previousPage(second)?.editingHighlightId)
+    }
+
+    @Test
+    fun `leaving the chapter closes the options`() {
+        // The id would resolve against a different chapter's highlights, which is how
+        // a reader recolours a passage they cannot see.
+        val open = ReaderTransitions.highlightTapped(marked(4), 4)
+        val next = chapter(1, lorem.repeat(30))
+        val moved = ReaderTransitions.openedChapter(
+            open, next,
+            paginator.paginate(next, viewport, ReaderPreferences().toSettings(1f)),
+            null,
+        )
+        assertNull(moved.editingHighlightId)
     }
 }

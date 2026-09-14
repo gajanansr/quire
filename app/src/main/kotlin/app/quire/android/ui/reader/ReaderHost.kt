@@ -352,7 +352,18 @@ fun ReaderHost(
             onHandleGrab = { state = ReaderTransitions.handleGrabbed(state, it) },
             onHandleMove = { state = ReaderTransitions.handleMoved(state, it) },
             onHandleRelease = { state = ReaderTransitions.handleReleased(state) },
-            onHighlight = {
+            // Opening and dismissing the options are one gesture: a null id is the
+            // tap that missed every mark.
+            onHighlightTap = { state = ReaderTransitions.highlightTapped(state, it) },
+            onHighlightRecolour = { id, colour ->
+                state = ReaderTransitions.highlightRecoloured(state, colour)
+                scope.launch { repository.recolourHighlight(id, colour) }
+            },
+            onHighlightRemove = { id ->
+                state = ReaderTransitions.highlightOptionsClosed(state)
+                scope.launch { repository.removeBookmark(id) }
+            },
+            onHighlight = { colour ->
                 val snapshot = state
                 val span = snapshot.selection
                 if (span != null) {
@@ -362,7 +373,7 @@ fun ReaderHost(
                             chapterIndex = snapshot.chapterIndex,
                             span = span,
                             snippet = snapshot.selectedText,
-                            colour = snapshot.highlightColour,
+                            colour = colour,
                         )
                         // Cleared only after the row is written, so the passage stays
                         // lit until there is something saved to light it.

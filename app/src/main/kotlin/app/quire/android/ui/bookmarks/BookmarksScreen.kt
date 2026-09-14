@@ -17,13 +17,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.quire.android.data.BookmarkEntity
 import app.quire.android.data.BookmarkWithBook
 import app.quire.android.ui.QuireStrings
 import app.quire.android.ui.common.EmptyState
 import app.quire.android.ui.theme.Quire
+import app.quire.android.ui.theme.QuireHighlights
+import app.quire.android.ui.theme.QuireThemeName
+import app.quire.android.ui.theme.highlightColourNamed
 import app.quire.android.ui.theme.QuireIcon
 import app.quire.android.ui.theme.QuireIcons
 import app.quire.android.ui.theme.QuireShapes
@@ -54,6 +60,7 @@ fun BookmarksScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = Quire.colors
+    val theme = Quire.theme
 
     if (bookmarks.isEmpty()) {
         EmptyState(
@@ -98,6 +105,16 @@ fun BookmarksScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    bookmarkSwatch(entry.bookmark, theme)?.let { swatch ->
+                        Box(
+                            modifier = Modifier
+                                .size(13.dp)
+                                .clip(CircleShape)
+                                .background(swatch)
+                                .border(1.dp, colors.border, CircleShape),
+                        )
+                        Spacer(Modifier.size(8.dp))
+                    }
                     Text(
                         "${entry.bookTitle} · Chapter ${entry.bookmark.chapterIndex + 1}",
                         color = colors.muted,
@@ -116,6 +133,21 @@ fun BookmarksScreen(
         }
     }
 }
+
+/**
+ * The colour to show beside one saved mark, or null when there is none to show.
+ *
+ * Pure, and the reason it is not written inline: this is the claim that the list and
+ * the page agree about what "Doubt" looks like, and a claim like that is worth an
+ * assertion rather than a reviewer's glance. Resolved through the same
+ * [QuireHighlights.over] the reader's page uses, so the two cannot be changed apart.
+ *
+ * Null for a plain bookmark. A bookmark marks a place and has no words to colour;
+ * a swatch there would invent a category the reader never chose.
+ */
+fun bookmarkSwatch(bookmark: BookmarkEntity, theme: QuireThemeName): Color? =
+    if (!bookmark.isHighlight) null
+    else QuireHighlights.over(theme, highlightColourNamed(bookmark.highlightColour))
 
 @Composable
 private fun RowAction(@DrawableRes icon: Int, description: String, onClick: () -> Unit) {

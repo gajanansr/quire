@@ -23,7 +23,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.annotation.DrawableRes
 import app.quire.android.ui.QuireStrings
+import app.quire.android.ui.theme.HighlightColour
 import app.quire.android.ui.theme.Quire
 import app.quire.android.ui.theme.QuireHighlights
 import app.quire.android.ui.theme.QuireIcon
@@ -108,9 +111,20 @@ fun ReaderScreen(
     onHandleGrab: (SelectionEdge) -> Unit = {},
     onHandleMove: (TextAnchor) -> Unit = {},
     onHandleRelease: () -> Unit = {},
-    onHighlight: () -> Unit = {},
+    /** Marks the chosen passage, in the colour the reader last used. */
+    onHighlight: (HighlightColour) -> Unit = {},
     onShareSelection: () -> Unit = {},
     onCopySelection: () -> Unit = {},
+    /**
+     * A tap that landed on a saved highlight, or null for one that did not.
+     *
+     * One callback for opening the options and for closing them, because a tap is one
+     * gesture: while they are open, a tap on another mark moves to it and a tap
+     * anywhere else dismisses.
+     */
+    onHighlightTap: (Long?) -> Unit = {},
+    onHighlightRecolour: (Long, HighlightColour) -> Unit = { _, _ -> },
+    onHighlightRemove: (Long) -> Unit = {},
     /** Reports the size of the text column, which is what pagination must measure. */
     onContentSize: (IntSize) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -148,6 +162,11 @@ fun ReaderScreen(
     // is not being torn down still sees the current answer.
     val liveCarets by rememberUpdatedState(carets)
     val liveSelecting by rememberUpdatedState(selecting)
+    // Read inside the tap handler for the same reason the carets are: the pointer
+    // input is keyed on the page, not on the reader's marks, so a highlight made
+    // without turning a page would otherwise be untappable until the next one.
+    val liveHighlights by rememberUpdatedState(state.highlights)
+    val liveEditing by rememberUpdatedState(state.editingHighlightId != null)
     // Set for as long as a handle is held. The long-press detector stands down while
     // it is: a handle drag is not a new selection, and starting one would throw away
     // the passage the reader is in the middle of adjusting.
@@ -336,14 +355,28 @@ fun ReaderScreen(
                             if (liveSelecting) {
                                 onSelectionTap(textMap.anchorAt(down.position))
                             } else {
-                                when (
-                                    ReaderGestures.tapZone(
-                                        down.position.x, size.width.toFloat(),
-                                    )
-                                ) {
-                                    TapZone.PREVIOUS -> onPreviousPage()
-                                    TapZone.NEXT -> onNextPage()
-                                    TapZone.CHROME -> onTap()
+                                val on = Highlights.at(
+                                    liveHighlights, textMap.anchorAt(down.position),
+                                )
+                                when {
+                                    // A mark is asked about before the page is turned,
+                                    // and that order is the whole of it: the tap zones
+                                    // are the outer quarters, so a highlight sitting in
+                                    // one of them could never be opened otherwise.
+                                    on != null -> onHighlightTap(on.id)
+                                    // Options are open and the tap missed every mark:
+                                    // dismiss, rather than turning the page out from
+                                    // under the row of swatches.
+                                    liveEditing -> onHighlightTap(null)
+                                    else -> when (
+                                        ReaderGestures.tapZone(
+                                            down.position.x, size.width.toFloat(),
+                                        )
+                                    ) {
+                                        TapZone.PREVIOUS -> onPreviousPage()
+                                        TapZone.NEXT -> onNextPage()
+                                        TapZone.CHROME -> onTap()
+                                    }
                                 }
                             }
                         }
@@ -437,9 +470,36 @@ fun ReaderScreen(
                 viewportHeightPx = pageSize.height.toFloat(),
             )
             SelectionActions(
-                onHighlight = onHighlight,
+                onHighlight = { onHighlight(state.highlightColour) },
                 onShare = onShareSelection,
                 onCopy = onCopySelection,
+                atTop = top,
+                modifier = Modifier.align(
+                    if (top) Alignment.TopCenter else Alignment.BottomCenter,
+                ),
+            )
+        }
+
+        // The options for a mark the reader tapped. Never at the same time as the
+        // selection bar — a live selection closes them — so the two can share the
+        // foot of the page without ever stacking.
+        val editing = state.editingHighlight
+        if (editing != null && !selecting) {
+            // Off the mark's own end, the way the action bar works off the selection's:
+            // a bar pinned to the bottom sits on the words it is offering to recolour.
+            val caret = remember(editing.span, textMap.revision) {
+                textMap.caretAt(editing.span.end, SelectionEdge.END)
+            }
+            val top = SelectionActionBar.prefersTop(
+                // A mark whose end is on a later page runs off the foot of this one,
+                // so it reaches as low as a mark can reach.
+                selectionBottomPx = caret?.bottom ?: pageSize.height.toFloat(),
+                viewportHeightPx = pageSize.height.toFloat(),
+            )
+            HighlightOptions(
+                current = editing.colour,
+                onChoose = { onHighlightRecolour(editing.id, it) },
+                onRemove = { onHighlightRemove(editing.id) },
                 atTop = top,
                 modifier = Modifier.align(
                     if (top) Alignment.TopCenter else Alignment.BottomCenter,
@@ -457,7 +517,7 @@ fun ReaderScreen(
         }
 
         AnimatedVisibility(
-            visible = state.chromeVisible && !selecting,
+            visible = state.chromeVisible && !selecting && editing == null,
             enter = fadeIn() + slideInVertically { -it },
             exit = fadeOut() + slideOutVertically { -it },
             modifier = Modifier.align(Alignment.TopCenter),
@@ -466,7 +526,7 @@ fun ReaderScreen(
         }
 
         AnimatedVisibility(
-            visible = state.chromeVisible && !selecting,
+            visible = state.chromeVisible && !selecting && editing == null,
             enter = fadeIn() + slideInVertically { it },
             exit = fadeOut() + slideOutVertically { it },
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -871,6 +931,118 @@ private fun SelectionAction(
         Text(label, color = colors.ink, style = MaterialTheme.typography.labelLarge)
     }
 }
+
+/**
+ * What a reader can do with a mark they have already made.
+ *
+ * Reached by tapping the highlight itself, which is the only gesture that names one.
+ * It is deliberately not on the selection action bar: that bar appears over the words
+ * the reader is trying to read, and five swatches and a Remove would more than double
+ * its width for a decision most marks never need.
+ *
+ * Choosing a colour leaves the row open. A colour is a thing people compare — the
+ * reader has just washed their own sentence and wants to look at it — and a picker
+ * that dismisses on the first tap makes trying the next one a whole new gesture.
+ */
+@Composable
+private fun HighlightOptions(
+    current: HighlightColour,
+    onChoose: (HighlightColour) -> Unit,
+    onRemove: () -> Unit,
+    atTop: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val colors = Quire.colors
+    val theme = Quire.theme
+    Row(
+        modifier = modifier
+            .then(
+                if (atTop) Modifier.statusBarsPadding().padding(top = 22.dp)
+                else Modifier.navigationBarsPadding().padding(bottom = 22.dp),
+            )
+            .clip(QuireShapes.pill)
+            .background(colors.bgAlt)
+            .border(1.dp, colors.border, QuireShapes.pill)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HighlightColour.entries.forEach { colour ->
+            Swatch(
+                colour = colour,
+                fill = QuireHighlights.over(theme, colour),
+                chosen = colour == current,
+                onClick = { onChoose(colour) },
+            )
+        }
+        Spacer(
+            Modifier
+                .padding(horizontal = 6.dp)
+                .width(1.dp)
+                .height(22.dp)
+                .background(colors.border),
+        )
+        Box(
+            modifier = Modifier
+                .size(SWATCH_TARGET)
+                .clip(QuireShapes.pill)
+                .clickable(onClick = onRemove)
+                .semantics { contentDescription = QuireStrings.REMOVE },
+            contentAlignment = Alignment.Center,
+        ) {
+            QuireIcon(QuireIcons.Remove, contentDescription = null, tint = colors.ink)
+        }
+    }
+}
+
+/**
+ * One colour to choose from, drawn as the reader will actually see it on the page.
+ *
+ * Filled with the wash already composited on this theme's page rather than with the
+ * translucent wash itself: a 42% colour over the pill's own surface is a different
+ * colour from the same 42% over the reading page, and a swatch that lies about the
+ * result is the one thing a colour picker must not do.
+ *
+ * The hairline is always there and the chosen one is *ringed*, in ink. Marking the
+ * choice by a colour change would be invisible on E-ink, where the five differ only
+ * in tone and the ring is the one signal that does not compete with them.
+ */
+@Composable
+private fun Swatch(
+    colour: HighlightColour,
+    fill: Color,
+    chosen: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = Quire.colors
+    Box(
+        modifier = Modifier
+            .size(SWATCH_TARGET)
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = colour.label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(if (chosen) SWATCH_CHOSEN else SWATCH_DOT)
+                .clip(CircleShape)
+                .background(fill)
+                .border(
+                    width = if (chosen) 2.dp else 1.dp,
+                    color = if (chosen) colors.ink else colors.border,
+                    shape = CircleShape,
+                ),
+        )
+    }
+}
+
+/** Big enough to hit without looking, which is the floor for anything on a page. */
+private val SWATCH_TARGET = 40.dp
+private val SWATCH_DOT = 22.dp
+
+/** The chosen one is larger as well as ringed, so the ring is not the only tell. */
+private val SWATCH_CHOSEN = 26.dp
 
 @Composable
 private fun TopBar(title: String, onBack: () -> Unit) {

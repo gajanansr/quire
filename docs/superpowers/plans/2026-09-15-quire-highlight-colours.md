@@ -169,34 +169,37 @@ colour-codes sets it once. Tapping Highlight stays one tap.
 `ui/reader/ReaderScreen.kt`, `ui/reader/ReaderHost.kt`,
 `test/ui/reader/HighlightsTest.kt` (new), `test/ui/reader/ReaderStateTest.kt`
 
-- [ ] `Highlights.at(highlights, anchor)` — pure. Returns the **shortest** highlight
+- [x] `Highlights.at(highlights, anchor)` — pure. Returns the **shortest** highlight
       containing the anchor, so a phrase marked inside a marked paragraph is still
       reachable; null when the tap missed.
-- [ ] `ReaderState.editingHighlightId` and `highlightColour` (the last colour used,
+- [x] `ReaderState.editingHighlightId` and `highlightColour` (the last colour used,
       session state, defaulting to `KEEP`). Transitions: open, dismiss, recolour.
-- [ ] A tap with no live selection resolves to an anchor first: on a highlight it
+- [x] A tap with no live selection resolves to an anchor first: on a highlight it
       opens the options, anywhere else it turns the page or toggles the chrome as
       before. On a highlight the tap must win over the page-turn zones, or a
       highlight in the outer quarter of the page could never be opened.
-- [ ] `HighlightOptions` — five swatches with the current one ringed, and Remove.
+- [x] `HighlightOptions` — five swatches with the current one ringed, and Remove.
       Placed by the same `SelectionActionBar.prefersTop` the action bar uses, off the
       tapped highlight's own caret, so it never sits on the words it is about.
-- [ ] Any tap while it is open dismisses it; a tap on another highlight opens that
+- [x] Any tap while it is open dismisses it; a tap on another highlight opens that
       one instead.
-- [ ] `ReaderHost` edits, and no others: `onHighlight` gains the colour parameter,
+- [x] `ReaderHost` edits, and no others: `onHighlight` gains the colour parameter,
       the highlights collector takes `SavedHighlight`s, and three lambdas are added
       — open/dismiss, recolour, remove.
-- [ ] Tests: the hit test (inside, outside, on the boundary, nested, empty list); the
+- [x] Tests: the hit test (inside, outside, on the boundary, nested, empty list); the
       state transitions; that recolouring sets the colour the next highlight takes.
 
 ### Task 5: The Bookmarks list agrees with the page
 
 **Files:** `ui/bookmarks/BookmarksScreen.kt`, `ui/nav/QuireRoot.kt`
 
-- [ ] A highlight's row carries its colour as a bar down its leading edge, drawn with
-      `QuireHighlights.over(theme, colour)` — the colour the page draws, composited
-      once, so the two cannot disagree.
-- [ ] A plain bookmark has no colour and gets no bar. It is a place, not a passage.
+- [x] A highlight's row carries its colour as a bordered swatch beside the book and
+      chapter line, drawn with `QuireHighlights.over(theme, colour)` — the colour
+      the page draws, resolved through the same function, so the two cannot
+      disagree. A dot rather than an edge bar because it is *ringed*: E-ink's
+      lightest tone is 0.04 from the card it would sit on, and an unringed bar
+      there is a mark nobody can see. `bookmarkSwatch` is pure and asserted.
+- [x] A plain bookmark has no colour and gets no bar. It is a place, not a passage.
 
 ### Task 6: Record it
 
