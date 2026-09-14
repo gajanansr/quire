@@ -21,6 +21,15 @@ data class TextSpan(val start: TextAnchor, val end: TextAnchor) {
 
     val isEmpty: Boolean get() = start == end
 
+    /**
+     * Whether [at] is one of the characters this span covers.
+     *
+     * The end is exclusive, as it is everywhere else in this model. This is what
+     * decides whether a tap landed on the selected passage or beside it, and so
+     * whether that tap keeps the selection or throws it away.
+     */
+    operator fun contains(at: TextAnchor): Boolean = at >= start && at < end
+
     companion object {
         fun of(a: TextAnchor, b: TextAnchor): TextSpan =
             if (a <= b) TextSpan(a, b) else TextSpan(b, a)
