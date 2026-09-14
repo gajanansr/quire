@@ -2474,25 +2474,43 @@ the new test helper had quietly stopped asserting this at all, by computing the 
 index itself and handing `repaginated` a finished answer to copy. It hands it page zero
 now.
 
-Three smaller ones from the same review: `loadChapter` read the typography before
+A last one, found on a second pass: moving the queued-tap application into `windowed`
+made a background prefetch able to cash a tap that a dropped run had left behind — the
+page moving a dozen pages later with nothing touching the screen, which is precisely
+what a prefetch must not do. The tap path applies them itself now, once, on every way
+out; `windowed` is called from three places and only one of them is a tap.
+
+Four smaller ones from the same review: `loadChapter` read the typography before
 suspending and the viewport after, so a type-size change during a chapter load left the
 state claiming pages matched a typography they were never laid out for; `layFor` re-read
 the viewport on each of the up-to-five runs a window takes, so a rotation could
-concatenate pages set in two different columns; and a re-anchor that ran out of attempts
-returned the window unchanged, which is a page turn that silently does nothing.
+concatenate pages set in two different columns; the repagination effect read the viewport
+twice for the same reason; and a re-anchor that ran out of attempts returned the window
+unchanged, which is a page turn that silently does nothing. Two rapid taps at a chapter
+boundary also launched two loads of the same chapter, which is the same fault one branch
+up and is guarded the same way now.
 
-**Two more the review argued rather than found.** The identity claim has an unstated
-precondition — `measureWindow` stops at the first window in its doubling sequence that
-overflows, so whether it reports `reachedEnd` (which gates the widow pull-back) depends
-on where the doubling lands, and an assumed 80 characters a line sitting at 0.71–0.74 of
-the real figure can break a page differently. Unreachable as shipped, because
-`Measure.widthPx` caps a column at 66 characters — but nothing ties those two constants
-together, so the theorem is now also run at 110 characters a line, inside that band. And
-a viewport shorter than one line of a mid-chapter block flushed empty pages for ever,
-because the escape required the page to be the *chapter's* first. Pre-existing, but
-chunking made it unbounded — a chunk may not end on an empty page, so the budget cannot
-stop it. The escape is now about the page being empty and nothing else, which also closes
-the one hole that had been documented in the chunk/whole-chapter identity.
+**The identity had one real hole, and a review found it by reading.** `measureWindow`
+stopped at the first window in its doubling sequence that overflowed the page — so
+whether it reported `reachedEnd`, which is what gates the widow pull-back, depended on
+where the doubling landed, and the learned characters-per-line is the one thing a chunk
+starts fresh with. Argued to be unreachable as shipped, because `Measure.widthPx` caps a
+column at 66 characters while the estimate starts at 80; pinned anyway, with a fixture at
+110 characters a line and blocks built to be **exactly one line longer than a page**. It
+failed on the first run: whole-chapter cut that block at 24 lines and a fresh chunk at 25.
+The rule is fixed rather than the fixture — a window is now widened while it shows fewer
+than `MIN_FRAGMENT_LINES` past the page, because that is exactly the band in which the
+widow decision needs to know what comes next. One extra measurement in a narrow case, and
+the estimate can no longer move a page break at all. The cost table above is measured
+after it.
+
+**A second from the same review, and a hang.** A viewport shorter than one line of a
+mid-chapter block flushed empty pages for ever, because the escape from "not even one
+line fits" required the page to be the *chapter's* first. Pre-existing, but chunking made
+it unbounded — a chunk may not end on an empty page, so a budget cannot stop it. The
+escape is now about the page being empty and nothing else, which ends the loop and also
+closes the other hole that had been documented in the identity. Its test bounds the run
+through `isActive`, so a regression fails the gate rather than hanging it.
 
 **What a device still has to answer.** Every number above is measured characters on a
 JVM; none of it is a stopwatch, because there is no phone here.
