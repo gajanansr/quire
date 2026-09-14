@@ -165,13 +165,28 @@ object ReaderLayout {
      *   dragged backwards past the page they had just turned to.
      * - Two quick taps back launched two runs from the same window, which computed the
      *   same answer, so two taps moved the reader one page. They are queued now, and
-     *   `ReaderTransitions.windowed` applies them on top of the run that is in flight.
+     *   `ReaderTransitions.pendingTurnsApplied` cashes them on the way out of the run
+     *   they were made during, whether its own window was adopted or dropped.
+     *
+     * [key] is the third test and it is not optional, because the first two cannot see
+     * the event that most needs to invalidate a re-anchor. `windowStart` is sticky
+     * across a repagination by construction and `ReaderWindow.placedAt` leaves a reader
+     * who was on page zero on page zero — so **a rotation is enough**: the repagination
+     * lands, then the re-anchor finishes and writes pages set in the old column over
+     * it. Two silent failures follow. The pages are drawn in a column they were not
+     * measured in, so the last line of each is clipped, which is the failure
+     * `MeasureMatchesRenderTest` exists for reached through the re-anchor. And
+     * `windowLayout` is left stale, so [mayGrowWindow] answers false for ever after:
+     * the prefetch stops, every tap at the window's edge is queued, and nothing cashes
+     * the queue until the reader rotates again — at which point all of it fires at once.
      *
      * Dropping it costs the tap nothing the reader can see: the window is unchanged,
      * so the next tap starts the same run again from where they now are.
      */
-    fun mayAdoptReanchor(state: ReaderState, base: WindowedPages): Boolean =
-        state.windowStart == base.start && state.pageIndex == base.pageIndex
+    fun mayAdoptReanchor(state: ReaderState, base: WindowedPages, key: LayoutKey): Boolean =
+        state.windowLayout == key &&
+            state.windowStart == base.start &&
+            state.pageIndex == base.pageIndex
 
     /**
      * Height the chapter header will take on the first page.

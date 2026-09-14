@@ -3,7 +3,7 @@
 > **For agentic workers:** steps use checkbox (`- [x]`) syntax. Gate on
 > `./scripts/check.sh` before every commit. Never commit red.
 >
-> **Complete.** 420 `:core` + 661 `:app` tests, 0 failures. Reviewed twice, and every
+> **Complete.** 420 `:core` + 662 `:app` tests, 0 failures. Reviewed three times, and every
 > finding addressed — two blocking races between a page turn and a lay-out, and one
 > real hole in the identity theorem that a constructed fixture then failed on. Eleven
 > things the plan did not foresee are corrected in place and marked:
@@ -31,6 +31,9 @@
 >    move a page break at a seam. The rule is fixed, not the fixture.
 > 11. Cashing a queued tap inside `windowed` let a background prefetch take a turn the
 >    reader made a dozen pages earlier. The tap path applies them itself now.
+> 12. The guard on adopting a re-anchor tested the two fields a repagination is built
+>    to *preserve*, so a rotation alone could write pages set in the old column over
+>    the repaginated ones. It takes the layout key too.
 
 **Goal:** *The Love Hypothesis* — a 315-page PDF with no usable outline, imported as
 **one chapter of 8,621 blocks and 565,896 characters** — must open at once and must

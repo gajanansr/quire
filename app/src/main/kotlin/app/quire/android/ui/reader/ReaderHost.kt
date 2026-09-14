@@ -415,33 +415,39 @@ fun ReaderHost(
                         // reader outrunning it. Appended to the window as it is when
                         // the lay-out finishes, for the same reason the prefetch does.
                         val more = ReaderWindow.extensionFor(base, layFor(chapter, prefs, view))
-                        val now = state.window
-                        // The current window unchanged when something else grew it
-                        // first, rather than skipping the transition: `windowed` is
-                        // also where taps queued during this run are applied, and
-                        // leaving them queued would spring them on the reader at the
-                        // next window event instead.
-                        val grown =
-                            if (more != null && now.next == base.next) {
-                                ReaderWindow.appended(now, more)
-                            } else {
-                                now
-                            }
-                        state = ReaderTransitions.windowed(state, chapter, grown, key)
+                        // Not written at all once a repagination has landed. The pages
+                        // could not be mixed — the carry cannot survive a repagination,
+                        // so `grown` would be the repaginated window itself — but
+                        // stamping it with this run's stale key would leave
+                        // `mayGrowWindow` false for ever: the prefetch would stop and
+                        // every tap at the edge would queue with nothing to cash it.
+                        if (state.windowLayout == key) {
+                            val now = state.window
+                            // The current window unchanged when something else grew it
+                            // first, rather than skipping the transition, so the append
+                            // and the tap are decided against the same window.
+                            val grown =
+                                if (more != null && now.next == base.next) {
+                                    ReaderWindow.appended(now, more)
+                                } else {
+                                    now
+                                }
+                            state = ReaderTransitions.windowed(state, chapter, grown, key)
+                        }
                         // The step the reader asked for, taken against whatever the
                         // window is now — so a tap is still honoured when something
-                        // else grew it first.
+                        // else grew it, or replaced it, first.
                         ReaderTransitions.nextPage(state)?.let { state = it }
                     } else {
                         val back = ReaderWindow.turnedBack(
                             chapter, base, charsBehind(prefs, view), layFor(chapter, prefs, view),
                         )
                         // A re-anchor cannot be rebased the way an append can: the page
-                        // it chose was chosen against the window it started from. If
-                        // the reader moved meanwhile, it is dropped rather than written
-                        // back over them — turning forward during a re-anchor used to
-                        // drag them backwards past where they had just gone.
-                        if (ReaderLayout.mayAdoptReanchor(state, base)) {
+                        // it chose was chosen against the window it started from, at the
+                        // viewport and type size it started with. Dropped rather than
+                        // written back over a reader who moved — or over a repagination
+                        // that landed first, which a rotation alone is enough to cause.
+                        if (ReaderLayout.mayAdoptReanchor(state, base, key)) {
                             state = ReaderTransitions.windowed(state, chapter, back, key)
                         }
                     }

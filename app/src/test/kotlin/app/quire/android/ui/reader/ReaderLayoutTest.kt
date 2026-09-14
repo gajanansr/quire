@@ -256,15 +256,44 @@ class ReaderLayoutTest {
         // from the same window — the same answer twice, so two taps moved them one
         // page. Queued now, and applied on top of the run in flight.
         val base = WindowedPages(TextAnchor(4, 0), pages(6), next = null, pageIndex = 0)
-        val standing = ReaderState(windowStart = base.start, pageIndex = 0)
-        assertTrue(ReaderLayout.mayAdoptReanchor(standing, base))
+        val key = LayoutKey(viewport, settings(19f))
+        val standing = ReaderState(windowStart = base.start, pageIndex = 0, windowLayout = key)
+        assertTrue(ReaderLayout.mayAdoptReanchor(standing, base, key))
         assertFalse(
             "a turn made during the re-anchor was written back over",
-            ReaderLayout.mayAdoptReanchor(standing.copy(pageIndex = 1), base),
+            ReaderLayout.mayAdoptReanchor(standing.copy(pageIndex = 1), base, key),
         )
         assertFalse(
             "a window replaced during the re-anchor was written back over",
-            ReaderLayout.mayAdoptReanchor(standing.copy(windowStart = TextAnchor(9, 0)), base),
+            ReaderLayout.mayAdoptReanchor(standing.copy(windowStart = TextAnchor(9, 0)), base, key),
+        )
+    }
+
+    @Test
+    fun `a re-anchor started before a rotation is refused`() {
+        // The two fields above cannot see this on their own, and they are exactly the
+        // two a repagination is built to preserve: the window start is sticky, and
+        // `placedAt` leaves a reader who was on page zero on page zero. So a rotation
+        // alone lands a repagination and then lets the re-anchor write pages set in the
+        // old column over it. The last line of every page is then clipped, and
+        // `windowLayout` is left stale — so `mayGrowWindow` answers false for ever, the
+        // prefetch stops, and every tap at the window's edge queues with nothing to
+        // cash it until the reader rotates again.
+        val base = WindowedPages(TextAnchor(4, 0), pages(6), next = null, pageIndex = 0)
+        val started = LayoutKey(viewport, settings(19f))
+        val standing = ReaderState(windowStart = base.start, pageIndex = 0)
+
+        val rotated = standing.copy(
+            windowLayout = LayoutKey(Viewport(viewport.heightPx, viewport.widthPx), settings(19f)),
+        )
+        assertFalse(
+            "a window laid out before a rotation was written back over one laid out after",
+            ReaderLayout.mayAdoptReanchor(rotated, base, started),
+        )
+        val resized = standing.copy(windowLayout = LayoutKey(viewport, settings(22f)))
+        assertFalse(
+            "a window laid out at another type size was written back over",
+            ReaderLayout.mayAdoptReanchor(resized, base, started),
         )
     }
 

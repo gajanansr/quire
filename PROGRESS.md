@@ -2306,7 +2306,7 @@ classification. No new dependencies, no version bumps, no manifest change.
 
 `agent/chunked-pagination`, plan at
 `docs/superpowers/plans/2026-09-15-quire-chunked-pagination.md`, eight tasks, all
-ticked. **1,081 JVM tests (420 `:core` + 661 `:app`), 0 failures**, 74 added.
+ticked. **1,082 JVM tests (420 `:core` + 662 `:app`), 0 failures**, 75 added.
 
 *The Love Hypothesis*, a 315-page PDF, imports as **one chapter: 8,621 blocks,
 565,896 characters**. Its outline is unusable, so `ChapterDetector` correctly falls
@@ -2512,6 +2512,19 @@ escape is now about the page being empty and nothing else, which ends the loop a
 closes the other hole that had been documented in the identity. Its test bounds the run
 through `isActive`, so a regression fails the gate rather than hanging it.
 
+**And the last of them, which a rotation alone reaches.** The guard on adopting a
+backward re-anchor tested the window's start and the reader's page index — which are
+exactly the two things a repagination is built to *preserve*: the start is sticky by
+construction and `placedAt` leaves a reader on page zero on page zero. So rotating the
+phone mid-re-anchor landed the repagination and then let the re-anchor write pages set
+in the old column over it. Two silent failures at once: every page drawn in a column it
+was not measured in, so its last line is clipped — the failure
+`MeasureMatchesRenderTest` exists for, reached through the re-anchor — and a stale
+`windowLayout`, which makes `mayGrowWindow` false *for ever*. The prefetch stops, every
+tap at the window's edge queues, and nothing cashes the queue until the reader rotates
+again, at which point all of it fires at once. The guard takes the layout key now, and
+the forward branch refuses to stamp a stale one for the same reason.
+
 **What a device still has to answer.** Every number above is measured characters on a
 JVM; none of it is a stopwatch, because there is no phone here.
 
@@ -2524,3 +2537,7 @@ JVM; none of it is a stopwatch, because there is no phone here.
   seam the page will overlap the one before it by up to a page. Nothing should ever be
   *missing*.
 - That the chapter header appears on the book's first page and on no other.
+- **Rotation**, which is the one input none of these fixes was designed around and
+  three of them turned out to reach: rotate while reading, rotate at the window's
+  first page, rotate immediately after tapping back, and check the text still fills
+  each page to the bottom and that taps keep working afterwards.
