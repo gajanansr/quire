@@ -63,7 +63,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.annotation.DrawableRes
 import app.quire.android.ui.QuireStrings
+import app.quire.android.ui.theme.HighlightColour
 import app.quire.android.ui.theme.Quire
+import app.quire.android.ui.theme.QuireHighlights
 import app.quire.android.ui.theme.QuireIcon
 import app.quire.android.ui.theme.QuireIcons
 import app.quire.android.ui.theme.QuireShapes
@@ -801,8 +803,9 @@ private fun marksFor(
     sliceEnd: Int,
 ): List<Pair<IntRange, Color>> {
     val colors = Quire.colors
+    val wash = QuireHighlights.tint(Quire.theme, HighlightColour.DEFAULT)
     val saved = state.highlights.mapNotNull { span ->
-        Selection.portionOf(span, blockIndex, sliceStart, sliceEnd)?.let { it to colors.highlight }
+        Selection.portionOf(span, blockIndex, sliceStart, sliceEnd)?.let { it to wash }
     }
     val live = state.selection
         ?.let { Selection.portionOf(it, blockIndex, sliceStart, sliceEnd) }

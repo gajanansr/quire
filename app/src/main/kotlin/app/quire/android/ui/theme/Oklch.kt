@@ -18,6 +18,20 @@ import kotlin.math.sin
  * gamma-encoded sRGB.
  */
 internal fun oklchToSrgb(l: Double, c: Double, h: Double): Triple<Int, Int, Int> {
+    val (rLinear, gLinear, bLinear) = oklchToLinearSrgb(l, c, h)
+    return Triple(encode(rLinear), encode(gLinear), encode(bLinear))
+}
+
+/**
+ * The same transform, stopped one step early — before clamping and gamma encoding.
+ *
+ * Exposed because a channel outside `0..1` here is the only evidence that a token is
+ * outside the sRGB gamut. [encode] clamps it, which produces a perfectly reasonable
+ * looking colour of the *wrong hue*: a highlight chroma chosen one step too high
+ * quietly drags two of the five towards each other, and nothing on screen says so.
+ * `QuireHighlightsTest` reads these raw channels to catch it.
+ */
+internal fun oklchToLinearSrgb(l: Double, c: Double, h: Double): Triple<Double, Double, Double> {
     val hRad = Math.toRadians(h)
     val a = c * cos(hRad)
     val b = c * sin(hRad)
@@ -32,11 +46,11 @@ internal fun oklchToSrgb(l: Double, c: Double, h: Double): Triple<Int, Int, Int>
     val lms2 = sCube * sCube * sCube
 
     // LMS to linear sRGB.
-    val rLinear = 4.0767416621 * lms0 - 3.3077115913 * lms1 + 0.2309699292 * lms2
-    val gLinear = -1.2684380046 * lms0 + 2.6097574011 * lms1 - 0.3413193965 * lms2
-    val bLinear = -0.0041960863 * lms0 - 0.7034186147 * lms1 + 1.7076147010 * lms2
-
-    return Triple(encode(rLinear), encode(gLinear), encode(bLinear))
+    return Triple(
+        4.0767416621 * lms0 - 3.3077115913 * lms1 + 0.2309699292 * lms2,
+        -1.2684380046 * lms0 + 2.6097574011 * lms1 - 0.3413193965 * lms2,
+        -0.0041960863 * lms0 - 0.7034186147 * lms1 + 1.7076147010 * lms2,
+    )
 }
 
 /**

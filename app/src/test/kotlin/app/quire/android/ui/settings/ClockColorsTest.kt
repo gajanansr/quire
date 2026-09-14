@@ -42,7 +42,7 @@ class ClockColorsTest {
 
     private fun tokensOf(c: QuireColors) = setOf(
         c.bg, c.bgAlt, c.ink, c.muted, c.border, c.accent, c.accentSoft,
-        c.buttonBg, c.buttonText, c.readerBg, c.highlight, c.errorBg, c.errorText,
+        c.buttonBg, c.buttonText, c.readerBg, c.errorBg, c.errorText,
     )
 
     @Test

@@ -16,7 +16,7 @@ class QuireThemeTest {
         "bg" to c.bg, "bgAlt" to c.bgAlt, "ink" to c.ink, "muted" to c.muted,
         "border" to c.border, "accent" to c.accent, "accentSoft" to c.accentSoft,
         "buttonBg" to c.buttonBg, "buttonText" to c.buttonText,
-        "readerBg" to c.readerBg, "highlight" to c.highlight,
+        "readerBg" to c.readerBg,
         "errorBg" to c.errorBg, "errorText" to c.errorText,
     )
 

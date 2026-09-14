@@ -91,27 +91,27 @@ invariant.
 `test/ui/theme/QuireHighlightsTest.kt` (new), `test/ui/theme/QuireThemeTest.kt`,
 `test/ui/settings/ClockColorsTest.kt`
 
-- [ ] `HighlightColour` — `KEEP`, `FACT`, `DOUBT`, `LOOK_UP`, `LOVELY` — each with a
+- [x] `HighlightColour` — `KEEP`, `FACT`, `DOUBT`, `LOOK_UP`, `LOVELY` — each with a
       hue and a label. Stored by `name`; `highlightColourNamed` resolves an unknown
       or missing value to `KEEP` the way `themeNamed` does, so a row written by a
       later version does not paint a highlight `Color.Unspecified`.
-- [ ] `QuireHighlights.tint(theme, colour)` returns the translucent wash the span is
+- [x] `QuireHighlights.tint(theme, colour)` returns the translucent wash the span is
       painted with; `QuireHighlights.over(theme, colour)` returns it composited on
       that theme's `readerBg`, which is what a swatch and a Bookmarks row draw.
-- [ ] `QuireColors.highlight` is deleted. It had exactly one use site and the palette
+- [x] `QuireColors.highlight` is deleted. It had exactly one use site and the palette
       now owns highlight colour; leaving a token nothing reads is how a comment ends
       up lying. `QuireThemeTest.tokensOf` and `ClockColorsTest.tokensOf` lose the
       entry — the e-ink chroma rule loses one token there and gains twenty-five in
       `QuireHighlightsTest`, so the property is asserted more widely, not less.
-- [ ] Test, the `ShareCardStyleTest` method: for all 5 themes × 5 colours, `ink`
+- [x] Test, the `ShareCardStyleTest` method: for all 5 themes × 5 colours, `ink`
       composited over the tint over `readerBg` clears **4.5:1**.
-- [ ] Test: every tint is *visible* — at least 0.09 of per-channel separation from
+- [x] Test: every tint is *visible* — at least 0.09 of per-channel separation from
       its own page. Without this a 2% alpha would pass the contrast test and paint
       nothing.
-- [ ] Test: on any one theme no two colours are within 0.06 per-channel of each
+- [x] Test: on any one theme no two colours are within 0.06 per-channel of each
       other. Five marks a reader cannot tell apart are one mark.
-- [ ] Test: every E-ink tint and every E-ink composite has `red == green == blue`.
-- [ ] Test: every pigment is inside the sRGB gamut — `oklchToSrgb` clamps, and a
+- [x] Test: every E-ink tint and every E-ink composite has `red == green == blue`.
+- [x] Test: every pigment is inside the sRGB gamut — `oklchToSrgb` clamps, and a
       clamped channel shifts the hue silently, so Doubt and Keep would drift towards
       each other with nothing on screen to say why.
 

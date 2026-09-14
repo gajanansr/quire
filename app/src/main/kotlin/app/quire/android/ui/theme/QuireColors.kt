@@ -28,7 +28,6 @@ data class QuireColors(
     val buttonBg: Color,
     val buttonText: Color,
     val readerBg: Color,
-    val highlight: Color,
     val errorBg: Color,
     val errorText: Color,
 )
@@ -58,7 +57,6 @@ object QuirePalettes {
         buttonBg = oklch(0.2, 0.02, 255.0),
         buttonText = Color.White,
         readerBg = oklch(0.975, 0.012, 60.0),
-        highlight = oklch(0.85, 0.13, 95.0),
         errorBg = oklch(0.94, 0.03, 25.0),
         errorText = oklch(0.45, 0.14, 25.0),
     )
@@ -82,7 +80,6 @@ object QuirePalettes {
         buttonBg = oklch(0.30, 0.035, 60.0),
         buttonText = oklch(0.95, 0.020, 82.0),
         readerBg = oklch(0.925, 0.030, 80.0),
-        highlight = oklch(0.82, 0.10, 90.0),
         errorBg = oklch(0.88, 0.030, 30.0),
         errorText = oklch(0.44, 0.13, 28.0),
     )
@@ -114,7 +111,6 @@ object QuirePalettes {
         buttonBg = oklch(0.19, 0.0, 0.0),
         buttonText = oklch(0.960, 0.0, 0.0),
         readerBg = oklch(0.930, 0.0, 0.0),
-        highlight = oklch(0.780, 0.0, 0.0),
         errorBg = oklch(0.860, 0.0, 0.0),
         errorText = oklch(0.30, 0.0, 0.0),
     )
@@ -140,7 +136,6 @@ object QuirePalettes {
         buttonBg = oklch(0.72, 0.09, 250.0),
         buttonText = oklch(0.16, 0.01, 260.0),
         readerBg = oklch(0.235, 0.004, 260.0),
-        highlight = oklch(0.42, 0.09, 95.0),
         errorBg = oklch(0.32, 0.06, 25.0),
         errorText = oklch(0.76, 0.12, 25.0),
     )
@@ -165,7 +160,6 @@ object QuirePalettes {
         buttonBg = oklch(0.70, 0.08, 250.0),
         buttonText = Color.Black,
         readerBg = Color.Black,
-        highlight = oklch(0.38, 0.08, 95.0),
         errorBg = oklch(0.28, 0.06, 25.0),
         errorText = oklch(0.74, 0.12, 25.0),
     )
