@@ -3,12 +3,14 @@ package app.quire.android.share
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * What Quire hands to the system when the reader taps Share.
@@ -67,9 +69,58 @@ class SharingTest {
     }
 
     @Test
-    fun `a blank caption is left out rather than sent as an empty line`() {
-        val sent = inner(ShareIntents.image(Uri.parse("content://x/y"), "  ", "Share"))
+    fun `an image share never carries EXTRA_TEXT, caption or not`() {
+        // The reported bug, from a real phone: "the image is not being shared, the
+        // text is being shared." An ACTION_SEND holding both EXTRA_STREAM and
+        // EXTRA_TEXT is ambiguous, and the receiver breaks the tie, not Quire. The
+        // system Sharesheet builds its preview from EXTRA_TEXT before it looks at
+        // EXTRA_STREAM, and apps that register one ACTION_SEND handler for text and
+        // images commonly read EXTRA_TEXT and never open the stream — the picture is
+        // in the envelope and silently dropped. So: an image intent is only ever an
+        // image. This is the rule, and nothing may put the caption back.
+        val withCaption = inner(ShareIntents.image(Uri.parse("content://x/y"), "A line", "Share"))
+        val withoutCaption = inner(ShareIntents.image(Uri.parse("content://x/y"), "  ", "Share"))
+
+        assertTrue("a caption came back as EXTRA_TEXT", !withCaption.hasExtra(Intent.EXTRA_TEXT))
+        assertTrue("an empty caption became EXTRA_TEXT", !withoutCaption.hasExtra(Intent.EXTRA_TEXT))
+    }
+
+    @Test
+    fun `an image share carries its uri in the extra and in the clip`() {
+        // Receivers read one or the other and the sender does not get to know which,
+        // so the uri is in both. Setting the ClipData ourselves is also what keeps it
+        // that way: Intent.migrateExtraStreamToClipData synthesises a clip from
+        // EXTRA_STREAM *and* EXTRA_TEXT on the way out of the process, and it bails
+        // the moment a clip is already there.
+        val uri = Uri.parse("content://app.quire.android.shares/shares/quire-card.png")
+        val sent = inner(ShareIntents.image(uri, "", "Share card"))
+        val clip = sent.clipData!!
+
+        assertEquals(uri, sent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))
+        assertEquals(1, clip.itemCount)
+        assertEquals(uri, clip.getItemAt(0).uri)
+        assertEquals("image/png", clip.description.getMimeType(0))
+    }
+
+    @Test
+    fun `a caption rides on the clip and nowhere else`() {
+        // The caption still travels, for the receivers that can take a picture and a
+        // line of words together — but out of the one field that makes an image share
+        // stop being an image share.
+        val sent = inner(ShareIntents.image(Uri.parse("content://x/y"), "  Worth a read  ", "Share"))
+
+        assertEquals("Worth a read", sent.clipData!!.getItemAt(0).text)
         assertTrue(!sent.hasExtra(Intent.EXTRA_TEXT))
+    }
+
+    @Test
+    fun `a blank caption leaves the clip with a uri and no words`() {
+        // An empty caption must not become an empty line in somebody's post.
+        val sent = inner(ShareIntents.image(Uri.parse("content://x/y"), "  ", "Share"))
+        val item = sent.clipData!!.getItemAt(0)
+
+        assertEquals(Uri.parse("content://x/y"), item.uri)
+        assertEquals(null, item.text)
     }
 
     @Test
@@ -96,6 +147,11 @@ class SharingTest {
             "manifest declares $providers, code uses ${Sharing.authority(context)}",
             Sharing.authority(context) in providers,
         )
+        // Pinned to the literal as well, because the app was renamed to
+        // app.quire.android and that rename reached the .md files late. Code and
+        // manifest both derive from `applicationId`, so they would agree with each
+        // other even if the id itself had been left behind.
+        assertEquals("app.quire.android.shares", Sharing.authority(context))
     }
 
     @Test
@@ -109,6 +165,28 @@ class SharingTest {
 
         assertEquals(java.io.File(context.cacheDir, "shares"), file.parentFile)
         assertTrue("the png is empty", file.length() > 0)
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.P])
+    fun `below API 29 a save falls back rather than asking for a permission`() {
+        // Writing outside the app's own storage there needs WRITE_EXTERNAL_STORAGE,
+        // which Quire does not ask for. Returning null is the whole contract: the
+        // sheet reads it and opens the chooser instead, which reaches the gallery
+        // anyway by way of the reader picking it. If this ever returned a uri on an
+        // old phone, Save would appear to work and write nothing.
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        assertEquals(null, Sharing.saveToPictures(context, bitmap, "quire-card.png"))
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.Q])
+    fun `a saved card goes to the pictures library, not to the app's own storage`() {
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        assertTrue(
+            "nothing was written to the picture library",
+            Sharing.saveToPictures(context, bitmap, "quire-card.png") != null,
+        )
     }
 
     @Test

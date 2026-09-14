@@ -3,7 +3,9 @@ package app.quire.android.ui.share
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import app.quire.android.ui.theme.ReaderFont
 import org.junit.Test
+import kotlin.math.ceil
 
 /**
  * A shared passage arrives whole.
@@ -86,5 +88,94 @@ class QuoteFitTest {
     fun `surrounding whitespace never counts against the passage`() {
         val fit = QuoteFit.of("   A quiet place to read.   ")
         assertEquals("A quiet place to read.", fit.text)
+    }
+
+    @Test
+    fun `no passage is ever set on a line shorter than twenty characters`() {
+        // The "too much zoomed" assertion, reported from a real phone. Under twenty
+        // characters a line stops reading as a quotation and starts reading as an
+        // enlarged screenshot — and a card is looked at full-bleed, about 1.8x the
+        // size the sheet previews it at, which roughly doubles the effect.
+        //
+        // Every length is swept rather than the four tier ceilings, so this holds for
+        // whatever the tiers are next changed to.
+        (1..QuoteFit.MAX_CHARS).forEach { length ->
+            val fit = QuoteFit.of(passage(length))
+            val measure = QuoteFit.charactersPerLine(fit.fontSizeSp, WIDTH)
+            assertTrue(
+                "a $length-character passage is set at ${fit.fontSizeSp}sp, " +
+                    "which is $measure characters to a line",
+                measure >= QuoteFit.MIN_MEASURE,
+            )
+        }
+    }
+
+    @Test
+    fun `every passage fits the lines it is given`() {
+        // A tier that cannot hold the passages it is for ellipsises them, which is the
+        // silent truncation this whole object exists to prevent — arriving by the back
+        // door instead of through the cap. Three of the four original tiers failed
+        // this: 260 characters at 19sp need 12.4 lines and were given 11.
+        (1..QuoteFit.MAX_CHARS).forEach { length ->
+            val fit = QuoteFit.of(passage(length))
+            val measure = QuoteFit.charactersPerLine(fit.fontSizeSp, WIDTH)
+            val needed = ceil(length / measure).toInt()
+            assertTrue(
+                "a $length-character passage needs $needed lines and is given ${fit.maxLines}",
+                needed <= fit.maxLines,
+            )
+        }
+    }
+
+    @Test
+    fun `the same passage is set twice as large on a card twice as wide`() {
+        // "not at all responsive": the sizes used to be absolute sp, so the card was
+        // one design in the 230dp preview and a different, magnified one in the
+        // exported PNG. The line budget is a ratio and must not move at all.
+        val text = words(40)
+        val narrow = QuoteFit.of(text, 230f)
+        val wide = QuoteFit.of(text, 460f)
+
+        assertEquals(narrow.fontSizeSp * 2, wide.fontSizeSp, 0.001f)
+        assertEquals(narrow.maxLines, wide.maxLines)
+    }
+
+    @Test
+    fun `a short passage is not blown up to fill the card`() {
+        // "font size should be less." A six-word passage takes the largest tier, so
+        // the largest tier is what the reader was looking at when they said so.
+        val fit = QuoteFit.of("Bagels, and how you pronounce them.", WIDTH)
+        assertTrue("set at ${fit.fontSizeSp}sp on a ${WIDTH}dp card", fit.fontSizeSp < 20f)
+    }
+
+    @Test
+    fun `a passage is only italic in a face that ships an italic`() {
+        // The card is set in whatever the reader chose in the typography sheet, and
+        // only two of those four faces have an italic of their own. Where there is
+        // none Compose fills the gap by shearing the upright, and a synthetic oblique
+        // at card sizes reads as a rendering fault rather than as a quotation — which
+        // is worse than an upright quote inside quotation marks.
+        assertTrue("Source Serif ships an italic", QuoteFit.isItalic(ReaderFont.SERIF))
+        assertTrue("the platform face has a real italic", QuoteFit.isItalic(ReaderFont.SYSTEM))
+        assertFalse("Lora is bundled upright only", QuoteFit.isItalic(ReaderFont.LORA))
+        assertFalse("Work Sans is bundled upright only", QuoteFit.isItalic(ReaderFont.SANS))
+    }
+
+    /**
+     * A passage of exactly [length] characters, broken into words.
+     *
+     * Never begins or ends on a space: [QuoteFit] trims, and a passage that trimmed
+     * down to 699 characters would quietly test the tier below the one meant.
+     */
+    private fun passage(length: Int): String {
+        val chars = CharArray(length) { if (it % 6 == 5) ' ' else 'a' }
+        chars[0] = 'a'
+        chars[length - 1] = 'a'
+        return String(chars)
+    }
+
+    private companion object {
+        /** The card the sheet previews on a typical phone. */
+        const val WIDTH = QuoteFit.REFERENCE_WIDTH_DP
     }
 }

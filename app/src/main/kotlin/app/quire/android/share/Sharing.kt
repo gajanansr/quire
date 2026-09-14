@@ -11,6 +11,7 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import java.io.File
+import java.io.IOException
 
 /**
  * Where "Show your support" goes.
@@ -49,25 +50,59 @@ object ShareIntents {
         )
 
     /**
-     * A rendered card, with its caption.
+     * A rendered card. Only ever the card.
+     *
+     * **An image intent never carries [Intent.EXTRA_TEXT].** Reported from a real
+     * phone: "the image is not being shared, the text is being shared." An
+     * `ACTION_SEND` holding both [Intent.EXTRA_STREAM] and [Intent.EXTRA_TEXT] is
+     * ambiguous by construction, and the receiver breaks the tie, not Quire. The
+     * system Sharesheet builds its preview from `EXTRA_TEXT` before it looks at the
+     * stream, so the reader is shown a wall of words where they expected their card;
+     * and an app that registers one `ACTION_SEND` handler for text and for images
+     * commonly reads `EXTRA_TEXT` and never opens the stream at all. The picture is
+     * in the envelope the whole time, and is silently dropped.
+     *
+     * The caption travels in the [ClipData] instead — reachable by anything that can
+     * take a picture and a line of words together, and out of the one field that
+     * stops an image share being an image share.
+     *
+     * The uri goes in both `EXTRA_STREAM` and the clip because receivers read one or
+     * the other and the sender does not get to know which. Building the clip here
+     * rather than leaving it to the platform is also what holds the rule:
+     * `Intent.migrateExtraStreamToClipData` synthesises one from `EXTRA_STREAM` *and*
+     * `EXTRA_TEXT` on the way out of the process, and it bails the moment a clip is
+     * already set.
      *
      * [Intent.FLAG_GRANT_READ_URI_PERMISSION] is what makes the receiving app able
      * to open the file at all: the image lives in Quire's own cache directory, which
      * nothing else can read without being granted it for this one uri.
      */
-    fun image(uri: Uri, caption: String, chooserTitle: String): Intent =
-        Intent.createChooser(
+    fun image(uri: Uri, caption: String, chooserTitle: String): Intent {
+        val note = caption.trim().takeIf { it.isNotBlank() }
+        return Intent.createChooser(
             Intent(Intent.ACTION_SEND).apply {
-                type = "image/png"
+                type = MIME_PNG
                 putExtra(Intent.EXTRA_STREAM, uri)
-                if (caption.isNotBlank()) putExtra(Intent.EXTRA_TEXT, caption)
+                // The clip's label is the chooser's own title, never the caption and
+                // never the passage: a label is read out by accessibility services and
+                // surfaced in the clipboard toast on some builds, which is not a place
+                // for the reader's chosen words to appear without them asking.
+                clipData = ClipData(
+                    chooserTitle,
+                    arrayOf(MIME_PNG),
+                    ClipData.Item(note, null, uri),
+                )
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             },
             chooserTitle,
         ).apply { addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+    }
 
     /** Opens a URL in whatever browser the reader uses. */
     fun view(url: String): Intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+
+    /** The one type a card is sent as, named once so the intent and its clip agree. */
+    private const val MIME_PNG = "image/png"
 }
 
 /**
@@ -135,9 +170,27 @@ object Sharing {
         val resolver = context.contentResolver
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
             ?: return null
-        resolver.openOutputStream(uri)?.use {
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-        } ?: return null
+        // The row exists before a single byte is written, so anything that goes wrong
+        // from here has to take it back out. Left behind it is a zero-byte picture in
+        // the reader's gallery that opens as a grey square — worse than the failure
+        // it came from, because Save also returns null and sends them to the chooser,
+        // so they end up with the card saved twice and one of the two broken.
+        //
+        // The write can throw as well as return null: a full volume, an unmounted SD
+        // card, or a provider that refuses the descriptor all surface as IOException
+        // here, and this runs on the tap of a button. An uncaught one is a crash at
+        // the moment a reader tries to keep their card.
+        val written = try {
+            resolver.openOutputStream(uri)?.use {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            } ?: false
+        } catch (failed: IOException) {
+            false
+        }
+        if (!written) {
+            resolver.delete(uri, null, null)
+            return null
+        }
         return uri
     }
 

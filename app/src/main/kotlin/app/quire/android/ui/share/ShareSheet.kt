@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,6 +40,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import app.quire.android.share.ShareIntents
 import app.quire.android.share.Sharing
 import app.quire.android.ui.QuireStrings
@@ -50,13 +52,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.annotation.DrawableRes
 import app.quire.android.ui.theme.Quire
 import app.quire.android.ui.theme.QuireIcon
 import app.quire.android.ui.theme.QuireIcons
 import app.quire.android.ui.theme.QuireShapes
+import app.quire.android.ui.theme.ReaderFont
 import app.quire.android.ui.theme.SourceSerif
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -70,6 +74,20 @@ sealed interface ShareCard {
         val author: String?,
         val text: String,
         val chapterLabel: String,
+        /**
+         * The face the reader was reading this passage in.
+         *
+         * A quote card is *their* passage, so it is set in the face they chose in the
+         * typography sheet rather than in whatever the card was hardcoded to. It
+         * travels on the card rather than as a parameter of the sheet because the
+         * sheet is hosted in `QuireRoot`, which has no reader and no business knowing
+         * about reading preferences — and because the only route that has an answer is
+         * the Reader, which is also the only route that builds this.
+         *
+         * [ReaderFont.SERIF] for the routes with no reader at all: a book's
+         * description from Book Details, and a saved bookmark.
+         */
+        val font: ReaderFont = ReaderFont.SERIF,
     ) : ShareCard
 
     data class Streak(
@@ -353,11 +371,50 @@ private fun Destination(@DrawableRes icon: Int, label: String, onClick: () -> Un
     }
 }
 
+/**
+ * One card's measurements, in the units Compose draws in.
+ *
+ * The type sizes come back pinned against the reader's system font scale —
+ * `Dp.toSp()` divides by it, so what is rendered is the number of pixels the card's
+ * proportions asked for. A share card is a picture with fixed proportions and no way
+ * to re-flow once it is a PNG; if an accessibility font scale grew the passage but not
+ * the card, the quote would run off the bottom of an export nobody can fix.
+ */
+private data class CardFrame(
+    val metrics: CardMetrics.Frame,
+    val margin: Dp,
+    val gap: Dp,
+    val label: TextUnit,
+    val wordmark: TextUnit,
+    val display: TextUnit,
+)
+
+@Composable
+private fun cardFrameOf(widthDp: Float): CardFrame {
+    val metrics = CardMetrics.of(widthDp)
+    val density = LocalDensity.current
+    return with(density) {
+        CardFrame(
+            metrics = metrics,
+            margin = metrics.marginDp.dp,
+            gap = metrics.gapDp.dp,
+            label = metrics.labelSp.dp.toSp(),
+            wordmark = metrics.wordmarkSp.dp.toSp(),
+            display = metrics.displaySp.dp.toSp(),
+        )
+    }
+}
+
 @Composable
 private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
-    Box(Modifier.fillMaxSize().background(palette.brush)) {
+    // The card asks how wide it actually is rather than assuming the sheet's preview
+    // width. Everything below is a fraction of that, which is what makes the preview
+    // and the exported PNG the same design at two scales — see [CardMetrics].
+    BoxWithConstraints(Modifier.fillMaxSize().background(palette.brush)) {
+        val frame = cardFrameOf(maxWidth.value)
+        val density = LocalDensity.current
         Column(
-            Modifier.fillMaxSize().padding(18.dp),
+            Modifier.fillMaxSize().padding(frame.margin),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Column {
@@ -366,12 +423,16 @@ private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
                     color = palette.ink,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    fontSize = frame.label,
+                    lineHeight = frame.label * LABEL_LEADING,
                     style = MaterialTheme.typography.labelSmall,
                 )
                 card.author?.takeIf { it.isNotBlank() }?.let {
                     Text(
                         it,
                         color = palette.muted,
+                        fontSize = frame.label,
+                        lineHeight = frame.label * LABEL_LEADING,
                         style = MaterialTheme.typography.labelSmall,
                     )
                 }
@@ -381,30 +442,54 @@ private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
             // old version closed the quotation mark after cutting, so a truncated
             // passage looked complete — a reader who chose three paragraphs shared
             // one sentence and had no way to tell.
-            val fit = QuoteFit.of(card.text)
-            Text(
-                text = "“${fit.text}”",
-                color = palette.ink,
-                fontFamily = SourceSerif,
-                fontStyle = FontStyle.Italic,
-                fontSize = fit.fontSizeSp.sp,
-                lineHeight = (fit.fontSizeSp * 1.35f).sp,
-                maxLines = fit.maxLines,
-                overflow = TextOverflow.Ellipsis,
-                // Breathing room, not SpaceBetween's. Once a long passage takes the
-                // weight there is no free space left for the arrangement to
-                // distribute, and the quote ends up touching the title above it.
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    .padding(vertical = 16.dp),
-            )
+            val fit = QuoteFit.of(card.text, frame.metrics.widthDp)
+            // Centred in its own field rather than hung under the title. A six-word
+            // passage and a six-hundred-character one get the same field; the short
+            // one sits in the middle of it with air either side, the long one fills
+            // it. Left to SpaceBetween alone the short passage clings to the title
+            // with all the emptiness below it, which reads as a layout that gave up.
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(vertical = frame.gap),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "“${fit.text}”",
+                    color = palette.ink,
+                    // The reader's own face, not the card's. A quote card is their
+                    // passage; setting it in a face they did not choose makes it a
+                    // picture of Quire's opinion instead. The wordmark below stays
+                    // Source Serif — that is Quire's mark, and a brand line that
+                    // changes typeface with a preference is not a brand line.
+                    fontFamily = card.font.family(),
+                    fontStyle = if (QuoteFit.isItalic(card.font)) {
+                        FontStyle.Italic
+                    } else {
+                        FontStyle.Normal
+                    },
+                    fontSize = with(density) { fit.fontSizeSp.dp.toSp() },
+                    lineHeight = with(density) {
+                        (fit.fontSizeSp * QuoteFit.LINE_HEIGHT).dp.toSp()
+                    },
+                    maxLines = fit.maxLines,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
 
             Column {
                 card.chapterLabel.takeIf { it.isNotBlank() }?.let {
-                    Text(it, color = palette.muted, style = MaterialTheme.typography.labelSmall)
-                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        it,
+                        color = palette.muted,
+                        fontSize = frame.label,
+                        lineHeight = frame.label * LABEL_LEADING,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Spacer(Modifier.height(frame.gap))
                 }
-                Wordmark(palette)
+                Wordmark(palette, frame)
             }
         }
     }
@@ -412,37 +497,49 @@ private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
 
 @Composable
 private fun StreakCard(card: ShareCard.Streak, palette: CardPalette) {
-    Box(Modifier.fillMaxSize().background(palette.brush)) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(palette.brush)) {
+        val frame = cardFrameOf(maxWidth.value)
         Column(
-            Modifier.fillMaxSize().padding(18.dp),
+            Modifier.fillMaxSize().padding(frame.margin),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 "Reading Streak",
                 color = palette.muted,
+                fontSize = frame.label,
+                lineHeight = frame.label * LABEL_LEADING,
                 style = MaterialTheme.typography.labelSmall,
             )
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()) {
+            // The same proportional frame as the quote card. Two cards that share a
+            // shape and not a set of measurements drift apart one edit at a time.
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.Center,
+            ) {
                 Text(
                     "${card.days}",
                     color = palette.ink,
                     fontFamily = SourceSerif,
+                    fontSize = frame.display,
+                    lineHeight = frame.display * 1.15f,
                     style = MaterialTheme.typography.displayLarge,
                 )
                 Text(
                     if (card.days == 1) "day" else "days",
                     color = palette.muted,
+                    fontSize = frame.label,
+                    lineHeight = frame.label * LABEL_LEADING,
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                Spacer(Modifier.height(14.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Spacer(Modifier.height(frame.gap * 2))
+                Row(horizontalArrangement = Arrangement.spacedBy(frame.gap / 2)) {
                     card.week.forEach { day ->
                         val met = card.goalMinutes > 0 && day.minutes >= card.goalMinutes
                         Box(
                             Modifier
-                                .size(width = 8.dp, height = 20.dp)
+                                .size(width = frame.gap, height = frame.gap * 2.5f)
                                 .clip(QuireShapes.chip)
                                 .background(
                                     if (met) palette.ink
@@ -453,10 +550,13 @@ private fun StreakCard(card: ShareCard.Streak, palette: CardPalette) {
                 }
             }
 
-            Wordmark(palette)
+            Wordmark(palette, frame)
         }
     }
 }
+
+/** Leading for the card's small labels, as a multiple of their size. */
+private const val LABEL_LEADING = 1.3f
 
 /**
  * The card's footer: what this is, and how to get it.
@@ -469,17 +569,21 @@ private fun StreakCard(card: ShareCard.Streak, palette: CardPalette) {
  * day there is one to point at, in a single edit.
  */
 @Composable
-private fun Wordmark(palette: CardPalette) {
+private fun Wordmark(palette: CardPalette, frame: CardFrame) {
     Column {
         Text(
             QuireStrings.APP_NAME,
             color = palette.ink,
             fontFamily = SourceSerif,
+            fontSize = frame.wordmark,
+            lineHeight = frame.wordmark * 1.25f,
             style = MaterialTheme.typography.titleMedium,
         )
         Text(
             QuireStrings.SHARE_FOOTER,
             color = palette.muted,
+            fontSize = frame.label,
+            lineHeight = frame.label * LABEL_LEADING,
             style = MaterialTheme.typography.labelSmall,
         )
     }
