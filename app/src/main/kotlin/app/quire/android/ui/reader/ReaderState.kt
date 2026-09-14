@@ -2,8 +2,8 @@ package app.quire.android.ui.reader
 
 import app.quire.android.ui.theme.ReaderFont
 import app.quire.core.model.Chapter
-import app.quire.core.model.ContentBlock
 import app.quire.core.model.ReadingPosition
+import app.quire.core.paginate.ChapterHeading
 import app.quire.core.paginate.Page
 import app.quire.core.paginate.TypographySettings
 import app.quire.core.paginate.pageContaining
@@ -14,6 +14,15 @@ import app.quire.core.reading.TextSpan
 
 /** Which overlay, if any, is covering the page. */
 enum class ReaderOverlay { NONE, CONTENTS, TYPOGRAPHY, BOOKMARK }
+
+/**
+ * What the chapter header's small line reads, for a chapter at [index].
+ *
+ * One expression, because four places need it and one of them — deciding whether the
+ * chapter's own heading already says it — has to compare against exactly the string
+ * the header draws.
+ */
+fun chapterLabelFor(index: Int): String = "Chapter ${index + 1}"
 
 data class ReaderPreferences(
     val font: ReaderFont = ReaderFont.SERIF,
@@ -97,22 +106,41 @@ data class ReaderState(
         }
 
     /**
+     * What the header's small line reads.
+     *
+     * Here rather than at each site that needs it, because three of them had their
+     * own copy of the expression and a fourth has to compare against it.
+     */
+    val chapterLabel: String get() = chapterLabelFor(chapterIndex)
+
+    /**
      * Whether to draw the chapter header above the text.
      *
-     * Suppressed when the chapter's own first block is a heading saying the same
-     * thing — most EPUBs open a chapter with an `<h1>` of its title, and drawing
-     * both prints the title twice.
+     * Suppressed when the chapter's own opening already says the same thing — most
+     * EPUBs open a chapter with an `<h1>` of its title, and drawing both prints the
+     * title twice. See [ChapterHeading] for why matching on the first block's exact
+     * characters was not enough on a real book.
      */
     val showsChapterHeader: Boolean
-        get() {
-            if (pageIndex != 0) return false
-            val ch = chapter ?: return true
-            val first = ch.blocks.firstOrNull() ?: return true
-            if (first !is ContentBlock.Heading) return true
-            val heading = ch.blockTexts.firstOrNull()?.trim().orEmpty()
-            val title = chapterTitle?.trim().orEmpty()
-            return !heading.equals(title, ignoreCase = true)
-        }
+        get() = showsHeaderFor(chapter, pageIndex)
+
+    /**
+     * The same question about a chapter that is not open yet.
+     *
+     * Load-bearing, and the reason this is a function rather than only the property:
+     * the first page's header inset has to be budgeted for the chapter being
+     * *loaded*, and asking [showsChapterHeader] before that chapter reaches the
+     * state answers for the one being left — at its page index, which is usually not
+     * zero. Budgeting no inset for a page that then draws a header is how the
+     * paginator packs the header's height in extra lines and the renderer clips them.
+     */
+    fun showsHeaderFor(chapter: Chapter?, pageIndex: Int): Boolean {
+        if (pageIndex != 0) return false
+        val ch = chapter ?: return true
+        // The label of the chapter being asked about, not of the one in state: this
+        // is asked about chapters that are not open yet.
+        return !ChapterHeading.repeatsHeader(ch.blockTexts, ch.title, chapterLabelFor(ch.index))
+    }
 
     val hasSelection: Boolean get() = selection != null && selection.isEmpty.not()
 

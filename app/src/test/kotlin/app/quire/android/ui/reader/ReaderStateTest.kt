@@ -284,4 +284,63 @@ class ReaderStateTest {
         val state = pageOpeningWith("The 5 p.m. sun lit up the hotel.", "Palm trees swayed.")
         assertEquals("The 5 p.m. sun lit up the hotel.", state.currentPageSnippet)
     }
+
+    // -------------------------------------------------------------- chapter header
+
+    /** A chapter shaped the way an EPUB delivers one. */
+    private fun chapterOf(title: String?, vararg blocks: ContentBlock) = Chapter(
+        index = 2, title = title, blocks = blocks.toList(),
+        startCharOffset = 0, charCount = 0,
+    )
+
+    private fun headed(title: String?, vararg blocks: ContentBlock) =
+        state().copy(chapterIndex = 2, chapterTitle = title, chapter = chapterOf(title, *blocks))
+
+    @Test
+    fun `a chapter whose heading repeats its title does not draw the header`() {
+        // Reported from a real phone: "part 1 part 1 comes twice". The chapter opens
+        // with a page break, so the old rule looked at the break instead of the
+        // heading behind it and drew the title above a page that already said it.
+        val state = headed(
+            "Part 1",
+            ContentBlock.PageBreak(sourcePage = 41),
+            ContentBlock.Heading(1, listOf(InlineSpan("Part 1"))),
+            ContentBlock.Paragraph(listOf(InlineSpan(lorem))),
+        )
+        assertFalse("Part 1 was drawn above Part 1", state.showsChapterHeader)
+    }
+
+    @Test
+    fun `a chapter whose heading differs still draws its header`() {
+        val state = headed(
+            "Part 1",
+            ContentBlock.Heading(1, listOf(InlineSpan("The Fall"))),
+            ContentBlock.Paragraph(listOf(InlineSpan(lorem))),
+        )
+        assertTrue("a real chapter title was lost", state.showsChapterHeader)
+    }
+
+    @Test
+    fun `the header only heads the first page`() {
+        val state = headed(
+            "Part 1",
+            ContentBlock.Heading(1, listOf(InlineSpan("The Fall"))),
+            ContentBlock.Paragraph(listOf(InlineSpan(lorem))),
+        )
+        assertFalse(state.copy(pageIndex = 1).showsChapterHeader)
+    }
+
+    @Test
+    fun `the label the header draws is the one the check compares against`() {
+        // Two expressions for "Chapter 3" is how the check and the drawing drift
+        // apart: the chapter says Chapter 3, the header prints Chapter 3, and the
+        // comparison is against something else.
+        val state = headed(
+            null,
+            ContentBlock.Heading(1, listOf(InlineSpan("Chapter 3"))),
+            ContentBlock.Paragraph(listOf(InlineSpan(lorem))),
+        )
+        assertEquals("Chapter 3", state.chapterLabel)
+        assertFalse("Chapter 3 was drawn above Chapter 3", state.showsChapterHeader)
+    }
 }

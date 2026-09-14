@@ -421,5 +421,5 @@ private fun quoteOf(state: ReaderState, text: String) = ShareCard.Quote(
     // card that has to say what the number means.
     chapterLabel = state.chapterTitle
         ?.takeIf { it.isNotBlank() && !it.trim().all { c -> c.isDigit() } }
-        ?: "Chapter ${state.chapterIndex + 1}",
+        ?: state.chapterLabel,
 )

@@ -256,7 +256,9 @@ private fun PageContent(
                 ),
             )
             Text(
-                text = "Chapter ${state.chapterIndex + 1}",
+                // The same expression the "does the chapter already say this?" check
+                // compares against, so the two cannot drift into disagreeing.
+                text = state.chapterLabel,
                 color = colors.muted,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.labelSmall,

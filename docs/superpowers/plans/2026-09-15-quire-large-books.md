@@ -244,15 +244,17 @@ written*, never of *whether it is the same string*.
 - Test: `core/src/test/kotlin/app/quire/core/paginate/ChapterHeadingTest.kt` (create)
 - Test: `app/src/test/kotlin/app/quire/android/ui/reader/ReaderStateTest.kt`
 
-- [ ] **Step 1:** Failing tests over fixture chapters with each real shape above,
+- [x] **Step 1:** Failing tests over fixture chapters with each real shape above,
   plus the negative cases: a heading that differs must keep its header, and a
   chapter whose first words merely *start* with the title must keep it too.
-- [ ] **Step 2:** `ChapterHeading.repeatsTitle(blockTexts, blocks, title, label)`:
-  find the first block carrying a letter, normalise both sides (Unicode
-  whitespace → space, collapse runs, drop zero-width and soft hyphens, strip
-  surrounding punctuation, case-fold), compare for equality.
-- [ ] **Step 3:** `showsChapterHeader` delegates.
-- [ ] **Step 4:** `./scripts/check.sh` green. Commit.
+- [x] **Step 2:** `ChapterHeading.repeatsHeader(blockTexts, title, label)`: find the
+  first of the leading blocks carrying a letter, reduce both sides to their letters
+  and digits lowercased — one rule instead of a list of invisible differences — and
+  compare for equality. The label only decides anything for an untitled chapter,
+  because matching the label while a title exists would throw the title away.
+- [x] **Step 3:** `showsChapterHeader` delegates; `chapterLabelFor` gives the check
+  and the drawing one expression instead of three copies.
+- [x] **Step 4:** `./scripts/check.sh` green. Commit.
 
 ---
 
