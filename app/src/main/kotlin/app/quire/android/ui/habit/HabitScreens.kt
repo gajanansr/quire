@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.quire.android.data.HabitRepository
 import app.quire.android.data.HabitSummary
+import app.quire.android.notify.ReadingQuotes
 import app.quire.android.ui.common.PrimaryButton
 import androidx.annotation.DrawableRes
 import app.quire.android.ui.theme.Quire
@@ -131,6 +132,26 @@ fun StreakScreen(
                 style = MaterialTheme.typography.bodyLarge,
             )
         }
+
+        Spacer(Modifier.height(26.dp))
+        // The day's quotation, keyed on the same local day the reminder uses, so the
+        // sentence here and the one in tonight's notification are the same sentence.
+        // Every line is public domain and verified against a primary text; see
+        // ReadingQuotes.
+        val quote = ReadingQuotes.forDay(summary.today)
+        Text(
+            "“${quote.text}”",
+            color = colors.muted,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            quote.author,
+            color = colors.muted,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.labelSmall,
+        )
 
         Spacer(Modifier.height(26.dp))
         // Milestones and Level hang off the streak screen rather than the tab bar:
