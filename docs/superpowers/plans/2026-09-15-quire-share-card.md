@@ -60,13 +60,13 @@ already there.
 
 **Files:** `share/Sharing.kt`, `test/share/SharingTest.kt`
 
-- [ ] Test (red): an image intent with a caption has no `EXTRA_TEXT`.
-- [ ] Test (red): the uri is in `EXTRA_STREAM` and in `ClipData` item 0, and the clip
+- [x] Test (red): an image intent with a caption has no `EXTRA_TEXT`.
+- [x] Test (red): the uri is in `EXTRA_STREAM` and in `ClipData` item 0, and the clip
       describes itself as `image/png`.
-- [ ] Test (red): a caption rides on `ClipData` item 0's text and nowhere else.
-- [ ] Test: a blank caption produces a clip with a uri and no text.
-- [ ] Test: the read grant is on the inner intent and on the chooser (kept).
-- [ ] Confirm the `FileProvider` authority still matches the manifest after the rename
+- [x] Test (red): a caption rides on `ClipData` item 0's text and nowhere else.
+- [x] Test: a blank caption produces a clip with a uri and no text.
+- [x] Test: the read grant is on the inner intent and on the chooser (kept).
+- [x] Confirm the `FileProvider` authority still matches the manifest after the rename
       to `app.quire.android` — the existing manifest-vs-code test covers it; check it
       is actually exercising the renamed id.
 
