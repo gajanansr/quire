@@ -70,16 +70,16 @@ fun readerText(
     text: String,
     style: BlockStyle,
     /**
-     * Ranges to paint behind, in this string's own indices — a live selection or a
-     * saved highlight, already cut to the slice this page draws.
+     * Runs to mark, in this string's own indices — a live selection or a saved
+     * highlight, already cut to the slice this page draws.
      *
      * Defaulted empty so [ComposeTextMeasurer] keeps passing none, and it must: the
      * measurer paginates a chapter without knowing which parts of it are marked. That
-     * is only safe because a background is the one span style that cannot move a line
-     * break — it changes no metric. `MeasureMatchesRenderTest` holds that line, since
-     * the day it stops being true is the day pages start losing their last line again.
+     * is only safe because neither of a [ReaderMark]'s two properties changes a
+     * metric. `MeasureMatchesRenderTest` holds that line for both of them, since the
+     * day it stops being true is the day pages start losing their last line again.
      */
-    marks: List<Pair<IntRange, Color>> = emptyList(),
+    marks: List<ReaderMark> = emptyList(),
 ): AnnotatedString {
     val initialAt =
         if (style.openingInitial && text.isNotEmpty()) text.indexOfFirst { it.isLetterOrDigit() }
@@ -98,10 +98,38 @@ fun readerText(
                 end = initialAt + 1,
             )
         }
-        marks.forEach { (range, colour) ->
-            val from = range.first.coerceIn(0, text.length)
-            val to = (range.last + 1).coerceIn(from, text.length)
-            if (from < to) addStyle(SpanStyle(background = colour), start = from, end = to)
+        marks.forEach { mark ->
+            val from = mark.range.first.coerceIn(0, text.length)
+            val to = (mark.range.last + 1).coerceIn(from, text.length)
+            if (from < to) {
+                addStyle(
+                    SpanStyle(background = mark.background, color = mark.ink),
+                    start = from,
+                    end = to,
+                )
+            }
         }
     }
 }
+
+/**
+ * One marked run: where it is, what is painted behind it, and what colour the words
+ * on it are set in.
+ *
+ * The ink is not decoration. A blockquote is drawn in `muted`, which already sits at
+ * the 4.5:1 floor against the bare page — so a wash over it took a highlighted
+ * quotation down to 2.30:1 on Night, the one place in the app where the reader had
+ * *chosen* the text they most wanted to read. A mark therefore carries its own text
+ * colour and a marked run is always set in the theme's full ink, whatever the block
+ * around it is set in.
+ *
+ * Both properties are paint, not layout: neither a background nor a colour changes a
+ * glyph's advance, so a marked paragraph still breaks exactly where the paginator
+ * measured it breaking. That is the assumption the whole feature rests on and
+ * `MeasureMatchesRenderTest` proves it rather than trusting it.
+ */
+data class ReaderMark(
+    val range: IntRange,
+    val background: Color,
+    val ink: Color,
+)

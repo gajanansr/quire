@@ -120,11 +120,11 @@ invariant.
 **Files:** `ui/reader/ReaderTypography.kt`, `ui/reader/ReaderScreen.kt`,
 `test/ui/reader/MeasureMatchesRenderTest.kt`
 
-- [ ] `ReaderMark(range, background, ink)` replaces `Pair<IntRange, Color>`.
+- [x] `ReaderMark(range, background, ink)` replaces `Pair<IntRange, Color>`.
       `readerText` applies `SpanStyle(background = …, color = …)`.
-- [ ] `BlockText` keeps drawing a blockquote in `muted`; the mark overrides it for
+- [x] `BlockText` keeps drawing a blockquote in `muted`; the mark overrides it for
       the marked run only.
-- [ ] Test: a paragraph and a blockquote break on exactly the same characters with
+- [x] Test: a paragraph and a blockquote break on exactly the same characters with
       and without a mark that sets **both** background and colour. Neither is a
       metric, but that is the assumption the whole paginator rests on and it is now
       an assumption about two properties rather than one.

@@ -13,6 +13,7 @@ import app.quire.core.model.ContentBlock
 import app.quire.core.model.InlineSpan
 import app.quire.core.paginate.BlockStyles
 import app.quire.core.paginate.TypographySettings
+import androidx.compose.ui.graphics.Color
 import app.quire.android.ui.theme.ReaderFont
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -139,14 +140,18 @@ class MeasureMatchesRenderTest {
      *
      * This is the assumption the whole highlight feature rests on. The paginator has
      * no idea which passages are marked — it measures a chapter, not a reader — so
-     * the drawn page carries background spans the measured one never saw. That is
-     * only safe because a background changes no metric. The day someone reaches for
-     * a bolder highlight, or an underline, or a little padding, this test fails
-     * instead of pages quietly losing their last line again.
+     * the drawn page carries spans the measured one never saw. That is only safe
+     * because a mark changes no metric. The day someone reaches for a bolder
+     * highlight, or an underline, or a little padding, this test fails instead of
+     * pages quietly losing their last line again.
+     *
+     * Re-proved when a mark stopped being only a background. A highlighted run is now
+     * also *recoloured*, so the drawn page carries two properties the measured one
+     * never saw rather than one, and "a background cannot move a break" is no longer
+     * the whole of the argument. Both are asserted here, together and separately, on
+     * a paragraph and on the blockquote that is the reason the colour is there.
      */
-    @Test
-    fun `a highlighted paragraph breaks exactly where the unhighlighted one does`() {
-        val block = ContentBlock.Paragraph(listOf(InlineSpan(prose)))
+    private fun assertMarkMovesNothing(block: ContentBlock, mark: ReaderMark, what: String) {
         val width = 900f
         val style = BlockStyles.of(block, settings(justify = true))
         val constraints = Constraints(maxWidth = (width - style.indentPx).toInt())
@@ -158,25 +163,57 @@ class MeasureMatchesRenderTest {
             constraints = constraints,
         )
         val marked = measurer.measure(
-            // A mark spanning a line break, which is where a metric change would show.
-            text = readerText(
-                prose,
-                style,
-                marks = listOf(40..120 to androidx.compose.ui.graphics.Color.Yellow),
-            ),
+            text = readerText(prose, style, marks = listOf(mark)),
             style = textStyle,
             constraints = constraints,
         )
 
-        assertEquals("a highlight changed the line count", plain.lineCount, marked.lineCount)
-        assertEquals("a highlight changed the block's height", plain.size.height, marked.size.height)
+        assertEquals("$what changed the line count", plain.lineCount, marked.lineCount)
+        assertEquals("$what changed the block's height", plain.size.height, marked.size.height)
         repeat(plain.lineCount) { line ->
             assertEquals(
-                "a highlight moved the break on line $line",
+                "$what moved the break on line $line",
                 plain.getLineEnd(line),
                 marked.getLineEnd(line),
             )
         }
+    }
+
+    /** A mark spanning a line break, which is where a metric change would show. */
+    private val acrossABreak = 40..120
+
+    @Test
+    fun `a highlighted paragraph breaks exactly where the unhighlighted one does`() {
+        assertMarkMovesNothing(
+            ContentBlock.Paragraph(listOf(InlineSpan(prose))),
+            ReaderMark(acrossABreak, Color.Yellow, Color.Black),
+            "a highlight",
+        )
+    }
+
+    @Test
+    fun `recolouring a marked run moves no break either`() {
+        // The half that is new. A colour is paint and not layout, which is exactly
+        // the kind of claim that is true until someone reaches for a span property
+        // that is not — so it is asserted on its own, with no background in the way
+        // to hide a change.
+        assertMarkMovesNothing(
+            ContentBlock.Paragraph(listOf(InlineSpan(prose))),
+            ReaderMark(acrossABreak, Color.Transparent, Color.Red),
+            "recolouring a run",
+        )
+    }
+
+    @Test
+    fun `a highlighted blockquote breaks where the unhighlighted one does`() {
+        // The block the mark's ink exists for: a quotation is set in `muted`, and a
+        // marked run inside it is set in full ink instead. It is also the narrowest
+        // measure on the page, so a metric change shows up here first.
+        assertMarkMovesNothing(
+            ContentBlock.BlockQuote(listOf(InlineSpan(prose))),
+            ReaderMark(acrossABreak, Color.Yellow, Color.Black),
+            "a highlighted quotation",
+        )
     }
 
     @Test

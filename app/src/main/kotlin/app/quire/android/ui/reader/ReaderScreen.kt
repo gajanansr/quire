@@ -726,7 +726,7 @@ private fun BlockText(
     state: ReaderState,
     indented: Boolean,
     opensChapter: Boolean,
-    marks: List<Pair<IntRange, Color>>,
+    marks: List<ReaderMark>,
     textMap: PageTextMap,
     blockIndex: Int,
     sliceStart: Int,
@@ -770,9 +770,11 @@ private fun BlockText(
     }
 
     Text(
-        // The same annotated text the paginator measured, initial and all. The marks
-        // are backgrounds, which change no metric and so cannot move a line break —
-        // MeasureMatchesRenderTest is what keeps that true.
+        // The same annotated text the paginator measured, initial and all. A mark is
+        // a background and a text colour, both of which are paint rather than layout
+        // and so cannot move a line break — MeasureMatchesRenderTest keeps that true.
+        // The block's own colour is the *unmarked* one: a quotation stays muted, and
+        // the run inside it that the reader marked comes back to full ink.
         text = readerText(text, blockStyle, marks),
         color = if (block is ContentBlock.BlockQuote) colors.muted else colors.ink,
         style = style,
@@ -801,15 +803,16 @@ private fun marksFor(
     blockIndex: Int,
     sliceStart: Int,
     sliceEnd: Int,
-): List<Pair<IntRange, Color>> {
+): List<ReaderMark> {
     val colors = Quire.colors
     val wash = QuireHighlights.tint(Quire.theme, HighlightColour.DEFAULT)
     val saved = state.highlights.mapNotNull { span ->
-        Selection.portionOf(span, blockIndex, sliceStart, sliceEnd)?.let { it to wash }
+        Selection.portionOf(span, blockIndex, sliceStart, sliceEnd)
+            ?.let { ReaderMark(it, wash, colors.ink) }
     }
     val live = state.selection
         ?.let { Selection.portionOf(it, blockIndex, sliceStart, sliceEnd) }
-        ?.let { it to colors.accentSoft }
+        ?.let { ReaderMark(it, colors.accentSoft, colors.ink) }
     return if (live == null) saved else saved + live
 }
 
