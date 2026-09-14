@@ -12,6 +12,7 @@ import app.quire.android.pdf.AndroidPdfTextSource
 import app.quire.android.ui.reader.ReaderPreferences
 import app.quire.android.ui.reader.ReaderState
 import app.quire.android.ui.reader.ReaderTransitions
+import app.quire.android.ui.reader.ReaderWindow
 import app.quire.core.fixtures.Fixtures
 import app.quire.core.model.ReadingPosition
 import app.quire.core.paginate.BlockStyle
@@ -103,7 +104,13 @@ class ResumeLoopTest {
         assertTrue("${file.name} failed to import: ${result.exceptionOrNull()}", result.isSuccess)
     }
 
-    /** Opens a book at its saved position, exactly as ReaderHost does. */
+    /**
+     * Opens a book at its saved position, exactly as ReaderHost does.
+     *
+     * Through `ReaderWindow`, because that is now what ReaderHost does: a chapter is
+     * laid out a window at a time, and the resume path is the one that has to place a
+     * reader inside a window that does not start at the chapter's first character.
+     */
     private suspend fun open(
         bookId: String,
         preferences: ReaderPreferences = ReaderPreferences(),
@@ -111,14 +118,19 @@ class ResumeLoopTest {
         val entity = repo.find(bookId)!!
         val saved = repo.progressOf(bookId)
         val chapter = repo.loadChapter(bookId, saved.chapterIndex)!!
-        val pages = paginator.paginate(chapter, viewport, preferences.toSettings(1f))
+        val settings = preferences.toSettings(1f)
+        val window = ReaderWindow.openAt(
+            chapter, saved, ReaderWindow.charsBehind(viewport, settings),
+        ) { from, maxPages ->
+            paginator.paginateWindow(chapter, from, maxPages, viewport, settings)
+        }
         return ReaderTransitions.openedChapter(
             ReaderState(
                 bookId = bookId, bookTitle = entity.title,
                 chapterCount = entity.chapterCount, bookTotalChars = entity.totalChars,
                 preferences = preferences,
             ),
-            chapter, pages, saved,
+            chapter, window, saved,
         )
     }
 

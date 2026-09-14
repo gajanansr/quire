@@ -9,6 +9,7 @@ import app.quire.core.paginate.Measured
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.TextMeasurer
 import app.quire.core.paginate.Viewport
+import app.quire.core.reading.TextAnchor
 import app.quire.android.ui.theme.QuireTypography
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -62,8 +63,14 @@ class ReaderLayoutTest {
         startCharOffset = 0, charCount = prose.length,
     )
 
-    private fun requestFor(chapter: Chapter, sizeSp: Float = 19f) = ReaderLayout.requestFor(
+    private fun requestFor(
+        chapter: Chapter,
+        sizeSp: Float = 19f,
+        from: TextAnchor = TextAnchor(0, 0),
+    ) = ReaderLayout.requestFor(
         chapter = chapter,
+        from = from,
+        maxPages = ReaderWindow.PAGES_BEHIND + ReaderWindow.PAGES_AHEAD,
         viewport = viewport,
         preferences = ReaderPreferences(fontSizeSp = sizeSp),
         pixelsPerSp = density,
@@ -122,14 +129,14 @@ class ReaderLayoutTest {
         val chapter = headedChapter()
 
         runBlocking {
-            pages.pagesFor(chapter, requestFor(chapter))
+            pages.windowFor(chapter, requestFor(chapter))
             val afterFirst = measurer.calls
             assertTrue("nothing was laid out at all", afterFirst > 0)
 
             // The effect runs again — the reader is deeper in, or the box was
             // remeasured and came back the same. Nothing the page breaks depend on
             // changed, so nothing should be measured again.
-            pages.pagesFor(chapter, requestFor(chapter))
+            pages.windowFor(chapter, requestFor(chapter))
             assertEquals("the chapter was laid out twice", afterFirst, measurer.calls)
         }
     }
@@ -142,9 +149,9 @@ class ReaderLayoutTest {
         val chapter = headedChapter()
 
         runBlocking {
-            pages.pagesFor(chapter, requestFor(chapter, sizeSp = 19f))
+            pages.windowFor(chapter, requestFor(chapter, sizeSp = 19f))
             val afterFirst = measurer.calls
-            pages.pagesFor(chapter, requestFor(chapter, sizeSp = 22f))
+            pages.windowFor(chapter, requestFor(chapter, sizeSp = 22f))
             assertTrue("a new type size served the old pages", measurer.calls > afterFirst)
         }
     }
@@ -157,17 +164,17 @@ class ReaderLayoutTest {
         val elsewhere = headedChapter(index = 4)
 
         runBlocking {
-            pages.pagesFor(here, requestFor(here))
-            pages.pagesFor(elsewhere, requestFor(elsewhere))
+            pages.windowFor(here, requestFor(here))
+            pages.windowFor(elsewhere, requestFor(elsewhere))
             val settled = measurer.calls
 
             // The reader steps the size. The Reader repaginates the chapter in hand
             // and nothing else — the other chapter's pages are still good at the size
             // they were laid out for, and will be wanted again at that size.
-            pages.pagesFor(here, requestFor(here, sizeSp = 20f))
+            pages.windowFor(here, requestFor(here, sizeSp = 20f))
             val afterResize = measurer.calls
 
-            pages.pagesFor(elsewhere, requestFor(elsewhere))
+            pages.windowFor(elsewhere, requestFor(elsewhere))
             assertEquals(
                 "a chapter the reader is not in was laid out again",
                 afterResize, measurer.calls,
@@ -183,10 +190,10 @@ class ReaderLayoutTest {
         val chapter = headedChapter()
 
         runBlocking {
-            pages.pagesFor(chapter, requestFor(chapter, sizeSp = 19f))
-            pages.pagesFor(chapter, requestFor(chapter, sizeSp = 20f))
+            pages.windowFor(chapter, requestFor(chapter, sizeSp = 19f))
+            pages.windowFor(chapter, requestFor(chapter, sizeSp = 20f))
             val settled = measurer.calls
-            pages.pagesFor(chapter, requestFor(chapter, sizeSp = 19f))
+            pages.windowFor(chapter, requestFor(chapter, sizeSp = 19f))
             assertEquals("stepping back re-laid the chapter out", settled, measurer.calls)
         }
     }
@@ -290,17 +297,34 @@ class ReaderLayoutTest {
         // The header is theme type at fixed sizes and two gaps in dp. None of it
         // depends on the reader's body size, and the old estimate pretending it did
         // is precisely how it under-budgeted at 15sp.
-        val atFifteen = ReaderLayout.requestFor(
-            headedChapter(), viewport, ReaderPreferences(fontSizeSp = 15f), density, density,
-        )
-        val atTwentyFour = ReaderLayout.requestFor(
-            headedChapter(), viewport, ReaderPreferences(fontSizeSp = 24f), density, density,
-        )
+        val atFifteen = requestFor(headedChapter(), sizeSp = 15f)
+        val atTwentyFour = requestFor(headedChapter(), sizeSp = 24f)
         assertEquals(
             "the header's height moved with the reader's type size",
             atTwentyFour.insetPx, atFifteen.insetPx, 0.01f,
         )
         assertEquals(drawnHeaderPx(2), atFifteen.insetPx, 0.01f)
+    }
+
+    @Test
+    fun `only the run that opens the chapter is charged for the header`() {
+        // A chapter is laid out a window at a time, and only the window that starts at
+        // the chapter's first character can produce the page the header is drawn on.
+        // Charging the inset at a seam would lay that page out for less than it draws
+        // and clip its last line — the failure `MeasureMatchesRenderTest` exists for,
+        // reached through chunking instead of through a style. The same cursor decides
+        // the budget here and the drawing in `showsChapterHeaderFor`.
+        val chapter = headedChapter()
+        val midChapter = TextAnchor(1, 240)
+        assertTrue("the chapter's own first page went unbudgeted", requestFor(chapter).insetPx > 0f)
+        assertEquals(
+            "a seam was charged for a header no page in it draws",
+            0f, requestFor(chapter, from = midChapter).insetPx, 0.001f,
+        )
+        assertFalse(
+            "the header would have been drawn above a seam",
+            showsChapterHeaderFor(chapter, pageIndex = 0, windowStart = midChapter),
+        )
     }
 
     @Test

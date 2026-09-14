@@ -6,12 +6,13 @@ import app.quire.core.model.ReadingPosition
 import app.quire.core.paginate.ChapterHeading
 import app.quire.core.paginate.Page
 import app.quire.core.paginate.TypographySettings
-import app.quire.core.paginate.pageContaining
 import app.quire.core.paginate.startPosition
+import app.quire.core.reading.ReadingEstimates
 import app.quire.core.reading.Selection
 import app.quire.core.reading.SelectionEdge
 import app.quire.core.reading.TextAnchor
 import app.quire.core.reading.TextSpan
+import kotlin.math.roundToInt
 
 /** Which overlay, if any, is covering the page. */
 enum class ReaderOverlay { NONE, CONTENTS, TYPOGRAPHY, BOOKMARK }
@@ -35,8 +36,21 @@ fun chapterLabelFor(index: Int): String = "Chapter ${index + 1}"
  * paginating reaches the state. Asking the open state answered for the chapter being
  * left, at the page index the reader was standing on — see [ReaderLayout].
  */
-fun showsChapterHeaderFor(chapter: Chapter?, pageIndex: Int): Boolean {
-    if (pageIndex != 0) return false
+fun showsChapterHeaderFor(
+    chapter: Chapter?,
+    pageIndex: Int,
+    /**
+     * Where the window holding this page begins.
+     *
+     * Page zero of a *window* is not page zero of the *chapter*. A chapter too long
+     * to lay out at once is laid out around wherever the reader is standing, so the
+     * first page in hand is usually somewhere in the middle — and drawing a chapter
+     * header above it would put "Chapter 1" and a sink in the middle of a sentence,
+     * which is the loudest way a chunk boundary could announce itself.
+     */
+    windowStart: TextAnchor = TextAnchor(0, 0),
+): Boolean {
+    if (pageIndex != 0 || windowStart != TextAnchor(0, 0)) return false
     // No chapter, no chapter header. This used to answer `true`, and the Reader draws
     // the header above the guard that returns early when there is nothing to draw —
     // so for the whole pre-pagination window a reader resuming in chapter 12 was shown
@@ -82,6 +96,20 @@ data class ReaderState(
     val chapter: Chapter? = null,
     val pages: List<Page> = emptyList(),
     val pageIndex: Int = 0,
+    /**
+     * Where the pages in hand begin, and where the chapter carries on past them.
+     *
+     * [pages] is a **window** over the chapter, not the whole of it: a book with no
+     * outline is one chapter, and *The Love Hypothesis* is 8,621 blocks and 565,896
+     * characters of it. Laying all of that out on open, and again on every tap of A+,
+     * is what made the book hang.
+     *
+     * These two say where the window sits, and everything that used to ask "am I at
+     * the end of the chapter?" has to ask them rather than [atLastPage] — which now
+     * means only "at the end of what is laid out". See [ReaderWindow].
+     */
+    val windowStart: TextAnchor = TextAnchor(0, 0),
+    val windowNext: TextAnchor? = null,
     val chromeVisible: Boolean = false,
     val overlay: ReaderOverlay = ReaderOverlay.NONE,
     val preferences: ReaderPreferences = ReaderPreferences(),
@@ -125,15 +153,59 @@ data class ReaderState(
      */
     val pendingTurns: Int = 0,
 ) {
+    /** How many pages are laid out — not how long the chapter is. See [windowStart]. */
     val pageCount: Int get() = pages.size
+
+    /**
+     * The line under the progress bar.
+     *
+     * It read `"38% · page 12 of 719"`, and the denominator was the chapter laid out
+     * whole at the reader's type size. A chapter is now laid out a window at a time,
+     * so that number would be the window's — "page 5 of 20", resetting as the reader
+     * went, and reporting a chunk boundary out loud.
+     *
+     * Counted in printed pages instead: [ReadingEstimates] divides the book's
+     * characters by a paperback page, which is the same measure Book Details already
+     * states a book's length in. **"about" is not decoration** — it is the difference
+     * between an estimate and a claim, and the reader can check this one against the
+     * spine of the book. For the 565,896-character novel this was built for it reads
+     * 314 against the PDF's real 315.
+     *
+     * It also stops changing when the type size does, which the old number did on
+     * every tap of the stepper.
+     */
+    val readingLine: String
+        get() {
+            val percent = (progress * 100).roundToInt()
+            if (bookTotalChars <= 0) return "$percent%"
+            return "$percent% · about page " +
+                "${ReadingEstimates.currentPage(bookTotalChars, progress)} of " +
+                "${ReadingEstimates.pageCount(bookTotalChars)}"
+        }
 
     val currentPage: Page? get() = pages.getOrNull(pageIndex)
 
     val atFirstPage: Boolean get() = pageIndex <= 0
     val atLastPage: Boolean get() = pageIndex >= pages.lastIndex
 
-    val atBookStart: Boolean get() = chapterIndex == 0 && atFirstPage
-    val atBookEnd: Boolean get() = chapterIndex >= chapterCount - 1 && atLastPage
+    /** The pages in hand, as the thing that knows how to grow itself. */
+    val window: WindowedPages
+        get() = WindowedPages(windowStart, pages, windowNext, pageIndex)
+
+    /**
+     * The real ends of the chapter, which are not the ends of the pages in hand.
+     *
+     * [atLastPage] used to be both questions at once, and after windowing it is only
+     * the first: a reader at the end of the window is usually in the middle of the
+     * chapter. Treating the two as the same would drop the reader into the next
+     * chapter every twelve pages.
+     */
+    val atChapterEnd: Boolean get() = windowNext == null && atLastPage
+    val atChapterStart: Boolean
+        get() = windowStart == TextAnchor(0, 0) && atFirstPage
+
+    val atBookStart: Boolean get() = chapterIndex == 0 && atChapterStart
+    val atBookEnd: Boolean get() = chapterIndex >= chapterCount - 1 && atChapterEnd
 
     /** The canonical position: never a page number. */
     val position: ReadingPosition
@@ -176,7 +248,7 @@ data class ReaderState(
      * characters was not enough on a real book.
      */
     val showsChapterHeader: Boolean
-        get() = showsChapterHeaderFor(chapter, pageIndex)
+        get() = showsChapterHeaderFor(chapter, pageIndex, windowStart)
 
     val hasSelection: Boolean get() = selection != null && selection.isEmpty.not()
 
@@ -250,6 +322,20 @@ data class ReaderState(
  * repagination can be tested without a device — this is where an off-by-one
  * silently skips a page of someone's book.
  */
+/**
+ * Takes on a window's pages, its bounds and the place it put the reader.
+ *
+ * One function, because those four fields are one fact: a page index that outlives
+ * the page list it indexes is how a reader ends up on a page they have never seen,
+ * and separate copies at four call sites is four chances to update three of them.
+ */
+private fun ReaderState.withWindow(window: WindowedPages) = copy(
+    pages = window.pages,
+    pageIndex = window.pageIndex.coerceIn(0, (window.pages.size - 1).coerceAtLeast(0)),
+    windowStart = window.start,
+    windowNext = window.next,
+)
+
 object ReaderTransitions {
 
     /** Advances one page, returning null when the next page is in another chapter. */
@@ -305,19 +391,30 @@ object ReaderTransitions {
     fun repaginated(
         state: ReaderState,
         chapter: Chapter?,
-        pages: List<Page>,
+        window: WindowedPages,
         preferences: ReaderPreferences,
     ): ReaderState {
         if (state.chapter !== chapter) return state.copy(preferences = preferences)
-        val anchor = state.position
-        return withPendingTurnsApplied(
-            state.copy(
-                pages = pages,
-                pageIndex = pages.pageContaining(anchor)
-                    .coerceIn(0, (pages.size - 1).coerceAtLeast(0)),
-                preferences = preferences,
-            )
-        )
+        return withPendingTurnsApplied(state.withWindow(window).copy(preferences = preferences))
+    }
+
+    /**
+     * Adopts a window laid out for [chapter] — extended forward, or re-anchored back.
+     *
+     * Guarded on the chapter for the same reason [repaginated] is, and the guard has
+     * to be here rather than at the call site because there is no call site that may
+     * skip it: an extension runs in a coroutine, the Contents sheet can load another
+     * chapter while it does, and pages from one chapter written onto another leave
+     * `position` a character offset from the wrong chapter — which is what gets saved
+     * to the progress row when the Reader closes.
+     */
+    fun windowed(
+        state: ReaderState,
+        chapter: Chapter?,
+        window: WindowedPages,
+    ): ReaderState {
+        if (state.chapter !== chapter) return state
+        return state.withWindow(window)
     }
 
     /**
@@ -333,7 +430,7 @@ object ReaderTransitions {
     fun openedChapter(
         state: ReaderState,
         chapter: Chapter,
-        pages: List<Page>,
+        window: WindowedPages,
         at: ReadingPosition?,
     ): ReaderState {
         val opened = state.copy(
@@ -341,9 +438,7 @@ object ReaderTransitions {
             chapterIndex = chapter.index,
             chapterTitle = chapter.title,
             chapter = chapter,
-            pages = pages,
-            pageIndex = at?.let { pages.pageContaining(it) } ?: 0,
-        )
+        ).withWindow(window)
         return if (at == null) opened.copy(pendingTurns = 0)
         else withPendingTurnsApplied(opened)
     }

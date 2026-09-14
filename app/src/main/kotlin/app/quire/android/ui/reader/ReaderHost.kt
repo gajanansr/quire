@@ -32,9 +32,10 @@ import app.quire.android.ui.theme.ReaderFont
 import app.quire.core.model.Chapter
 import app.quire.core.model.ChapterRef
 import app.quire.core.model.ReadingPosition
-import app.quire.core.paginate.Page
+import app.quire.core.paginate.PageWindow
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.Viewport
+import app.quire.core.reading.TextAnchor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collect
@@ -118,20 +119,47 @@ fun ReaderHost(
     val pixelsPerSp = with(density) { 1.sp.toPx() }
     val pixelsPerDp = with(density) { 1.dp.toPx() }
 
-    suspend fun pagesFor(chapter: Chapter, request: PaginationRequest): List<Page> =
-        chapterPaginator.pagesFor(chapter, request)
+    /**
+     * Lays out one run of a chapter: the primitive [ReaderWindow] builds windows from.
+     *
+     * A lambda rather than a method so `ReaderWindow` knows nothing about caches,
+     * dispatchers or device pixels — which is what lets every rule about where a
+     * window starts and when it grows be tested on a JVM.
+     */
+    fun layFor(chapter: Chapter, prefs: ReaderPreferences): suspend (TextAnchor, Int) -> PageWindow =
+        { from, maxPages ->
+            chapterPaginator.windowFor(
+                chapter,
+                // The request is built from the chapter just loaded, not from the one
+                // being left. Built from the outgoing state, the header inset was
+                // decided by the previous chapter at the reader's previous page index
+                // — nearly always zero — while the renderer drew a header the
+                // pagination had made no room for.
+                ReaderLayout.requestFor(
+                    chapter, from, maxPages, viewport, prefs, pixelsPerSp, pixelsPerDp,
+                ),
+            )
+        }
 
-    fun requestFor(chapter: Chapter, prefs: ReaderPreferences) =
-        ReaderLayout.requestFor(chapter, viewport, prefs, pixelsPerSp, pixelsPerDp)
+    fun charsBehind(prefs: ReaderPreferences) =
+        ReaderWindow.charsBehind(viewport, prefs.toSettings(pixelsPerSp))
 
-    suspend fun loadChapter(index: Int, at: ReadingPosition?) {
+    /**
+     * @param atEnd open at the chapter's final character rather than at [at].
+     *   Entering a chapter backwards has to land on its last page, and with a window
+     *   that page does not exist until something asks for it — there is no page list
+     *   to index to the end of. Resolved here rather than by the caller so the chapter
+     *   is read from disk once; on a book whose only chapter is 8,621 blocks, reading
+     *   it twice to work out where it ends is not a rounding error.
+     */
+    suspend fun loadChapter(index: Int, at: ReadingPosition?, atEnd: Boolean = false) {
         val entity = repository.find(bookId) ?: return
         val chapter: Chapter = repository.loadChapter(bookId, index) ?: return
-        // The request is built from the chapter just loaded, not from the one being
-        // left. Built from the outgoing state, the header inset was decided by the
-        // previous chapter at the reader's previous page index — nearly always zero —
-        // while the renderer drew a header the pagination had made no room for.
-        val pages = pagesFor(chapter, requestFor(chapter, state.preferences))
+        val opensAt = if (!atEnd) at else chapter.cursorAt(chapter.textLength)
+            .let { ReadingPosition(index, it.blockIndex, it.charOffset) }
+        val window = ReaderWindow.openAt(
+            chapter, opensAt, charsBehind(state.preferences), layFor(chapter, state.preferences),
+        )
         state = ReaderTransitions.openedChapter(
             state.copy(
                 bookId = bookId,
@@ -140,7 +168,7 @@ fun ReaderHost(
                 chapterCount = entity.chapterCount,
                 bookTotalChars = entity.totalChars,
             ),
-            chapter, pages, at,
+            chapter, window, opensAt,
         )
     }
 
@@ -170,15 +198,42 @@ fun ReaderHost(
             }
 
             is PaginationStep.Repaginate -> {
-                val pages = pagesFor(step.chapter, requestFor(step.chapter, state.preferences))
+                // From the window's own start, not from a cursor worked out afresh
+                // around the reader: a start that moved on every tap of the stepper
+                // would re-tile the pages under them each time.
+                val window = ReaderWindow.relaidOut(
+                    step.chapter, state.window, layFor(step.chapter, state.preferences),
+                )
                 // Named, so `repaginated` can refuse pages laid out for a chapter the
                 // reader has since left: the Contents sheet loads one in a coroutine
                 // this effect does not cancel.
                 state = ReaderTransitions.repaginated(
-                    state, step.chapter, pages, state.preferences,
+                    state, step.chapter, window, state.preferences,
                 )
             }
         }
+    }
+
+    /**
+     * Lays out more of the chapter before the reader reaches the end of what is.
+     *
+     * A prefetch, and forward only. An extension that happened on the page turn
+     * itself would be a stutter at every seam, which is exactly the thing a reader
+     * would notice — and the backward equivalent is deliberately *not* here, because
+     * it re-tiles and would move the page under a reader who had not asked for it.
+     *
+     * Keyed on the carry as well as on wanting more, so it runs again after each
+     * extension rather than once, and so Compose cancels a run whose chapter,
+     * viewport or typography has been replaced.
+     */
+    val wantsMore = state.chapter != null && ReaderWindow.wantsForwardExtension(state.window)
+    LaunchedEffect(bookId, state.chapterIndex, state.windowNext, wantsMore, viewport, layoutSettings) {
+        if (!wantsMore || !typographyLoaded) return@LaunchedEffect
+        val chapter = state.chapter ?: return@LaunchedEffect
+        val extended = ReaderWindow.extendedForward(
+            state.window, layFor(chapter, state.preferences),
+        )
+        state = ReaderTransitions.windowed(state, chapter, extended)
     }
 
     suspend fun persistNow() {
@@ -275,16 +330,40 @@ fun ReaderHost(
             return
         }
 
+        // The end of the *window* is not the end of the chapter. Asking `atLastPage`
+        // alone would drop the reader into the next chapter every twelve pages of a
+        // book that has only one.
+        val chapter = state.chapter
+        if (chapter != null && !(if (forward) state.atChapterEnd else state.atChapterStart)) {
+            scope.launch {
+                val grown = if (forward) {
+                    // Normally already done by the prefetch effect; this is the reader
+                    // outrunning it.
+                    ReaderWindow.extendedForward(state.window, layFor(chapter, state.preferences))
+                } else {
+                    ReaderWindow.turnedBack(
+                        chapter, state.window, charsBehind(state.preferences),
+                        layFor(chapter, state.preferences),
+                    )
+                }
+                state = ReaderTransitions.windowed(state, chapter, grown)
+                // Forward across a seam still has to take the step the reader asked
+                // for; `turnedBack` has already taken it, by choosing which page of
+                // the re-anchored window to stand on.
+                if (forward) ReaderTransitions.nextPage(state)?.let { state = it }
+                tracker.record()
+                persist()
+            }
+            return
+        }
+
         // Crossing a chapter boundary.
         val target = if (forward) state.chapterIndex + 1 else state.chapterIndex - 1
         if (target < 0 || target >= state.chapterCount) return
         scope.launch {
-            loadChapter(target, null)
-            if (!forward) {
-                // Entering a chapter backwards should land on its last page, not
-                // its first — otherwise turning back skips the whole chapter.
-                state = state.copy(pageIndex = (state.pages.size - 1).coerceAtLeast(0))
-            }
+            // Entering a chapter backwards lands on its last page, not its first —
+            // otherwise turning back skips the whole chapter.
+            loadChapter(target, at = null, atEnd = !forward)
             persist()
         }
     }

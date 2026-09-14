@@ -2,10 +2,11 @@ package app.quire.android.ui.reader
 
 import app.quire.core.model.Chapter
 import app.quire.core.paginate.ChapterOpening
-import app.quire.core.paginate.Page
+import app.quire.core.paginate.PageWindow
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.TypographySettings
 import app.quire.core.paginate.Viewport
+import app.quire.core.reading.TextAnchor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
@@ -22,11 +23,22 @@ import kotlin.math.ceil
  */
 data class PaginationRequest(
     val chapterIndex: Int,
+    /**
+     * Where this run starts, and how many pages it may produce.
+     *
+     * Part of the request rather than arguments alongside it for the same reason the
+     * inset is: they decide the pages, so they decide the cache key, and a key that
+     * knows less than the pages depend on serves one window's pages for another's
+     * cursor — which puts the reader somewhere they have never been.
+     */
+    val from: TextAnchor,
+    val maxPages: Int,
     val viewport: Viewport,
     val settings: TypographySettings,
     val insetPx: Float,
 ) {
-    val key: PageCache.Key get() = PageCache.Key(chapterIndex, viewport, settings, insetPx)
+    val key: PageCache.Key
+        get() = PageCache.Key(chapterIndex, from, maxPages, viewport, settings, insetPx)
 }
 
 /** What the Reader's one pagination effect should do this time round. */
@@ -202,16 +214,26 @@ object ReaderLayout {
      */
     fun requestFor(
         chapter: Chapter,
+        from: TextAnchor,
+        maxPages: Int,
         viewport: Viewport,
         preferences: ReaderPreferences,
         pixelsPerSp: Float,
         pixelsPerDp: Float,
     ): PaginationRequest = PaginationRequest(
         chapterIndex = chapter.index,
+        from = from,
+        maxPages = maxPages,
         viewport = viewport,
         settings = preferences.toSettings(pixelsPerSp),
+        // Only the run that starts at the chapter's first character is charged the
+        // header, because only that run can produce the page the header is drawn on.
+        // Charging it at a seam would lay that page out for less than it draws and
+        // clip the last line off it; not charging it at the chapter's start would
+        // do the same to the page the header actually heads. The same cursor decides
+        // both the budget here and the drawing in `showsChapterHeaderFor`.
         insetPx = headerInsetPx(
-            showsHeader = showsChapterHeaderFor(chapter, pageIndex = 0),
+            showsHeader = showsChapterHeaderFor(chapter, pageIndex = 0, windowStart = from),
             title = chapter.title,
             viewport = viewport,
             pixelsPerSp = pixelsPerSp,
@@ -241,19 +263,21 @@ class ChapterPaginator(
      * page list is indistinguishable from a short chapter, and resolving a reading
      * position against it would put the reader somewhere they have never been.
      */
-    suspend fun pagesFor(chapter: Chapter, request: PaginationRequest): List<Page> {
+    suspend fun windowFor(chapter: Chapter, request: PaginationRequest): PageWindow {
         cache.get(request.key)?.let { return it }
-        val pages = withContext(Dispatchers.Default) {
+        val window = withContext(Dispatchers.Default) {
             val running = this
-            paginator.paginate(
+            paginator.paginateWindow(
                 chapter = chapter,
+                from = request.from,
+                maxPages = request.maxPages,
                 viewport = request.viewport,
                 settings = request.settings,
                 firstPageInsetPx = request.insetPx,
                 isActive = { running.isActive },
             )
         }
-        cache.put(request.key, pages)
-        return pages
+        cache.put(request.key, window)
+        return window
     }
 }
