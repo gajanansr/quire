@@ -1897,3 +1897,104 @@ gate rather than by a confusing afternoon. `FIXTURE_VERSION` is 6.
 **793 tests, 0 failures.** Site live at https://gajanansr.github.io/quire/, repository
 at https://github.com/gajanansr/quire (GitHub redirects the old URLs). Verified on the
 device: installs as a fresh package, onboards from scratch, icon and label correct.
+
+## 2026-09-15 — The reading habit: a clock, a forgiving streak, a quote a day, a guide
+
+Plan: `docs/superpowers/plans/2026-09-15-quire-habits.md`, branch `agent/habits`.
+All five tasks ticked. **864 JVM tests, 0 failures** (from 793).
+
+**The streak now forgives a missed day, and does not lie about it.** This was the one
+decision here that needed research rather than engineering, so the plan carries the
+survey — Duolingo's freezes and gem-priced repair, Apple Fitness's total absence of
+forgiveness and the documented ring guilt it produces, Oura's rolling seven-day window
+where rest is *scored positively*, Headspace, Snapchat's monetised restore and the
+peer-reviewed literature on adolescents sending black rectangles to keep a streak
+alive, and the weekly streaks Strava and Nike Run Club use.
+
+The model: **a run survives one missed day; two rest days must be seven days apart;
+the number counts only days the reader actually read.** A run of thirty that carried
+two rest days says thirty, not thirty-two — strictly more honest than every freeze
+mechanic surveyed and than Streaks for iOS, the closest comparable, both of which
+inflate the headline integer by the days they forgive.
+
+The property that keeps it from becoming pressure is that **there is no object**.
+No freeze to earn, spend, equip or lose; the allowance is a property of the calendar,
+so there is never a state in which the reader is holding something they might waste.
+It is Oura's rolling window wearing a streak's clothes.
+
+The rest days come back from the same function that computes the run, so the number,
+the sentence under it and the heatmap all describe one thing. A rest day is drawn as
+the empty square it was, outlined — filling it in would be the streak-freeze mistake.
+
+**A weekly streak was the survey's own first recommendation and was rejected**, which
+is worth recording. Strava and Nike Run Club are right that a week is the shortest
+period over which missing is almost always a choice. But Quire has shipped a streak
+counted in days: the Library card, the streak screen, the share card, both widgets and
+the notification copy all say "day". Migrating to weeks would restate every reader's
+history in a new unit and give a new reader nothing for six days.
+
+**Copy that claimed consecutive calendar days is gone, with two tests behind it.**
+"Three days running", "one after another", "you've read every day this week" are all
+false for a run that carried a rest day — warm, specific, confident and wrong, which
+is the failure the honesty rules exist to prevent, and the harder one to notice
+because the *number* is right. A second test bans any mention of the mechanic itself:
+no rest day offered, spent or endangered. Silverman & Barasch (JCR 49(6)) found that
+pointing at a break accelerates abandonment, so the correct number of streak-anxiety
+notifications is zero.
+
+**Eleven quotations, all verified against primary texts.** Three famous ones did not
+survive verification and are not shipped: "a room without books is like a body without
+a soul" traces to an 1864 *Blackwood's* reviewer paraphrasing a biographer who had
+mistranslated Cicero's *mens* as *soul*; the Mark Twain one first appears as unsigned
+advertising copy in 1914 and was attributed to him in 1945, thirty-five years after he
+died; "once you learn to read, you will be forever free" does not occur in Douglass's
+*Narrative* at all and inverts what he wrote about literacy.
+
+**The trap nobody expects is translation copyright.** An author dead four hundred
+years does not make a modern English rendering free — a translation is its own
+literary work with its own term. The Kafka everyone quotes is the Winstons, 1977; the
+famous Proust is Autret and Burford, 1971. Both are in copyright and neither is here.
+Montaigne is Cotton/Hazlitt, not Frame; Cicero is Shuckburgh 1899, and says a garden
+*in* your library, which is his joke — the popular "a garden and a library" inverts
+the grammar.
+
+**Migration 6 → 7** adds `guideSeen`, seeded `UPDATE app_settings SET guideSeen =
+onboarded`. That line is the whole migration: the column's Kotlin default is `false`,
+which is right for a fresh install and catastrophic for an upgrade — every reader who
+has had Quire for months would be greeted by a three-page tour on the launch after an
+update they did not ask for. Tested raw-SQLite, as `SettingsMigrationTest` does,
+because `exportSchema = false`. The version-5 chain test now runs 5 → 6 → 7: Room
+validates once, at the end, and a device two versions behind is exactly the one nobody
+tests by hand.
+
+**The clock does not use `TimePickerDialog`.** Material3's own dialog draws its title,
+mode toggle and buttons from `MaterialTheme`, so the frame would arrive in the
+platform's colours even with the dial corrected — the lavender `AlertDialog` mistake
+again, one layer out. A plain `Dialog` on Quire's own surface is less code. All
+fourteen `TimePickerColors` come from `QuirePalettes`, held against the palette rather
+than against literals, and the *count* of fourteen is asserted too: Material fills any
+colour you do not supply from its own scheme, silently, so a colour added in a later
+Compose release would otherwise be one purple ring on a sepia page.
+
+**The daily goal is any number of minutes from 1 to 120.** One because `metGoal` is
+false when the goal is zero, so a zero goal is a streak that can never start; a minute
+is also the smallest total the accumulator records. Two hours because a daily goal
+here is a floor to clear rather than a target to fail. `setDailyGoal` clamps instead of
+throwing — with a stepper behind it, the old `require` would be an uncaught exception
+in a coroutine launched from a composable, which is a crash on a tap.
+
+**One existing test was replaced rather than weakened.** `only the handoff's four goals
+are accepted` asserted precisely the behaviour this work exists to remove. Its
+replacement is stronger: every minute in range stored exactly, out of range clamped,
+and — the property that makes a freely settable goal safe — a goal moved to either
+extreme still cannot rewrite whether a past day met the goal in force when it happened.
+
+**A test found a real copy problem.** The guide's first page said "nothing to subscribe
+to" and the no-false-promises word list tripped on it. That was the right outcome
+twice: denying a feature in its own marketing vocabulary still puts the feature in the
+reader's head. It now says "nothing to join".
+
+**What still needs a real phone.** The clock dial's appearance in all five themes —
+the contrast is asserted but the *look* is not; the rotating dial gesture; the guide
+on a genuinely fresh install; and the reminder's expanded notification, where the
+quotation lives.

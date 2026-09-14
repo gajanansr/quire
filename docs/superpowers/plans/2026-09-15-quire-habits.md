@@ -151,21 +151,21 @@ visible without making it expensive.
 **Files:** `notify/Reminders.kt`, `ui/settings/SettingsScreen.kt`,
 `test/notify/RemindersTest.kt`, `test/ui/settings/ClockColorsTest.kt` (create)
 
-- [ ] `Reminders.minuteOfDay(hour, minute)` / `.hourOf` / `.minuteOf` — pure, clamped,
+- [x] `Reminders.minuteOfDay(hour, minute)` / `.hourOf` / `.minuteOf` — pure, clamped,
       and the only arithmetic between the picker and the stored `reminderMinuteOfDay`,
       which does not change shape.
-- [ ] Material3's `TimePicker` in a `Dialog` Quire paints itself. **Not**
+- [x] Material3's `TimePicker` in a `Dialog` Quire paints itself. **Not**
       `TimePickerDialog`: it draws its own title and buttons from `MaterialTheme`, and
       the lavender `AlertDialog` is a mistake this codebase has already made once.
-- [ ] `is24HourFormat(context)` decides the dial, so a phone showing 20:00 is not
+- [x] `is24HourFormat(context)` decides the dial, so a phone showing 20:00 is not
       handed an am/pm toggle. `QuireRoot` already reads it for `formatTime`.
-- [ ] Test: for every one of the five themes, all fourteen `TimePickerColors` resolve
+- [x] Test: for every one of the five themes, all fourteen `TimePickerColors` resolve
       to tokens from that theme's palette — asserted against the palette rather than
       against literals, so a token that changes cannot leave the clock behind.
-- [ ] Test: the dial's selected and unselected text clears **4.5:1** on whatever it
+- [x] Test: the dial's selected and unselected text clears **4.5:1** on whatever it
       sits on, in every theme. E-ink in particular is near-black on near-white and
       must stay legible.
-- [ ] Test: every minute of the day survives the round trip to hour/minute and back.
+- [x] Test: every minute of the day survives the round trip to hour/minute and back.
 
 ### Task 2: A forgiving streak
 
@@ -173,32 +173,32 @@ visible without making it expensive.
 `notify/ReminderWords.kt`, `ui/library/LibraryScreen.kt`,
 `core/test/habit/RestDaysTest.kt` (create), `test/notify/ReminderCopyTest.kt`
 
-- [ ] `StreakRun(daysRead, restDays, startDay)` and `Streaks.run(days, today,
+- [x] `StreakRun(daysRead, restDays, startDay)` and `Streaks.run(days, today,
       restEveryDays = 7)`. `current` and `longest` become the same walk with
       `restEveryDays = 0` — one algorithm with a switch, rather than two that drift.
-- [ ] `HabitSummary` carries `restDays`, `streakStart` and the never-resetting
+- [x] `HabitSummary` carries `restDays`, `streakStart` and the never-resetting
       `daysRead`, so the number, the sentence under it and the heatmap all describe
       the same run.
-- [ ] Test: **the number is never larger than the days actually read**, over seven
+- [x] Test: **the number is never larger than the days actually read**, over seven
       history shapes. The load-bearing invariant.
-- [ ] Test: two missed days in a row end the run; a second rest day inside the same
+- [x] Test: two missed days in a row end the run; a second rest day inside the same
       week ends the run; an every-other-day reader does not accumulate an endless one.
-- [ ] Test: missing yesterday leaves the run standing today, and today being unread
+- [x] Test: missing yesterday leaves the run standing today, and today being unread
       is not itself a rest day.
-- [ ] Test: a rest day is never reported outside the run it belongs to.
-- [ ] The streak screen says what happened: the run, the rest days it carried in
+- [x] Test: a rest day is never reported outside the run it belongs to.
+- [x] The streak screen says what happened: the run, the rest days it carried in
       plain words, and the total days read, which never resets. The heatmap draws a
       rest day as the empty day it was, outlined so the reader can see which one the
       run carried.
-- [ ] The handoff's "the streak resets, but the reading doesn't" line is now false and
+- [x] The handoff's "the streak resets, but the reading doesn't" line is now false and
       is replaced by an accurate statement of the rule.
-- [ ] Milestone copy stops claiming consecutive calendar days, since a run may now
+- [x] Milestone copy stops claiming consecutive calendar days, since a run may now
       span one.
-- [ ] Test: **no streak notification claims the days were consecutive.** "in a row",
+- [x] Test: **no streak notification claims the days were consecutive.** "in a row",
       "running", "one after another", "every day", "straight", "consecutive" — banned
       by word list, because a run that carried a rest day makes every one of them
       false, and warm-specific-and-wrong is the failure the copy rules exist to stop.
-- [ ] Test: **no notification mentions a rest day at all** — not that one is
+- [x] Test: **no notification mentions a rest day at all** — not that one is
       available, not that one was spent, not that the streak is at risk. The research
       is unambiguous that pointing at a break accelerates leaving.
 
@@ -208,18 +208,18 @@ visible without making it expensive.
 `notify/QuireNotifier.kt`, `notify/ReminderWorker.kt`, `ui/habit/HabitScreens.kt`,
 `test/notify/ReadingQuotesTest.kt` (create)
 
-- [ ] `ReadingQuotes.all` — hand-entered, in source, every one verified against a
+- [x] `ReadingQuotes.all` — hand-entered, in source, every one verified against a
       primary text rather than a quote site, every author long out of copyright.
       Rotated by `epochDay.mod(size)` so it is the same quotation all day and a bug
       report can be reproduced.
-- [ ] The quotation rides in the notification's expanded `BigTextStyle` under the
+- [x] The quotation rides in the notification's expanded `BigTextStyle` under the
       personal line, so the collapsed shade still shows the reader's own book.
-- [ ] Test: no duplicates, by text **and** by author, so one writer cannot quietly
+- [x] Test: no duplicates, by text **and** by author, so one writer cannot quietly
       take two of the fourteen slots.
-- [ ] Test: every entry has a non-blank author.
-- [ ] Test: one sentence each, and **no digits anywhere** — the same honesty rule the
+- [x] Test: every entry has a non-blank author.
+- [x] Test: one sentence each, and **no digits anywhere** — the same honesty rule the
       reminder copy is held to, applied to an epigraph.
-- [ ] Test: deterministic for a day, different from the next day, all reachable.
+- [x] Test: deterministic for a day, different from the next day, all reachable.
 
 ### Task 4: A first-run guide
 
@@ -227,21 +227,21 @@ visible without making it expensive.
 `data/Entities.kt`, `data/QuireDatabase.kt`, `QuireApp.kt`,
 `test/ui/onboarding/OnboardingTest.kt` (create), `test/data/SettingsMigrationTest.kt`
 
-- [ ] Three pages, then the goal picker that already exists. Not five: this app's
+- [x] Three pages, then the goal picker that already exists. Not five: this app's
       voice is restraint, and a tour is not a product.
-- [ ] `guideSeen` column, **migration 6 → 7**, seeded `UPDATE app_settings SET
+- [x] `guideSeen` column, **migration 6 → 7**, seeded `UPDATE app_settings SET
       guideSeen = onboarded` — an upgrade must not greet a reader of six months with a
       tour of an app they have been using for months. Separate from `onboarded`, which
       is only set once a goal is chosen, so a reader who closes Quire between the guide
       and the goal picker does not see the guide again.
-- [ ] Test: the migrated table is the one Room builds from the entity (the existing
+- [x] Test: the migrated table is the one Room builds from the entity (the existing
       comparison test, extended) — a mismatch is an `IllegalStateException` at launch
       on every upgrading device.
-- [ ] Test: **a settings row that has not loaded yet never shows onboarding.** This is
+- [x] Test: **a settings row that has not loaded yet never shows onboarding.** This is
       the live bug: `QuireRoot` used to render the welcome screen for a frame on every
       cold start because `AppSettingsEntity()` defaults to `onboarded = false`. The fix
       is in place and this states it as an assertion so it stays in place.
-- [ ] Test: skip from any page ends the guide; the guide is never shown when
+- [x] Test: skip from any page ends the guide; the guide is never shown when
       `guideSeen`; every page has a headline and a line; no page promises anything
       Quire does not do (no sync, no cloud, no account).
 
@@ -254,22 +254,22 @@ else. A reader who wants fifteen minutes could not have it.
 `ui/settings/SettingsScreen.kt`, `ui/habit/HabitScreens.kt`,
 `core/test/habit/GoalsTest.kt` (create), `test/data/HabitRepositoryTest.kt`
 
-- [ ] `Goals.MIN = 1`, `Goals.MAX = 120`. One minute because a goal of zero can never
+- [x] `Goals.MIN = 1`, `Goals.MAX = 120`. One minute because a goal of zero can never
       be met — `ReadingDay.metGoal` is false when the goal is zero — and because a
       minute is the smallest total the session accumulator records. Two hours because
       a daily goal here is a floor to clear rather than a target to fail, and a goal
       nobody keeps is a streak that never starts.
-- [ ] `Goals.step` — a minute at a time below thirty, five above, so fine control
+- [x] `Goals.step` — a minute at a time below thirty, five above, so fine control
       lives where a minute is a tenth of the goal and two hours is not ninety taps.
-- [ ] `setDailyGoal` clamps instead of throwing. The old `require` would now be an
+- [x] `setDailyGoal` clamps instead of throwing. The old `require` would now be an
       uncaught exception in a coroutine launched from a composable — a crash on a tap.
-- [ ] The presets stay as one-tap chips beside the stepper, in Settings and in the
+- [x] The presets stay as one-tap chips beside the stepper, in Settings and in the
       onboarding goal picker. Most people do want "10 min" without counting to it.
-- [ ] Test: every minute in range is stored exactly; out of range is clamped, not
+- [x] Test: every minute in range is stored exactly; out of range is clamped, not
       thrown; stepping up and back returns to where it started; every preset is
       reachable by stepping. **Replaces** `only the handoff's four goals are accepted`,
       which asserted the behaviour this task exists to remove.
-- [ ] Test: **changing the goal does not rewrite history.** `ReadingDayEntity` stores
+- [x] Test: **changing the goal does not rewrite history.** `ReadingDayEntity` stores
       the goal in force on its day, so whether a past day met its goal — and therefore
       the streak — is fixed once recorded. This property already held; it is now load
       bearing for a reader who can move the goal to any number, and it gets a test.
