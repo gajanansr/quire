@@ -92,21 +92,21 @@ model of itself at any size, and the preview cannot disagree with the export.
 **Files:** `ui/share/CardMetrics.kt` (create), `ui/share/QuoteFit.kt`,
 `test/ui/share/CardMetricsTest.kt` (create), `test/ui/share/QuoteFitTest.kt`
 
-- [ ] `CardMetrics.of(widthDp)` — margin, label size, wordmark size, content width and
+- [x] `CardMetrics.of(widthDp)` — margin, label size, wordmark size, content width and
       the height the passage may occupy, each a fraction of the card's width. The
       fractions are chosen so the frame is unchanged at today's ~230dp preview; only
       the quote shrinks, and now everything scales.
-- [ ] Test: every measurement is proportional — a card at 2x the width returns 2x
+- [x] Test: every measurement is proportional — a card at 2x the width returns 2x
       every measurement.
-- [ ] `QuoteFit` tiers carry a measure (22/26/32/38/44 characters) rather than an sp,
+- [x] `QuoteFit` tiers carry a measure (22/26/32/38/44 characters) rather than an sp,
       and `of(passage, cardWidthDp)` derives both size and line budget from the card.
-- [ ] Test (red): **no tier sets a line shorter than 20 characters.** This is the
+- [x] Test (red): **no tier sets a line shorter than 20 characters.** This is the
       "too zoomed" assertion — the old largest tier gives 17.
-- [ ] Test (red): **every tier's longest passage fits the lines that tier is given.**
+- [x] Test (red): **every tier's longest passage fits the lines that tier is given.**
       Three of the four old tiers fail this.
-- [ ] Test: sizes are proportional to card width — the same passage on a card twice as
+- [x] Test: sizes are proportional to card width — the same passage on a card twice as
       wide is set twice as large.
-- [ ] Every existing `QuoteFitTest` assertion still holds, unchanged.
+- [x] Every existing `QuoteFitTest` assertion still holds, unchanged.
 
 ### Task 3: A six-word passage and a six-hundred-character one both look deliberate
 
