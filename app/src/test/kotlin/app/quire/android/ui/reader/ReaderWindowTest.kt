@@ -205,6 +205,26 @@ class ReaderWindowTest {
     }
 
     @Test
+    fun `a page turned while an extension was running is not undone by it`() {
+        // Laying out twelve pages takes tens of milliseconds, and a reader three pages
+        // from the edge is reading — so they turn pages while it runs. Appending to the
+        // window captured before the lay-out started would write that window's page
+        // index back and put them silently on the page they were on when it began: a
+        // page turn, lost, with nothing to point at. The lay-out and the append are
+        // separate for exactly this reason, and the append takes the window as it is.
+        val w = open(offset = 150_000)
+        val more = runBlocking { ReaderWindow.extensionFor(w, Lay().lay) }!!
+
+        val turnedTwice = w.copy(pageIndex = w.pageIndex + 2)
+        val after = ReaderWindow.appended(turnedTwice, more)
+
+        assertEquals(
+            "the reader was moved back to where they were when the run started",
+            turnedTwice.pages[turnedTwice.pageIndex], after.pages[after.pageIndex],
+        )
+    }
+
+    @Test
     fun `a window at the chapter's end cannot be extended and is not laid out again`() {
         val w = open(offset = chapter.textLength)
         val lay = Lay()

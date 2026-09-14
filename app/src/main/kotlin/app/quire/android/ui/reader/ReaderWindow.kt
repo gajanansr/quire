@@ -202,13 +202,29 @@ object ReaderWindow {
     suspend fun extendedForward(
         w: WindowedPages,
         lay: suspend (TextAnchor, Int) -> PageWindow,
-    ): WindowedPages {
-        val from = w.next ?: return w
-        val more = lay(from, PAGES_AHEAD)
-        return trimmedFront(
-            w.copy(pages = w.pages + more.pages, next = more.next),
-        )
-    }
+    ): WindowedPages = extensionFor(w, lay)?.let { appended(w, it) } ?: w
+
+    /**
+     * The pages a forward extension would add, laid out from the window's carry.
+     *
+     * Split from [appended] because one of them takes time and the other does not.
+     * Laying out twelve pages is tens of milliseconds, and a reader three pages from
+     * the edge is *reading* — so they can and do turn a page while it runs. Appending
+     * to the window captured before the lay-out started would then write back that
+     * window's page index and put them silently back on the page they were on when
+     * the run began: a page turn, lost, with nothing to point at.
+     *
+     * So the caller lays out from the carry, then appends to the window **as it is
+     * now**, having checked the carry has not moved under it.
+     */
+    suspend fun extensionFor(
+        w: WindowedPages,
+        lay: suspend (TextAnchor, Int) -> PageWindow,
+    ): PageWindow? = w.next?.let { lay(it, PAGES_AHEAD) }
+
+    /** Appends an extension and trims the front. Cheap, and safe to do late. */
+    fun appended(w: WindowedPages, more: PageWindow): WindowedPages =
+        trimmedFront(w.copy(pages = w.pages + more.pages, next = more.next))
 
     /**
      * A page turn backwards off the front of the window.

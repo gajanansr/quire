@@ -239,10 +239,19 @@ fun ReaderHost(
     LaunchedEffect(bookId, state.chapterIndex, state.windowNext, wantsMore, layoutKey) {
         if (!wantsMore || !typographyLoaded) return@LaunchedEffect
         val chapter = state.chapter ?: return@LaunchedEffect
-        val extended = ReaderWindow.extendedForward(
-            state.window, layFor(chapter, state.preferences),
-        )
-        state = ReaderTransitions.windowed(state, chapter, extended, layoutKey)
+        val from = state.windowNext ?: return@LaunchedEffect
+        val more = ReaderWindow.extensionFor(state.window, layFor(chapter, state.preferences))
+            ?: return@LaunchedEffect
+        // Appended to the window as it is *now*, not as it was when the lay-out
+        // started. The reader is three pages from the edge and reading, so they turn
+        // pages while this runs; writing back the window captured before it would put
+        // them silently back where they were, and the turn would be gone.
+        val now = state.window
+        if (now.next == from && ReaderLayout.mayGrowWindow(state, viewport, layoutSettings)) {
+            state = ReaderTransitions.windowed(
+                state, chapter, ReaderWindow.appended(now, more), layoutKey,
+            )
+        }
     }
 
     suspend fun persistNow() {
@@ -355,8 +364,15 @@ fun ReaderHost(
             scope.launch {
                 val grown = if (forward) {
                     // Normally already done by the prefetch effect; this is the reader
-                    // outrunning it.
-                    ReaderWindow.extendedForward(state.window, layFor(chapter, state.preferences))
+                    // outrunning it. Appended to the window as it is when the lay-out
+                    // finishes, for the same reason the prefetch does.
+                    val from = state.windowNext
+                    val more = ReaderWindow.extensionFor(
+                        state.window, layFor(chapter, state.preferences),
+                    )
+                    val now = state.window
+                    if (more == null || now.next != from) now
+                    else ReaderWindow.appended(now, more)
                 } else {
                     ReaderWindow.turnedBack(
                         chapter, state.window, charsBehind(state.preferences),
