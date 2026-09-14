@@ -170,6 +170,13 @@ fun ReaderScreen(
             .fillMaxSize()
             .background(colors.readerBg)
             .onSizeChanged { pageSize = it }
+            // This Box is the surface that catches every touch, so its own top-left
+            // is the origin everything about the page has to be stated against. The
+            // Reader does not start at the root — the whole app sits inside a
+            // statusBarsPadding — and the blocks register where they are in the
+            // *root*. Left unreconciled, a long press selected a word a status bar
+            // higher than the finger. See PageTextMap.origin.
+            .onGloballyPositioned { textMap.origin = it.positionInRoot() }
             // Outermost, so it sees a touch last. The long press needs no
             // disambiguating of its own: Compose's detector cancels itself the moment
             // the pointer travels past touch slop, which is exactly what stops a

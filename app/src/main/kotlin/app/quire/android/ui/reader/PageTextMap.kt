@@ -43,6 +43,27 @@ class PageTextMap {
     private val entries = mutableMapOf<Int, Entry>()
 
     /**
+     * Where the page's own top-left sits in the root, and the fix for a bug that was
+     * most of *"the text selection doesnt work well"*.
+     *
+     * A block registers `positionInRoot()`, but a touch arrives in the coordinates of
+     * the composable that caught it — and the Reader does not start at the root: the
+     * whole app sits inside a `statusBarsPadding()`. So every touch was compared
+     * against positions a status bar taller than itself, and a long press selected a
+     * word one to three lines *above* the finger. Everything here is stated in the
+     * page's own coordinates, and this is the one place the two are reconciled.
+     *
+     * Bumps [revision] on a change so a selection made before the origin was known is
+     * re-measured rather than left drawing its handles in the wrong place.
+     */
+    var origin: Offset = Offset.Zero
+        set(value) {
+            if (field == value) return
+            field = value
+            revision++
+        }
+
+    /**
      * Bumped whenever the page's layout actually changes.
      *
      * The handles are drawn from this map, and a plain map cannot tell Compose that
@@ -85,9 +106,10 @@ class PageTextMap {
         val index = PageHitTest.blockFor(bands(), point.y) ?: return null
         val block = entries[index] ?: return null
 
+        val topLeft = block.topLeft - origin
         val local = Offset(
-            (point.x - block.topLeft.x).coerceIn(0f, block.size.width.toFloat()),
-            (point.y - block.topLeft.y).coerceIn(0f, block.size.height.toFloat()),
+            (point.x - topLeft.x).coerceIn(0f, block.size.width.toFloat()),
+            (point.y - topLeft.y).coerceIn(0f, block.size.height.toFloat()),
         )
         val offset = block.layout.getOffsetForPosition(local)
         return TextAnchor(block.blockIndex, block.sliceStart + offset)
@@ -127,14 +149,16 @@ class PageTextMap {
         val box = block.layout.getBoundingBox(
             (if (trailing) local - 1 else local).coerceIn(0, length - 1),
         )
+        val topLeft = block.topLeft - origin
         return CaretRect(
-            x = block.topLeft.x + if (trailing) box.right else box.left,
-            top = block.topLeft.y + box.top,
-            bottom = block.topLeft.y + box.bottom,
+            x = topLeft.x + if (trailing) box.right else box.left,
+            top = topLeft.y + box.top,
+            bottom = topLeft.y + box.bottom,
         )
     }
 
     private fun bands(): List<Band> = entries.values.map {
-        Band(it.blockIndex, it.topLeft.y, it.topLeft.y + it.size.height)
+        val top = it.topLeft.y - origin.y
+        Band(it.blockIndex, top, top + it.size.height)
     }
 }
