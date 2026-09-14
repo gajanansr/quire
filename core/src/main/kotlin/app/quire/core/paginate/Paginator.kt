@@ -208,8 +208,18 @@ class Paginator(private val measurer: TextMeasurer) {
                 if (remainingHeight < baseStyle.lineHeightPx) {
                     // Not even one line fits. Start a new page unless this page is
                     // already empty, in which case the viewport is smaller than a
-                    // single line and looping would never terminate.
-                    if (current.isEmpty() && pages.isEmpty() && used <= firstPageInsetPx) {
+                    // single line of this block and looping would never terminate.
+                    //
+                    // The emptiness of the page is the whole of the test. It used to
+                    // also require `pages.isEmpty()`, which saved only the *chapter's*
+                    // first page: a viewport shorter than one line of a mid-chapter
+                    // block — a level-one heading is 1.6x the body — flushed empty
+                    // pages for ever, and `maxPages` cannot bound that because
+                    // `mayEndAChunk` correctly refuses to end a chunk on an empty
+                    // page. It also made a chunk's first page behave differently from
+                    // the same page in a whole-chapter run, which was the one hole in
+                    // the identity `ChunkedPaginationTest` asserts.
+                    if (current.isEmpty() && used <= firstPageInsetPx) {
                         current += PageSlice(blockIndex, cursor, text.length)
                         cursor = text.length
                         break

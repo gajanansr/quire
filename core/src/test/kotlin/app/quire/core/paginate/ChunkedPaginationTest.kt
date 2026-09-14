@@ -257,7 +257,70 @@ class ChunkedPaginationTest {
         }
     }
 
+    // ------------------------------- the one thing a chunk does not inherit
+
+    @Test
+    fun `resetting the learned line length at a seam still produces the same pages`() {
+        // `charsPerLine` is the single piece of state a chunk starts fresh with, and
+        // the claim is that it changes how many `measure` calls are made and never
+        // where a line breaks. That is *nearly* unconditional. `measureWindow` stops
+        // at the first window in its doubling sequence that overflows the page, so
+        // whether it reports `reachedEnd` depends on where the doubling lands — and
+        // `reachedEnd` is what gates the widow pull-back. A block whose remainder is
+        // exactly one line more than the page holds can therefore break differently
+        // between a run that reached the end and one that stopped a window short.
+        //
+        // The band where that can happen is the assumed 80 characters a line sitting
+        // at 0.71–0.74 of the real figure, so this fixture sets 110 a line — right
+        // inside it, and unreachable in the app only because `Measure.widthPx` caps a
+        // column at 66 characters. Nothing in the code ties those two constants
+        // together, so it is pinned here instead of argued about.
+        val wide = Paginator(FixedMeasurer(charsPerLine = 110))
+        val view = Viewport(widthPx = 2800f, heightPx = settings.bodyLineHeightPx * 25)
+        listOf(paragraphs(count = 200), oneHugeBlock(80_000), mixed()).forEach { chapter ->
+            val expected = wide.paginate(chapter, view, settings)
+            listOf(1, 2, 3, 7).forEach { budget ->
+                val all = mutableListOf<Page>()
+                var from: TextAnchor? = TextAnchor(0, 0)
+                while (from != null) {
+                    val w = wide.paginateWindow(chapter, from, budget, view, settings)
+                    all += w.pages
+                    from = w.next
+                }
+                assertEquals(expected, all, "chunked at $budget pages, 110 characters a line")
+            }
+        }
+    }
+
     // ------------------------------------------------------------- the edges
+
+    @Test
+    fun `a viewport too short for a single line terminates instead of hanging`() {
+        // It did not. The escape from "not even one line fits" required the page to be
+        // the *chapter's* first, so a viewport shorter than one line of any later
+        // block flushed empty pages for ever — and a chunk's budget cannot stop it,
+        // because a chunk may not end on an empty page. Reachable through a heading,
+        // which is set at 1.6x the body.
+        val chapter = chapterOf(
+            listOf(
+                ContentBlock.Paragraph(listOf(InlineSpan(prose(200)))),
+                ContentBlock.Heading(1, listOf(InlineSpan("A Heading Taller Than The Page"))),
+                ContentBlock.Paragraph(listOf(InlineSpan(prose(200)))),
+            ),
+        )
+        // Tall enough for a body line, short of a level-one heading's.
+        val squeezed = Viewport(widthPx = 938f, heightPx = settings.bodyLineHeightPx * 1.2f)
+        // Bounded through `isActive` rather than by asserting afterwards: the failure
+        // is a loop, and a test that hangs the gate is not a test that caught it.
+        var flushes = 0
+        val pages = paginator.paginate(chapter, squeezed, settings) { flushes++ < 500 }
+        assertTrue(pages.size < 200, "produced ${pages.size} pages for three blocks")
+        assertEquals(
+            chapter.textLength,
+            pages.sumOf { page -> page.slices.sumOf { it.length } },
+            "text went missing in a viewport too short to set it",
+        )
+    }
 
     @Test
     fun `the chapter's last chunk reports no next`() {
