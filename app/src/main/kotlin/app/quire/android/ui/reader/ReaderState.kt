@@ -18,9 +18,10 @@ enum class ReaderOverlay { NONE, CONTENTS, TYPOGRAPHY, BOOKMARK }
 /**
  * What the chapter header's small line reads, for a chapter at [index].
  *
- * One expression, because four places need it and one of them — deciding whether the
- * chapter's own heading already says it — has to compare against exactly the string
- * the header draws.
+ * One expression. The header drew it and the share card fell back to it, each with
+ * its own copy; the third caller — deciding whether the chapter's own heading already
+ * says it — has to compare against exactly the string the header draws, and two
+ * copies of a string are two chances for that comparison to be against the wrong one.
  */
 fun chapterLabelFor(index: Int): String = "Chapter ${index + 1}"
 
@@ -131,12 +132,7 @@ data class ReaderState(
             return (consumed.toDouble() / bookTotalChars).coerceIn(0.0, 1.0)
         }
 
-    /**
-     * What the header's small line reads.
-     *
-     * Here rather than at each site that needs it, because three of them had their
-     * own copy of the expression and a fourth has to compare against it.
-     */
+    /** What the header's small line reads for the open chapter. */
     val chapterLabel: String get() = chapterLabelFor(chapterIndex)
 
     /**
