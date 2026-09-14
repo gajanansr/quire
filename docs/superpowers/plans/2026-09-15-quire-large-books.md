@@ -77,22 +77,23 @@ remove.
 
 **Files:**
 - Modify: `core/src/main/kotlin/app/quire/core/paginate/TextMeasurer.kt` (`ChapterOpening`)
-- Modify: `core/src/main/kotlin/app/quire/core/model/Chapter.kt`
 - Modify: `core/src/main/kotlin/app/quire/core/paginate/Paginator.kt`
-- Modify: `app/src/main/kotlin/app/quire/android/ui/reader/ReaderScreen.kt` (one call site)
 - Test: `core/src/test/kotlin/app/quire/core/paginate/PaginationCostTest.kt`
 
-- [ ] **Step 1: Write the failing cost test.** A `CountingBlocks` list counts
+- [x] **Step 1: Write the failing cost test.** A `CountingBlocks` list counts
   `get`; the test asserts reads per block stays bounded and does not grow with N.
-- [ ] **Step 2: Run it and watch it fail at 2,004 reads per block at N=4,000.**
-- [ ] **Step 3:** Give `ChapterOpening` an `openingIndex(blocks): Int` that finds
-  the first non-blank paragraph in one pass, and answer `isChapterOpening` from it.
-  Blankness is asked of the spans without building a string.
-- [ ] **Step 4:** `Chapter.openingBlockIndex` derives it once per chapter, lazily,
-  exactly as `blockTexts` does — so the render path pays it once, not per frame.
-- [ ] **Step 5:** `Paginator` hoists it out of the block loop; `ReaderScreen` reads
-  the chapter's derived value.
-- [ ] **Step 6:** `./scripts/check.sh` green. Commit.
+- [x] **Step 2: Run it and watch it fail** — 2,005 reads per block at N=4,000, and
+  505 → 2,005 as the chapter goes from 1,000 blocks to 4,000.
+- [x] **Step 3:** Give `ChapterOpening` an `openingIndex(blocks): Int` that stops at
+  the first paragraph rather than walking the chapter, and asks its spans whether
+  they hold a non-space character rather than joining them into a string to ask.
+  `isChapterOpening` keeps its signature and answers from it — so the render call
+  site in `ReaderScreen` needs no change, which keeps this out of a file another
+  agent owns.
+- [x] **Step 4:** `opensChapter(openingIndex, index, startChar)` for callers looping
+  over a whole chapter, and `Paginator` hoists the search out of the block loop.
+- [x] **Step 5:** `./scripts/check.sh` green — 4 reads per block at N=4,000, flat.
+  Commit.
 
 ---
 

@@ -103,4 +103,66 @@ class PaginationCostTest {
         val ratio = ratioFor(paragraphs(400_000), 400_000)
         assertTrue(ratio < 2.0, "paragraphs regressed to ${"%.1f".format(ratio)}x")
     }
+
+    // ------------------------------------------------- cost per block, not per char
+
+    /**
+     * How many times pagination reaches into the block list.
+     *
+     * Characters were only half the story. The other half is how often the block
+     * *list* is walked, and a scan hidden behind `blocks.take(index)` costs nothing
+     * a character counter can see. `AbstractList` implements its iterator on top of
+     * `get`, so counting `get` counts every walk, however it was spelled.
+     */
+    private class CountingBlocks(
+        private val backing: List<ContentBlock>,
+    ) : AbstractList<ContentBlock>() {
+        var reads = 0L
+        override val size: Int get() = backing.size
+        override fun get(index: Int): ContentBlock {
+            reads++
+            return backing[index]
+        }
+    }
+
+    /** Block reads per block, paginating a chapter of [blockCount] paragraphs. */
+    private fun readsPerBlock(blockCount: Int): Double {
+        val one = prose(250)
+        val blocks = CountingBlocks(
+            (0 until blockCount).map { ContentBlock.Paragraph(listOf(InlineSpan(one))) },
+        )
+        val chapter = Chapter(
+            index = 0, title = "Long", blocks = blocks,
+            startCharOffset = 0, charCount = blockCount * one.length,
+        )
+        Paginator(CountingMeasurer()).paginate(chapter, viewport, settings)
+        return blocks.reads.toDouble() / blockCount
+    }
+
+    @Test
+    fun `a chapter of many blocks reads each block a bounded number of times`() {
+        // `ChapterOpening.isChapterOpening` ended in `blocks.take(index).none { ... }`
+        // and the paginator called it once per block, so block i copied and scanned i
+        // blocks: 2,005 reads per block at 4,000 blocks. The same shape as the
+        // substring bug of 2026-09-12, moved from characters to blocks, and reached
+        // by the same books — a TXT or a reflowed PDF that is one long chapter.
+        // Four after the fix: the text, the style, the loop, and the spacing.
+        val perBlock = readsPerBlock(4_000)
+        assertTrue(
+            perBlock < 12.0,
+            "read each block ${"%.0f".format(perBlock)} times to paginate it once",
+        )
+    }
+
+    @Test
+    fun `the per-block cost does not grow as the chapter grows`() {
+        // The signature of the quadratic, stated the same way the character test
+        // states it: whatever the constant is, it must not depend on chapter length.
+        val small = readsPerBlock(1_000)
+        val large = readsPerBlock(4_000)
+        assertTrue(
+            large < small * 1.5,
+            "block reads per block grew from ${"%.0f".format(small)} to ${"%.0f".format(large)}",
+        )
+    }
 }

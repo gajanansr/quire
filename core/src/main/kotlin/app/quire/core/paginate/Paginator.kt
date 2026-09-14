@@ -91,9 +91,12 @@ class Paginator(private val measurer: TextMeasurer) {
         }
 
         val blockTexts = chapter.blockTexts
+        // Found once for the chapter, not searched for once per block. Asking per
+        // block is what made pagination quadratic in block count.
+        val openingIndex = ChapterOpening.openingIndex(blocks)
         blocks.forEachIndexed { blockIndex, block ->
             val text = blockTexts[blockIndex]
-            val opensChapter = ChapterOpening.isChapterOpening(blocks, blockIndex, startChar = 0)
+            val opensChapter = ChapterOpening.opensChapter(openingIndex, blockIndex, startChar = 0)
             val baseStyle = BlockStyles.of(block, settings)
                 .copy(openingInitial = opensChapter)
             val indented = Indentation.shouldIndent(blocks, blockIndex, startChar = 0)
