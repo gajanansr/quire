@@ -48,14 +48,14 @@ handle has to be able to pin *either* end.
 
 **Files:** `core/reading/Selection.kt`, `core/reading/SelectionTest.kt`
 
-- [ ] `SelectionEdge { START, END }` — which end a drag is holding.
-- [ ] `Selection.movingEdge(span, edge, to)` returns the new span *and* which edge is
+- [x] `SelectionEdge { START, END }` — which end a drag is holding.
+- [x] `Selection.movingEdge(span, edge, to)` returns the new span *and* which edge is
       now held. Dragging one handle past the other swaps the roles rather than
       stopping dead, which is what Compose's own handles do.
-- [ ] A drag that would collapse the span to nothing is refused, span unchanged. An
+- [x] A drag that would collapse the span to nothing is refused, span unchanged. An
       empty span means `hasSelection` is false, which would make the handles and the
       action bar vanish mid-drag with the finger still down.
-- [ ] Test: each edge moves independently; the anchor never moves; crossing swaps;
+- [x] Test: each edge moves independently; the anchor never moves; crossing swaps;
       collapse is refused; a normalised span comes back however it was dragged.
 
 ### Task 2: Sweep by word, adjust by character
@@ -66,12 +66,12 @@ imprecise depending on which you pick.
 
 **Files:** `core/reading/Selection.kt`, `core/reading/SelectionTest.kt`
 
-- [ ] `Selection.snappedToWord(blockTexts, at, towardsEnd)` — pushes an anchor out to
+- [x] `Selection.snappedToWord(blockTexts, at, towardsEnd)` — pushes an anchor out to
       the near edge of the word it is inside, in the direction of travel. Built on
       the existing `WordBoundary`, not a second word rule.
-- [ ] An anchor in whitespace or on a boundary is left where it is: snapping there
+- [x] An anchor in whitespace or on a boundary is left where it is: snapping there
       would swallow the next word before the finger reached it.
-- [ ] Test: forward snaps to the word's end, backward to its start, whitespace is
+- [x] Test: forward snaps to the word's end, backward to its start, whitespace is
       left alone, an offset past the end of a block is clamped.
 
 ### Task 3: A caret-accurate hit test
