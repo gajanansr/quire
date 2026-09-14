@@ -64,6 +64,40 @@ class QuireNotifierTest {
     }
 
     @Test
+    fun `the day's quotation rides below the line, never in place of it`() {
+        // The collapsed shade shows one line and it has to be the reader's own book.
+        // A famous sentence about reading in that slot is the generic "time to read!"
+        // notification this whole feature exists to avoid — so the quotation lives in
+        // the expanded view, under the personal line, and the reader has to choose to
+        // see it.
+        val quote = ReadingQuotes.forDay(19_000)
+        QuireNotifier.post(app, copy, quote)
+        val posted = shadowOf(manager).allNotifications.single()
+
+        assertEquals(
+            "the quotation displaced the reader's own book in the collapsed shade",
+            copy.body,
+            posted.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
+        )
+        val expanded = posted.extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
+        assertNotNull("nothing was expanded", expanded)
+        assertTrue("the book's line was dropped from the expansion", copy.body in expanded!!)
+        assertTrue("the quotation never arrived", quote.text in expanded)
+        assertTrue("the quotation arrived uncredited", quote.author in expanded)
+    }
+
+    @Test
+    fun `a reminder without a quotation expands to the line alone`() {
+        // No dangling separator, no empty quotation marks. The parameter is optional
+        // and the empty case has to read as a plain notification rather than as one
+        // whose second half failed to load.
+        QuireNotifier.post(app, copy)
+        val expanded = shadowOf(manager).allNotifications.single()
+            .extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
+        assertEquals(copy.body, expanded)
+    }
+
+    @Test
     fun `a second reminder replaces the first rather than stacking`() {
         // A fixed id is the whole mechanism. Without it a reader who ignored Quire
         // for a week would come back to seven notifications, which is the shape of

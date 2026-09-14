@@ -41,7 +41,7 @@ object QuireNotifier {
      * as a value so the caller can decline to mark the day as reminded — otherwise
      * a failed delivery would silence tomorrow as well.
      */
-    fun post(context: Context, copy: ReminderCopy): Boolean {
+    fun post(context: Context, copy: ReminderCopy, quote: ReadingQuote? = null): Boolean {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
         ensureChannel(manager)
         val notification = Notification.Builder(context, CHANNEL_ID)
@@ -51,7 +51,17 @@ object QuireNotifier {
             // The body is a full sentence naming a book, which is longer than a
             // collapsed notification shows. Expanding rather than eliding keeps the
             // specific part — the reader's own book — readable.
-            .setStyle(Notification.BigTextStyle().bigText(copy.body))
+            //
+            // The day's quotation rides *below* it, in the expanded view only. A
+            // collapsed shade shows one line and it has to be the reader's own book;
+            // a famous sentence about reading in that slot would be the generic
+            // notification this whole feature exists to avoid. Expanded, it is
+            // something to read rather than an instruction to go and read.
+            .setStyle(
+                Notification.BigTextStyle().bigText(
+                    if (quote == null) copy.body else "${copy.body}\n\n${quote.line}"
+                )
+            )
             .setCategory(Notification.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(openFolio(context))

@@ -86,6 +86,17 @@ object QuireStrings {
     // Settings.
     const val REMINDERS = "Reading reminders"
     const val REMINDER_TIME = "Remind me at"
+    /** Opens the clock. Named for what it does, not for the control it opens. */
+    const val REMINDER_TIME_CHOOSE = "Choose a time"
+    const val CANCEL = "Cancel"
+    const val SET = "Set"
+
+    // The daily goal. Any number of minutes between Goals.MIN and Goals.MAX, with
+    // the handoff's four still one tap away — "10 min" is what most people want and
+    // counting to it would be a worse answer than a chip.
+    const val DAILY_GOAL = "Daily goal"
+    const val GOAL_LESS = "Less"
+    const val GOAL_MORE = "More"
     const val REMINDER_DAILY = "Daily reminder"
     const val REMINDER_STREAK = "Streak nudges"
     const val REMINDERS_BLOCKED = "Turned off in system settings"

@@ -58,7 +58,12 @@ class ReminderWorker(
         when (val decision = Reminders.decide(facts)) {
             is ReminderDecision.Notify -> {
                 val delivered = QuireNotifier.post(
-                    applicationContext, ReminderWords.pick(decision.kind, facts),
+                    applicationContext,
+                    ReminderWords.pick(decision.kind, facts),
+                    // Keyed on the same local day the whole decision uses, so the
+                    // quotation the reader sees at eight in the evening is the one
+                    // the streak screen showed them that morning.
+                    ReadingQuotes.forDay(today),
                 )
                 // Recorded only on a real delivery. Marking the day either way would
                 // mean a notification the OS refused — a revoked permission, a muted

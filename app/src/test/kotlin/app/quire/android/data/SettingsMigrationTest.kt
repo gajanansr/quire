@@ -203,6 +203,99 @@ class SettingsMigrationTest {
         db.close()
     }
 
+    // ------------------------------------------- the opening guide (6 -> 7)
+
+    /** A version-6 settings table: version five plus the seven reminder columns. */
+    private fun versionSix(onboarded: Int): SupportSQLiteDatabase {
+        val db = versionThree(justify = 1)
+        db.execSQL("UPDATE app_settings SET onboarded = $onboarded")
+        QuireDatabase.MIGRATION_5_6.migrate(db)
+        return db
+    }
+
+    @Test
+    fun `an existing reader is not greeted by a tour of an app they already use`() {
+        // The whole reason this migration does more than add a column. `guideSeen`
+        // defaults to 0, which is right for a fresh install and wrong for everyone
+        // already here: without the seeding line, shipping the guide would show it
+        // to every reader who has had Quire for months, on the launch straight after
+        // an update they did not ask for.
+        val db = versionSix(onboarded = 1)
+        QuireDatabase.MIGRATION_6_7.migrate(db)
+        assertEquals(
+            "an upgrade queued the opening guide for a reader who is already onboarded",
+            1,
+            db.one("SELECT guideSeen FROM app_settings WHERE id = 0") { it.getInt(0) },
+        )
+        db.close()
+    }
+
+    @Test
+    fun `a reader who never finished onboarding still gets the guide`() {
+        // The other half of the same rule. Somebody who installed Quire, saw the
+        // welcome screen and closed it has not been introduced to anything, and
+        // seeding `guideSeen` from `onboarded` is what keeps that true rather than
+        // blanket-marking every existing row as done.
+        val db = versionSix(onboarded = 0)
+        QuireDatabase.MIGRATION_6_7.migrate(db)
+        assertEquals(
+            "a half-onboarded reader had the guide marked as already seen",
+            0,
+            db.one("SELECT guideSeen FROM app_settings WHERE id = 0") { it.getInt(0) },
+        )
+        db.close()
+    }
+
+    @Test
+    fun `a fresh install has not seen the guide`() {
+        assertEquals(false, AppSettingsEntity().guideSeen)
+    }
+
+    @Test
+    fun `nothing the reader already chose is lost on the way to version 7`() {
+        val db = versionSix(onboarded = 1)
+        QuireDatabase.MIGRATION_6_7.migrate(db)
+        db.query(
+            "SELECT dailyGoalMinutes, themeName, readerFont, remindersEnabled, " +
+                "reminderMinuteOfDay, lastReminderDay FROM app_settings WHERE id = 0"
+        ).use {
+            it.moveToFirst()
+            assertEquals(25, it.getInt(0))
+            assertEquals("EINK", it.getString(1))
+            assertEquals("LORA", it.getString(2))
+            assertEquals(0, it.getInt(3))
+            assertEquals(20 * 60, it.getInt(4))
+            assertEquals(-1, it.getInt(5))
+        }
+        db.close()
+    }
+
+    @Test
+    fun `the version 7 table is the one Room expects to find`() {
+        // The same guard as the version-6 test below, for the same reason: Room
+        // validates the schema after a migration and an unexpected column is an
+        // IllegalStateException at launch on every upgrading device. Compared
+        // against what Room builds from the entity rather than a literal list, so a
+        // column added to `AppSettingsEntity` and forgotten here fails without
+        // anyone having to remember this file exists.
+        val room = androidx.room.Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(), QuireDatabase::class.java,
+        ).allowMainThreadQueries().build()
+        val expected = columnsOf(room.openHelper.writableDatabase, "app_settings")
+        room.close()
+
+        val migrated = versionSix(onboarded = 1)
+        QuireDatabase.MIGRATION_6_7.migrate(migrated)
+        val actual = columnsOf(migrated, "app_settings")
+        migrated.close()
+
+        assertEquals(
+            "the migrated app_settings does not match the one Room builds from the entity",
+            expected,
+            actual,
+        )
+    }
+
     @Test
     fun `the migrated table is the one Room expects to find`() {
         // The failure this prevents is the worst in the file: Room validates the
@@ -216,6 +309,11 @@ class SettingsMigrationTest {
         // Compared rather than asserted literally: Room builds `app_settings` from
         // [AppSettingsEntity], so a column added to the entity and forgotten in the
         // migration fails here without anyone having to remember to update a list.
+        //
+        // Run as the whole chain a version-5 install actually takes, rather than
+        // stopping at 6. Room validates once, at the end, so the chain is the unit
+        // that has to match — and a device two versions behind is exactly the one
+        // nobody tests by hand.
         val room = androidx.room.Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(), QuireDatabase::class.java,
         ).allowMainThreadQueries().build()
@@ -224,6 +322,7 @@ class SettingsMigrationTest {
 
         val migrated = versionFive()
         QuireDatabase.MIGRATION_5_6.migrate(migrated)
+        QuireDatabase.MIGRATION_6_7.migrate(migrated)
         val actual = columnsOf(migrated, "app_settings")
         migrated.close()
 
