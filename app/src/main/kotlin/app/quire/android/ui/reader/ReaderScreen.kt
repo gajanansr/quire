@@ -146,6 +146,12 @@ fun ReaderScreen(
     // it is: a handle drag is not a new selection, and starting one would throw away
     // the passage the reader is in the middle of adjusting.
     val holding = remember { mutableStateOf<SelectionEdge?>(null) }
+    // Set while a long press is sweeping out a passage. The drag loop stands down
+    // then: a sweep that starts on the right edge and runs down the page is a
+    // selection, and without this it would extend the passage *and* dim the screen at
+    // the same time — the two gestures are only told apart by movement, and this one
+    // has already declared itself by being held.
+    val sweeping = remember { mutableStateOf(false) }
 
     // Session brightness, and the level bar that shows it. Saveable so a rotation
     // does not snap the screen back; deliberately *not* stored, because a brightness
@@ -185,6 +191,7 @@ fun ReaderScreen(
                 detectDragGesturesAfterLongPress(
                     onDragStart = { offset ->
                         if (holding.value != null) return@detectDragGesturesAfterLongPress
+                        sweeping.value = true
                         textMap.anchorAt(offset)?.let {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             onSelectionStart(it)
@@ -194,6 +201,8 @@ fun ReaderScreen(
                         if (holding.value != null) return@detectDragGesturesAfterLongPress
                         textMap.anchorAt(change.position)?.let(onSelectionExtend)
                     },
+                    onDragEnd = { sweeping.value = false },
+                    onDragCancel = { sweeping.value = false },
                 )
             }
             // Tap, page turn and brightness in one loop, because they are one
@@ -226,6 +235,10 @@ fun ReaderScreen(
                         dy += change.positionChange().y
 
                         if (intent == null && max(abs(dx), abs(dy)) >= slop) {
+                            // The long press got there first, which it can only have
+                            // done by being held past its timeout. This finger is
+                            // choosing words, not turning a page or dimming a screen.
+                            if (sweeping.value) return@awaitEachGesture
                             intent = ReaderGestures.intentOf(
                                 down.position.x, size.width.toFloat(), dx, dy, slop,
                             )
