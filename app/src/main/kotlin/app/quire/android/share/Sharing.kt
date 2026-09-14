@@ -11,6 +11,7 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import java.io.File
+import java.io.IOException
 
 /**
  * Where "Show your support" goes.
@@ -169,9 +170,27 @@ object Sharing {
         val resolver = context.contentResolver
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
             ?: return null
-        resolver.openOutputStream(uri)?.use {
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-        } ?: return null
+        // The row exists before a single byte is written, so anything that goes wrong
+        // from here has to take it back out. Left behind it is a zero-byte picture in
+        // the reader's gallery that opens as a grey square — worse than the failure
+        // it came from, because Save also returns null and sends them to the chooser,
+        // so they end up with the card saved twice and one of the two broken.
+        //
+        // The write can throw as well as return null: a full volume, an unmounted SD
+        // card, or a provider that refuses the descriptor all surface as IOException
+        // here, and this runs on the tap of a button. An uncaught one is a crash at
+        // the moment a reader tries to keep their card.
+        val written = try {
+            resolver.openOutputStream(uri)?.use {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            } ?: false
+        } catch (failed: IOException) {
+            false
+        }
+        if (!written) {
+            resolver.delete(uri, null, null)
+            return null
+        }
         return uri
     }
 

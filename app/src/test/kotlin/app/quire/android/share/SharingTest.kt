@@ -3,12 +3,14 @@ package app.quire.android.share
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * What Quire hands to the system when the reader taps Share.
@@ -163,6 +165,28 @@ class SharingTest {
 
         assertEquals(java.io.File(context.cacheDir, "shares"), file.parentFile)
         assertTrue("the png is empty", file.length() > 0)
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.P])
+    fun `below API 29 a save falls back rather than asking for a permission`() {
+        // Writing outside the app's own storage there needs WRITE_EXTERNAL_STORAGE,
+        // which Quire does not ask for. Returning null is the whole contract: the
+        // sheet reads it and opens the chooser instead, which reaches the gallery
+        // anyway by way of the reader picking it. If this ever returned a uri on an
+        // old phone, Save would appear to work and write nothing.
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        assertEquals(null, Sharing.saveToPictures(context, bitmap, "quire-card.png"))
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.Q])
+    fun `a saved card goes to the pictures library, not to the app's own storage`() {
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        assertTrue(
+            "nothing was written to the picture library",
+            Sharing.saveToPictures(context, bitmap, "quire-card.png") != null,
+        )
     }
 
     @Test

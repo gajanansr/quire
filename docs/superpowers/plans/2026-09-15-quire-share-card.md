@@ -159,8 +159,8 @@ the reader's gallery *and* sends them to the chooser as though nothing was writt
 
 **Files:** `share/Sharing.kt`, `test/share/SharingTest.kt`
 
-- [ ] A failed write deletes the row it inserted before falling back.
-- [ ] Confirm the API-29 fallback still reaches `ShareIntents.image`, which now sends
+- [x] A failed write deletes the row it inserted before falling back.
+- [x] Confirm the API-29 fallback still reaches `ShareIntents.image`, which now sends
       an image rather than a caption.
 
 ---
