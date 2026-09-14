@@ -137,6 +137,22 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      # R8 is off in this project unless -PquireMinify=true, so most builds produce
+      # no mapping file. The action warns that the path is missing, carries on, and
+      # then crashes on ENOENT after the bundle has already been uploaded — which
+      # leaves an uncommitted edit on Play and a release that did not happen. So the
+      # path is passed only when the file is really there.
+      - name: Find the mapping file, if there is one
+        id: mapping
+        run: |
+          path=app/build/outputs/mapping/release/mapping.txt
+          if [ -f "$path" ]; then
+            echo "path=$path" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "No mapping file — R8 is off. Nothing to deobfuscate."
+          fi
+
       - name: Upload to Play
         if: ${{ inputs.dryRun != true }}
         # Pinned to a commit, not the v1 tag. A tag can be moved to point at code
@@ -150,13 +166,13 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: app.quire.android
           releaseFiles: app/build/outputs/bundle/release/app-release.aab
-          track: ${{ inputs.track }}
+          tracks: ${{ inputs.track }}
           userFraction: ${{ inputs.rollout }}
           status: ${{ inputs.rollout && 'inProgress' || 'completed' }}
           # The listing copy and the release notes come from the repository, so the
           # words on the store page are reviewed the same way the code is.
           whatsNewDirectory: fastlane/metadata/android/en-US/changelogs
-          mappingFile: app/build/outputs/mapping/release/mapping.txt
+          mappingFile: ${{ steps.mapping.outputs.path }}
 
       - name: Tag the release
         if: ${{ inputs.dryRun != true && inputs.versionName != '' }}
