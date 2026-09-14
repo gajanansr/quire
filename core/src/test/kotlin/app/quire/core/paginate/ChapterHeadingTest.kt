@@ -5,7 +5,6 @@ import app.quire.core.model.ContentBlock
 import app.quire.core.model.InlineSpan
 import app.quire.core.model.plainText
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -183,11 +182,26 @@ class ChapterHeadingTest {
         assertFalse(repeats(chapter("Part 1", *blocks.toTypedArray())))
     }
 
-    // --------------------------------------------------------------- the normaliser
+    // --------------------------------------------------------------- the comparison
 
     @Test
-    fun `the skeleton keeps letters and digits and nothing else`() {
-        assertEquals("part1", ChapterHeading.skeleton("  PART — 1. "))
-        assertEquals("", ChapterHeading.skeleton("— ‘’ …"))
+    fun `only letters and digits count, on either side`() {
+        assertTrue(ChapterHeading.sameWords("  PART — 1. ", "part1"))
+        assertTrue(ChapterHeading.sameWords("— ‘’ …", ""))
+        assertFalse(ChapterHeading.sameWords("Part 1", "Part 2"))
+        assertFalse(ChapterHeading.sameWords("Part 1", "Part 1 and a half"))
+        assertFalse(ChapterHeading.sameWords("Part 1 and a half", "Part 1"))
     }
+
+    @Test
+    fun `comparing stops at the first difference rather than copying the block`() {
+        // The chapter's opening block can be the whole book, and this is asked on
+        // every recomposition. Reducing both sides to strings before comparing would
+        // allocate a copy of it per frame — the `plainText` mistake that
+        // `Chapter.blockTexts` exists to prevent. A megabyte of prose against a short
+        // title must cost the title, not the megabyte.
+        val whole = "Rain had not stopped for three days. ".repeat(30_000)
+        assertFalse(ChapterHeading.sameWords(whole, "Part 1"))
+    }
+
 }

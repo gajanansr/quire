@@ -50,14 +50,10 @@ object ChapterHeading {
      */
     fun repeatsHeader(blockTexts: List<String>, title: String?, label: String): Boolean {
         val opening = openingWords(blockTexts) ?: return false
-        val open = skeleton(opening)
-        if (open.isEmpty()) return false
 
-        val titled = skeleton(title.orEmpty())
-        if (titled.isNotEmpty()) return open == titled
-
-        val labelled = skeleton(label)
-        return labelled.isNotEmpty() && open == labelled
+        val titled = title.orEmpty()
+        if (titled.any(Char::isLetterOrDigit)) return sameWords(opening, titled)
+        return label.any(Char::isLetterOrDigit) && sameWords(opening, label)
     }
 
     /**
@@ -78,15 +74,33 @@ object ChapterHeading {
     }
 
     /**
-     * A string reduced to what a reader would say it was.
+     * Whether two strings say the same thing.
      *
-     * Letters and digits, lowercased, everything else dropped. That covers the whole
-     * family of invisible differences in one rule instead of a list of them: spaces
-     * of every kind including the non-breaking one Java does not call whitespace,
-     * zero-width joiners and byte-order marks, soft hyphens, and the punctuation a
-     * heading carries that a table of contents does not.
+     * Letters and digits, lowercased; everything else skipped on both sides. One rule
+     * covers the whole family of invisible differences instead of a list of them:
+     * spaces of every kind including the non-breaking one Java does not call
+     * whitespace, zero-width joiners and byte-order marks, soft hyphens, and the
+     * punctuation a heading carries that a table of contents does not.
+     *
+     * Walked rather than normalised into two strings and compared. This is asked on
+     * every recomposition, and the chapter's opening block can be the whole book —
+     * building a reduced copy of it per frame is exactly the allocation
+     * `Chapter.blockTexts` was introduced to remove. Walking stops at the first
+     * character that differs, so an opening paragraph of prose costs the length of
+     * the title and no more.
      */
-    internal fun skeleton(text: String): String = buildString(text.length) {
-        for (char in text) if (char.isLetterOrDigit()) append(char.lowercaseChar())
+    internal fun sameWords(left: String, right: String): Boolean {
+        var l = 0
+        var r = 0
+        while (true) {
+            while (l < left.length && !left[l].isLetterOrDigit()) l++
+            while (r < right.length && !right[r].isLetterOrDigit()) r++
+            val leftDone = l >= left.length
+            val rightDone = r >= right.length
+            if (leftDone || rightDone) return leftDone && rightDone
+            if (left[l].lowercaseChar() != right[r].lowercaseChar()) return false
+            l++
+            r++
+        }
     }
 }
