@@ -184,6 +184,19 @@ class HabitRepository(
         onDataChanged()
     }
 
+    /**
+     * The opening guide has been through, whether read or skipped.
+     *
+     * Written the moment the reader leaves the guide rather than when they finish
+     * the whole first-run flow. `onboarded` is only set by [setDailyGoal], so
+     * without this a reader who read the guide and closed Quire before picking a
+     * goal would be shown the guide again — and "never twice" would be true only for
+     * people who got through it in one sitting.
+     */
+    suspend fun markGuideSeen() {
+        db.settings().put(settings().copy(guideSeen = true))
+    }
+
     suspend fun setTheme(name: String) {
         db.settings().put(settings().copy(themeName = name))
         // The widgets are painted in the reader's theme, so a theme change is a

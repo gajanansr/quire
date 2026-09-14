@@ -649,32 +649,10 @@ fun BookCompleteScreen(
     }
 }
 
-/**
- * The opening screen: a headline and one action.
- *
- * No form, no carousel — the handoff is emphatic that the first thing a reader
- * sees is a sentence and a way in.
- */
-@Composable
-fun OnboardingScreen(onGetStarted: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = Quire.colors
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.bg)
-            .padding(horizontal = 30.dp)
-            .padding(top = 90.dp, bottom = 40.dp),
-    ) {
-        Text(
-            "A quiet place to read.",
-            color = colors.ink,
-            style = MaterialTheme.typography.displayLarge,
-        )
-        Spacer(Modifier.weight(1f))
-        PrimaryButton("Get Started", onGetStarted)
-        Spacer(Modifier.navigationBarsPadding())
-    }
-}
+// The single welcome screen that used to live here — a headline and "Get Started" —
+// is now the first page of `ui/onboarding/OnboardingGuide`, which says the same
+// sentence and then goes on to explain where books come from, that nothing leaves
+// the device, and how to turn a page.
 
 /** A minus or a plus on the goal picker, dimmed rather than removed at a limit. */
 @Composable

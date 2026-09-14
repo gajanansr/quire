@@ -38,8 +38,9 @@ import app.quire.android.ui.habit.MilestonesScreen
 import app.quire.android.ui.habit.BookCompleteScreen
 import app.quire.android.ui.habit.GoalCompleteScreen
 import app.quire.android.ui.habit.GoalScreen
-import app.quire.android.ui.habit.OnboardingScreen
 import app.quire.android.ui.habit.StreakScreen
+import app.quire.android.ui.onboarding.OnboardingGuide
+import app.quire.android.ui.onboarding.OnboardingGuideScreen
 import app.quire.android.ui.notify.ReminderInviteScreen
 import app.quire.android.ui.settings.SettingsScreen
 import app.quire.android.notify.ReminderPermission
@@ -143,7 +144,10 @@ fun QuireRoot(
     var shareCard by remember { mutableStateOf<ShareCard?>(null) }
     var goalJustReached by remember { mutableStateOf(false) }
     var offerReminders by remember { mutableStateOf(false) }
+    // Set the moment the reader leaves the guide, so the last tap does not leave it
+    // on screen for the frame or two before the stored flag comes back.
     var onboardingSeen by remember { mutableStateOf(false) }
+    var guidePage by remember { mutableStateOf(0) }
     var pendingGoal by remember { mutableStateOf(HabitRepository.RECOMMENDED_GOAL) }
 
     // Null until the database answers, deliberately. A default `AppSettingsEntity()`
@@ -218,17 +222,36 @@ fun QuireRoot(
             when {
                 // Nothing at all until the settings row has been read. One blank
                 // frame on the theme's own ground is invisible; guessing wrong and
-                // showing onboarding to an existing reader is not.
+                // showing onboarding to an existing reader is not. The rule lives in
+                // [OnboardingGuide.guideVisible] where a test can reach it, and the
+                // null check below is the same one stated twice on purpose.
                 storedSettings == null -> Unit
 
+                // The opening guide, once, on the first launch after an install.
+                // `guideSeen` is written the moment the reader leaves it — read or
+                // skipped — so closing Quire between here and the goal picker does
+                // not bring it back.
+                OnboardingGuide.guideVisible(storedSettings, onboardingSeen) ->
+                    OnboardingGuideScreen(
+                        index = guidePage,
+                        onNext = {
+                            when (val next = OnboardingGuide.next(guidePage)) {
+                                null -> {
+                                    onboardingSeen = true
+                                    scope.launch { habitRepository.markGuideSeen() }
+                                }
 
-                // First run, gated on a stored flag so it never reappears.
-                !settings.onboarded && !onboardingSeen -> OnboardingScreen(
-                    onGetStarted = { onboardingSeen = true },
-                    modifier = Modifier.fillMaxSize(),
-                )
+                                else -> guidePage = next
+                            }
+                        },
+                        onSkip = {
+                            onboardingSeen = true
+                            scope.launch { habitRepository.markGuideSeen() }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
 
-                !settings.onboarded -> GoalScreen(
+                OnboardingGuide.goalVisible(storedSettings, onboardingSeen) -> GoalScreen(
                     selected = pendingGoal,
                     onSelect = { pendingGoal = it },
                     onContinue = { scope.launch { habitRepository.setDailyGoal(pendingGoal) } },
