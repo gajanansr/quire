@@ -134,9 +134,9 @@ class ChunkedPaginationCostTest {
         //
         // | type | whole chapter | a window | ratio |
         // |---|---|---|---|
-        // | 15sp | 560,365 | 20,812 | 27x |
-        // | 19sp | 607,035 | 16,877 | 36x |
-        // | 24sp | 609,427 |  9,182 | 66x |
+        // | 15sp | 560,365 | 20,805 | 27x |
+        // | 19sp | 607,035 | 16,900 | 36x |
+        // | 24sp | 609,427 |  9,166 | 66x |
         //
         // A window is cheaper at large type because a page holds less of the book,
         // and a window is a fixed number of pages. The whole chapter costs the same

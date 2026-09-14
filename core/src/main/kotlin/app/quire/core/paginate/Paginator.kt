@@ -411,8 +411,24 @@ class Paginator(private val measurer: TextMeasurer) {
                 estimate = (complete.toFloat() / (measured.lineCount - 1)).coerceAtLeast(1f)
             }
 
-            // Enough when the page is provably full, or there is no more text.
-            if (reachedEnd || measured.lineCount > maxLines) {
+            // Enough when there is no more text, or when the page is provably full
+            // *and* the widow rule cannot need to know what comes after it.
+            //
+            // Stopping as soon as `lineCount > maxLines` was not enough, and it is the
+            // one place where the learned estimate could move a page break. The widow
+            // pull-back fires only when the block has exactly [MIN_FRAGMENT_LINES] - 1
+            // lines left over, and it can only know that by having reached the end —
+            // so a window that stops one line past the page answers "I did not reach
+            // the end" when a slightly wider one would have answered "I did, and there
+            // is one line left". A chunk starts with the estimate reset, so the two
+            // runs land on different sides of that and break the page differently.
+            // Measured on a fixture of blocks exactly one line longer than a page:
+            // whole-chapter cut at 24 lines, a fresh chunk at 25.
+            //
+            // A window showing [MIN_FRAGMENT_LINES] or more lines past the page needs
+            // no widening: whatever follows, the remainder is already too big to pull
+            // back.
+            if (reachedEnd || measured.lineCount >= maxLines + MIN_FRAGMENT_LINES) {
                 return Window(measured, reachedEnd, estimate)
             }
             windowChars *= 2

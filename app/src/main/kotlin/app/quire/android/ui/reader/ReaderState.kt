@@ -446,13 +446,24 @@ object ReaderTransitions {
         layout: LayoutKey?,
     ): ReaderState {
         if (state.chapter !== chapter) return state
-        // Turns made while this window was being laid out are applied on top of it.
-        // The page it puts the reader on is the answer to the tap that started the
-        // run; taps made *during* the run are queued rather than launching a second
-        // run of their own, because two runs from the same window compute the same
-        // answer and the second tap would do nothing at all.
-        return withPendingTurnsApplied(state.withWindow(window, layout))
+        // Deliberately does *not* cash queued turns. This is called from three places
+        // and only one of them is a tap: letting it take a turn meant a turn stranded
+        // by a dropped run — the carry moved, or the reader moved — was cashed later
+        // by a **background prefetch**, moving the page under a reader who had not
+        // touched the screen for a dozen pages. The tap path applies them itself, once,
+        // through [pendingTurnsApplied], whether its own window was adopted or not.
+        return state.withWindow(window, layout)
     }
+
+    /**
+     * Cashes the turns queued while a window was being laid out.
+     *
+     * Called once at the end of the run those taps were made during, and on every
+     * path out of it. Clamped inside the pages in hand, as ever: a tap made while the
+     * reader could not see what they were turning is not evidence that they wanted the
+     * next chapter.
+     */
+    fun pendingTurnsApplied(state: ReaderState): ReaderState = withPendingTurnsApplied(state)
 
     /**
      * Opens a chapter at a given position, or at its start.

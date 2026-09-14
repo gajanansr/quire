@@ -275,9 +275,21 @@ class ChunkedPaginationTest {
         // inside it, and unreachable in the app only because `Measure.widthPx` caps a
         // column at 66 characters. Nothing in the code ties those two constants
         // together, so it is pinned here instead of argued about.
-        val wide = Paginator(FixedMeasurer(charsPerLine = 110))
-        val view = Viewport(widthPx = 2800f, heightPx = settings.bodyLineHeightPx * 25)
-        listOf(paragraphs(count = 200), oneHugeBlock(80_000), mixed()).forEach { chapter ->
+        val perLine = 110
+        val lines = 25
+        val wide = Paginator(FixedMeasurer(charsPerLine = perLine))
+        val view = Viewport(widthPx = 2800f, heightPx = settings.bodyLineHeightPx * lines)
+        val fixtures = listOf(
+            // Constructed rather than hoped for: every paragraph is exactly one line
+            // more than a page holds, so the "remainder is maxLines + 1" case that
+            // makes `reachedEnd` matter happens at every single page break rather than
+            // once in a few hundred.
+            paragraphs(count = 120, each = (lines + 1) * perLine),
+            paragraphs(count = 200),
+            oneHugeBlock(80_000),
+            mixed(),
+        )
+        fixtures.forEach { chapter ->
             val expected = wide.paginate(chapter, view, settings)
             listOf(1, 2, 3, 7).forEach { budget ->
                 val all = mutableListOf<Page>()
@@ -287,7 +299,7 @@ class ChunkedPaginationTest {
                     all += w.pages
                     from = w.next
                 }
-                assertEquals(expected, all, "chunked at $budget pages, 110 characters a line")
+                assertEquals(expected, all, "chunked at $budget pages, $perLine characters a line")
             }
         }
     }

@@ -2324,9 +2324,9 @@ than milliseconds, as `PaginationCostTest` does, on a chapter of the real book's
 
 | type | whole chapter | a window | |
 |---|---:|---:|---:|
-| 15sp | 560,365 | 20,812 | **27x** |
-| 19sp | 607,035 | 16,877 | **36x** |
-| 24sp | 609,427 | 9,182 | **66x** |
+| 15sp | 560,365 | 20,805 | **27x** |
+| 19sp | 607,035 | 16,900 | **36x** |
+| 24sp | 609,427 | 9,166 | **66x** |
 
 Reading on costs **10,140** characters at 19sp — an extension is a third of an
 opening, and it is prefetched three pages before the reader arrives, so it is never on

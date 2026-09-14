@@ -302,15 +302,42 @@ class ReaderStateTest {
         // A tap at the edge of the window starts one run. Taps made while it is in
         // flight do not start more — two runs from the same window compute the same
         // answer, so the second tap would move the reader nowhere. They are queued,
-        // and the window that arrives applies them on top of the page it chose.
+        // and the run cashes them as it finishes.
         val s = state(text = lorem.repeat(200))
         var waiting = ReaderTransitions.queuedTurn(s, forward = true)
         waiting = ReaderTransitions.queuedTurn(waiting, forward = true)
 
-        val landed = ReaderTransitions.windowed(waiting, waiting.chapter, s.window, layout = null)
+        val adopted = ReaderTransitions.windowed(waiting, waiting.chapter, s.window, layout = null)
+        val landed = ReaderTransitions.pendingTurnsApplied(adopted)
 
         assertEquals("two taps during a run moved the reader one page", 2, landed.pageIndex)
         assertEquals(0, landed.pendingTurns)
+    }
+
+    @Test
+    fun `adopting a window does not cash a queued tap by itself`() {
+        // It used to, and that stranded a turn whenever the run that queued it was
+        // dropped — the carry had moved, or the reader had. `windowed` is called from
+        // three places and only one of them is a tap, so the next **background
+        // prefetch** cashed the leftover: the page moving a dozen pages later with
+        // nothing touching the screen, which is the one thing a prefetch must not do.
+        val s = state(text = lorem.repeat(200))
+        val waiting = ReaderTransitions.queuedTurn(s, forward = true)
+
+        val prefetched = ReaderTransitions.windowed(waiting, waiting.chapter, s.window, layout = null)
+
+        assertEquals("a background extension took the reader's tap", 0, prefetched.pageIndex)
+        assertEquals("the tap was lost rather than kept", 1, prefetched.pendingTurns)
+    }
+
+    @Test
+    fun `a run that was dropped still cashes the taps made during it`() {
+        // The other half. When a run is dropped — the window moved under it — the tap
+        // path still applies what it queued, once, on its way out.
+        val s = state(text = lorem.repeat(200))
+        val waiting = ReaderTransitions.queuedTurn(s, forward = true)
+        assertEquals(1, ReaderTransitions.pendingTurnsApplied(waiting).pageIndex)
+        assertEquals(0, ReaderTransitions.pendingTurnsApplied(waiting).pendingTurns)
     }
 
     @Test

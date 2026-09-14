@@ -98,13 +98,14 @@ fun ReaderHost(
     var typographyLoaded by remember(bookId) { mutableStateOf(false) }
 
     /**
-     * Whether a window is being grown or re-anchored right now.
+     * Whether a window is being built right now — grown, re-anchored, or loaded with
+     * the chapter it belongs to.
      *
      * A tap made while one is in flight is remembered rather than launching a second
      * run: two runs started from the same window compute the same answer, so the
      * second tap would move the reader nowhere. Queued, two taps move them two pages.
      */
-    var growingWindow by remember(bookId) { mutableStateOf(false) }
+    var windowInFlight by remember(bookId) { mutableStateOf(false) }
 
     val composeMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -224,19 +225,23 @@ fun ReaderHost(
             }
 
             is PaginationStep.Repaginate -> {
+                // Read once, and used for the lay-out and for the key it is stamped
+                // with. A run that finishes before its cancellation lands would
+                // otherwise claim a viewport its pages were not set in.
+                val view = viewport
                 // From the window's own start, not from a cursor worked out afresh
                 // around the reader: a start that moved on every tap of the stepper
                 // would re-tile the pages under them each time.
                 val window = ReaderWindow.relaidOut(
                     step.chapter, state.window,
-                    layFor(step.chapter, state.preferences, viewport),
+                    layFor(step.chapter, state.preferences, view),
                 )
                 // Named, so `repaginated` can refuse pages laid out for a chapter the
                 // reader has since left: the Contents sheet loads one in a coroutine
                 // this effect does not cancel.
                 state = ReaderTransitions.repaginated(
                     state, step.chapter, window, state.preferences,
-                    LayoutKey(viewport, layoutSettings),
+                    LayoutKey(view, layoutSettings),
                 )
             }
         }
@@ -389,7 +394,7 @@ fun ReaderHost(
             // - A run is already in flight. A second tap would start a second run from
             //   the *same* window, which computes the same answer — so two taps would
             //   move the reader one page. Queued, they move them two.
-            if (growingWindow || !ReaderLayout.mayGrowWindow(state, viewport, layoutSettings)) {
+            if (windowInFlight || !ReaderLayout.mayGrowWindow(state, viewport, layoutSettings)) {
                 state = ReaderTransitions.queuedTurn(state, forward)
                 tracker.record()
                 return
@@ -401,7 +406,7 @@ fun ReaderHost(
             val prefs = state.preferences
             val view = viewport
             val key = LayoutKey(view, layoutSettings)
-            growingWindow = true
+            windowInFlight = true
             scope.launch {
                 try {
                     val base = state.window
@@ -440,8 +445,13 @@ fun ReaderHost(
                             state = ReaderTransitions.windowed(state, chapter, back, key)
                         }
                     }
+                    // Once, on every path out: the run may have been dropped — the
+                    // carry moved under it, or the reader did — and a turn left queued
+                    // would be cashed by the next background extension instead, which
+                    // is the page moving with nothing touching the screen.
+                    state = ReaderTransitions.pendingTurnsApplied(state)
                 } finally {
-                    growingWindow = false
+                    windowInFlight = false
                 }
                 tracker.record()
                 persist()
@@ -452,10 +462,20 @@ fun ReaderHost(
         // Crossing a chapter boundary.
         val target = if (forward) state.chapterIndex + 1 else state.chapterIndex - 1
         if (target < 0 || target >= state.chapterCount) return
+        // Guarded like the branch above, and for the same reason: two rapid taps at a
+        // boundary launched two loads of the same chapter, which compute the same
+        // answer, so two taps moved the reader one chapter and the second load
+        // overwrote the first.
+        if (windowInFlight) return
+        windowInFlight = true
         scope.launch {
-            // Entering a chapter backwards lands on its last page, not its first —
-            // otherwise turning back skips the whole chapter.
-            loadChapter(target, at = null, atEnd = !forward)
+            try {
+                // Entering a chapter backwards lands on its last page, not its first —
+                // otherwise turning back skips the whole chapter.
+                loadChapter(target, at = null, atEnd = !forward)
+            } finally {
+                windowInFlight = false
+            }
             persist()
         }
     }
