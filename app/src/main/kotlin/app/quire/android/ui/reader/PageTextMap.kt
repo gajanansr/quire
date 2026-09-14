@@ -1,5 +1,8 @@
 package app.quire.android.ui.reader
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.IntSize
@@ -39,11 +42,32 @@ class PageTextMap {
 
     private val entries = mutableMapOf<Int, Entry>()
 
+    /**
+     * Bumped whenever the page's layout actually changes.
+     *
+     * The handles are drawn from this map, and a plain map cannot tell Compose that
+     * it now knows where the text is — so the first frame after a page is laid out
+     * would draw a selection with no handles on it. Reading this as a `remember` key
+     * subscribes the overlay to that.
+     *
+     * Only on a real change. Registration happens from `onGloballyPositioned`, which
+     * runs on every layout pass, so bumping unconditionally would recompose, re-lay
+     * out, bump again, and never settle.
+     */
+    var revision: Int by mutableIntStateOf(0)
+        private set
+
     fun put(entry: Entry) {
+        if (entries[entry.blockIndex] == entry) return
         entries[entry.blockIndex] = entry
+        revision++
     }
 
-    fun clear() = entries.clear()
+    fun clear() {
+        if (entries.isEmpty()) return
+        entries.clear()
+        revision++
+    }
 
     val isEmpty: Boolean get() = entries.isEmpty()
 

@@ -84,16 +84,16 @@ jumps to the wrong block.
 **Files:** `ui/reader/SelectionGeometry.kt` (new), `ui/reader/PageTextMap.kt`,
 `test/ui/reader/SelectionGeometryTest.kt` (new)
 
-- [ ] `PageHitTest.blockFor(bands, y)` — containment first, then nearest *edge*, not
+- [x] `PageHitTest.blockFor(bands, y)` — containment first, then nearest *edge*, not
       nearest centre. Pure over (top, bottom) pairs so it is testable without a
       `TextLayoutResult`, which cannot be built off a device.
-- [ ] `PageTextMap.anchorAt` delegates to it.
-- [ ] `PageTextMap.caretAt(anchor, edge)` — the inverse: where on screen a given
+- [x] `PageTextMap.anchorAt` delegates to it.
+- [x] `PageTextMap.caretAt(anchor, edge)` — the inverse: where on screen a given
       character sits, as a `CaretRect`. Needed to draw the handles at all. Uses the
       character's bounding box rather than a cursor rect, so the end caret stays on
       the line it ends rather than jumping to the start of the next one at a soft
       wrap.
-- [ ] Test: containment wins; a point in a gap takes the nearer edge and not the
+- [x] Test: containment wins; a point in a gap takes the nearer edge and not the
       nearer centre; a point above or below every block clamps to the first or last.
 
 ### Task 4: Drag handles
@@ -105,20 +105,20 @@ every other Android app gives you two handles you can grab and move.
 `ui/reader/ReaderState.kt`, `test/ui/reader/SelectionGeometryTest.kt`,
 `test/ui/reader/ReaderStateTest.kt`
 
-- [ ] `SelectionHandles.grabbed(down, start, end, radiusPx)` — which handle a press
+- [x] `SelectionHandles.grabbed(down, start, end, radiusPx)` — which handle a press
       took, or none. The grab area is centred on the teardrop drawn *below* the caret
       and is far larger than the drawing; the drawn handle is the affordance, the
       touch target is what has to be thumb-sized. When both are in range the nearer
       wins, so the two handles on a one-word selection are still separable.
-- [ ] `ReaderState.selectionEdge` records which handle is being held, and is null
+- [x] `ReaderState.selectionEdge` records which handle is being held, and is null
       when none is. `ReaderTransitions.handleGrabbed` / `handleMoved` / `handleReleased`.
-- [ ] `ReaderScreen` draws two handles and a caret bar at each end, inside an overlay
+- [x] `ReaderScreen` draws two handles and a caret bar at each end, inside an overlay
       that is not part of the text, and gives them their own innermost pointer input
       so a grab beats the page-turn and long-press detectors rather than racing them.
-- [ ] A handle whose anchor is on a block this page does not draw is simply not drawn
+- [x] A handle whose anchor is on a block this page does not draw is simply not drawn
       — a selection can run off the page, and a handle pinned to the margin would be
       a lie about where the passage ends.
-- [ ] Test: the hit test; the state transitions; grabbing the start handle leaves the
+- [x] Test: the hit test; the state transitions; grabbing the start handle leaves the
       end where it was.
 
 ### Task 5: A selection that survives being looked at
@@ -128,17 +128,17 @@ every other Android app gives you two handles you can grab and move.
 **Files:** `ui/reader/ReaderState.kt`, `ui/reader/ReaderScreen.kt`,
 `test/ui/reader/ReaderStateTest.kt`
 
-- [ ] A tap *inside* the selected passage is swallowed and the selection kept. With
+- [x] A tap *inside* the selected passage is swallowed and the selection kept. With
       handles on screen the passage is exactly where the thumb goes, and clearing on
       that tap is the specific way the old behaviour lost work.
-- [ ] A tap outside clears, as it does everywhere else on Android.
-- [ ] Haptic feedback each time a drag crosses onto a new character, which is what
+- [x] A tap outside clears, as it does everywhere else on Android.
+- [x] Haptic feedback each time a drag crosses onto a new character, which is what
       Android gives you and the only "which character am I on" signal that works
       without a magnifier. See Task 4 notes for why not a magnifier.
-- [ ] The action bar moves out of the way: it sits at the top when the selection is
+- [x] The action bar moves out of the way: it sits at the top when the selection is
       in the lower half of the page and at the bottom otherwise, so it never covers
       the words it is offering to act on.
-- [ ] Test: an inside tap keeps, an outside tap clears, the bar's side is chosen from
+- [x] Test: an inside tap keeps, an outside tap clears, the bar's side is chosen from
       the selection's position.
 
 ### Task 6: Brightness on the right edge
@@ -146,26 +146,26 @@ every other Android app gives you two handles you can grab and move.
 **Files:** `ui/reader/ScreenBrightness.kt` (new), `ui/reader/ReaderBrightness.kt`
 (new), `ui/reader/ReaderScreen.kt`, `test/ui/reader/ScreenBrightnessTest.kt` (new)
 
-- [ ] `ScreenBrightness.dragged(current, dragPx, trackPx)` — down dims, up brightens,
+- [x] `ScreenBrightness.dragged(current, dragPx, trackPx)` — down dims, up brightens,
       one sweep of the reading column covers the range.
-- [ ] **Floor at 0.05, never 0.** A reading app that can be dragged to a black screen
+- [x] **Floor at 0.05, never 0.** A reading app that can be dragged to a black screen
       has taken the device away from its owner: the gesture that would undo it is
       invisible, and so is the back button. 5% is legible in a dark room.
-- [ ] `WindowManager.LayoutParams.screenBrightness` on the Reader's own window only.
+- [x] `WindowManager.LayoutParams.screenBrightness` on the Reader's own window only.
       The system setting is never written — Quire has no business changing the
       brightness of a device it is one app on, and doing so would need
       `WRITE_SETTINGS`.
-- [ ] **Not persisted, and this is a decision rather than an omission.** Brightness is
+- [x] **Not persisted, and this is a decision rather than an omission.** Brightness is
       environmental, not preferential: the value that is right in bed at midnight is
       wrong on a train at noon, so a restored value is wrong most of the times it is
       restored — and its failure mode is the worst one available, opening the Reader
       in daylight onto a screen dimmed for a dark room. It holds for the session, so
       it survives page turns, chapter loads and rotation, and it is released when the
       reader leaves. No settings column, and therefore no migration.
-- [ ] `BRIGHTNESS_OVERRIDE_NONE` is restored on dispose, by whatever route the reader
+- [x] `BRIGHTNESS_OVERRIDE_NONE` is restored on dispose, by whatever route the reader
       leaves. Until the first drag Quire does not touch brightness at all, so a reader
       who never uses this gesture keeps adaptive brightness exactly as it was.
-- [ ] Test: down dims and up brightens; the floor and the ceiling hold; a drag from
+- [x] Test: down dims and up brightens; the floor and the ceiling hold; a drag from
       the floor still comes back up; the seed from a system value is clamped into
       range and survives a nonsense reading.
 
@@ -179,23 +179,23 @@ reader whose page turns when they meant to dim it.
 **Files:** `ui/reader/ReaderGestures.kt` (new), `ui/reader/ReaderScreen.kt`,
 `test/ui/reader/ReaderGesturesTest.kt` (new)
 
-- [ ] `ReaderGestures.intentOf(downX, widthPx, dx, dy, slopPx)` → `NONE`, `PAGE_TURN`
+- [x] `ReaderGestures.intentOf(downX, widthPx, dx, dy, slopPx)` → `NONE`, `PAGE_TURN`
       or `BRIGHTNESS`. One pure decision, made once when the drag first crosses touch
       slop and then held for the rest of the gesture: re-deciding every frame is what
       makes a diagonal drag flicker between turning the page and dimming it.
-- [ ] Ties go to the page turn. It is the commoner intent and the recoverable one.
-- [ ] Tap, page-turn drag and brightness drag collapse into a single
+- [x] Ties go to the page turn. It is the commoner intent and the recoverable one.
+- [x] Tap, page-turn drag and brightness drag collapse into a single
       `awaitEachGesture` loop, so they cannot race each other.
-- [ ] The long press keeps its own detector, which self-cancels the moment the
+- [x] The long press keeps its own detector, which self-cancels the moment the
       pointer travels past slop — that is what keeps a brightness drag from also
       starting a selection, and it is a mechanism rather than a timing accident.
-- [ ] Handle drags are innermost and consume, so they win over all of the above.
-- [ ] Test: the axis decision at the boundaries, the edge strip, the slop threshold,
+- [x] Handle drags are innermost and consume, so they win over all of the above.
+- [x] Test: the axis decision at the boundaries, the edge strip, the slop threshold,
       and that a drag beginning off the right edge never dims.
 
 ### Task 8: Quiet feedback
 
-- [ ] A thin level bar on the right edge while dragging brightness, which fades once
+- [x] A thin level bar on the right edge while dragging brightness, which fades once
       the finger lifts. No number, no dialog, nothing that survives the gesture.
-- [ ] Test: the fade is time-driven and has nothing to assert; the level it draws is
+- [x] Test: the fade is time-driven and has nothing to assert; the level it draws is
       `ScreenBrightness`'s value, already tested.

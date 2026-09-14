@@ -5,10 +5,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -28,20 +30,33 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import app.quire.core.reading.Selection
+import app.quire.core.reading.SelectionEdge
 import app.quire.core.reading.TextAnchor
+import kotlinx.coroutines.delay
+import kotlin.math.abs
+import kotlin.math.max
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.style.TextAlign
@@ -89,6 +104,11 @@ fun ReaderScreen(
     onSelectionStart: (TextAnchor) -> Unit = {},
     onSelectionExtend: (TextAnchor) -> Unit = {},
     onSelectionClear: () -> Unit = {},
+    /** A tap while a passage is chosen: the anchor decides whether it survives. */
+    onSelectionTap: (TextAnchor?) -> Unit = {},
+    onHandleGrab: (SelectionEdge) -> Unit = {},
+    onHandleMove: (TextAnchor) -> Unit = {},
+    onHandleRelease: () -> Unit = {},
     onHighlight: () -> Unit = {},
     onShareSelection: () -> Unit = {},
     onCopySelection: () -> Unit = {},
@@ -97,59 +117,217 @@ fun ReaderScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = Quire.colors
+    val density = LocalDensity.current
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
 
     // Where every drawn word is, rebuilt for each page. Keyed on the page so a stale
     // entry can never resolve a touch to a character that has moved.
     val textMap = remember(state.chapterIndex, state.pageIndex) { PageTextMap() }
     val selecting = state.hasSelection
+    val handleRadiusPx = with(density) { HANDLE_RADIUS.toPx() }
+
+    // Where the two ends of the live passage are on screen. Recomputed when the
+    // selection moves *or* when the page finishes laying itself out — without the
+    // revision key the first frame of a selection would draw no handles at all.
+    val carets = remember(state.selection, textMap.revision) {
+        state.selection?.let {
+            SelectionCarets(
+                start = textMap.caretAt(it.start, SelectionEdge.START),
+                end = textMap.caretAt(it.end, SelectionEdge.END),
+            )
+        }
+    }
+
+    // Read inside the gesture handlers rather than captured, so a pointer input that
+    // is not being torn down still sees the current answer.
+    val liveCarets by rememberUpdatedState(carets)
+    val liveSelecting by rememberUpdatedState(selecting)
+    // Set for as long as a handle is held. The long-press detector stands down while
+    // it is: a handle drag is not a new selection, and starting one would throw away
+    // the passage the reader is in the middle of adjusting.
+    val holding = remember { mutableStateOf<SelectionEdge?>(null) }
+
+    // Session brightness, and the level bar that shows it. Saveable so a rotation
+    // does not snap the screen back; deliberately *not* stored, because a brightness
+    // chosen in a dark room is the wrong one to restore in daylight and the reader
+    // cannot see the gesture that would fix it. See ScreenBrightness.
+    var brightness by rememberSaveable { mutableFloatStateOf(ScreenBrightness.FOLLOW_SYSTEM) }
+    var brightnessShown by remember { mutableStateOf(false) }
+    var brightnessHeld by remember { mutableStateOf(false) }
+    var pageSize by remember { mutableStateOf(IntSize.Zero) }
+
+    ReaderBrightness(brightness)
+
+    LaunchedEffect(brightnessHeld, brightness) {
+        if (brightnessShown && !brightnessHeld) {
+            delay(BRIGHTNESS_LINGER_MS)
+            brightnessShown = false
+        }
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(colors.readerBg)
-            // First in the chain, and the only gesture that survives a live
-            // selection: a drag while selecting has to extend the passage, not turn
-            // the page out from under it.
+            .onSizeChanged { pageSize = it }
+            // Outermost, so it sees a touch last. The long press needs no
+            // disambiguating of its own: Compose's detector cancels itself the moment
+            // the pointer travels past touch slop, which is exactly what stops a
+            // page-turn or brightness drag from also starting a selection.
             .pointerInput(state.chapterIndex, state.pageIndex) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { offset ->
-                        textMap.anchorAt(offset)?.let(onSelectionStart)
+                        if (holding.value != null) return@detectDragGesturesAfterLongPress
+                        textMap.anchorAt(offset)?.let {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSelectionStart(it)
+                        }
                     },
                     onDrag = { change, _ ->
+                        if (holding.value != null) return@detectDragGesturesAfterLongPress
                         textMap.anchorAt(change.position)?.let(onSelectionExtend)
                     },
                 )
             }
-            .pointerInput(state.tapTogglesChrome, selecting) {
-                detectTapGestures(
-                    onTap = { offset ->
-                        // A tap dismisses a selection rather than turning the page:
-                        // tapping away is how every other Android app cancels one.
-                        if (selecting) {
-                            onSelectionClear()
-                            return@detectTapGestures
+            // Tap, page turn and brightness in one loop, because they are one
+            // decision. Three detectors each guessing on their own is how a reader
+            // ends up two pages further on when they meant to dim the screen.
+            .pointerInput(state.chapterIndex, state.pageIndex) {
+                val slop = viewConfiguration.touchSlop
+                val longPress = viewConfiguration.longPressTimeoutMillis
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = true)
+                    var dx = 0f
+                    var dy = 0f
+                    var lastY = down.position.y
+                    // Null until the finger has travelled far enough to mean
+                    // something. Decided once and then held: re-deciding every frame
+                    // makes a diagonal drag flicker between turning and dimming.
+                    var intent: DragIntent? = null
+                    var lifted = down
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        // A handle took this gesture. It is innermost and consumes,
+                        // so this is how the page hears about it.
+                        if (change.isConsumed) return@awaitEachGesture
+                        lifted = change
+                        if (!change.pressed) break
+
+                        dx += change.positionChange().x
+                        dy += change.positionChange().y
+
+                        if (intent == null && max(abs(dx), abs(dy)) >= slop) {
+                            intent = ReaderGestures.intentOf(
+                                down.position.x, size.width.toFloat(), dx, dy, slop,
+                            )
+                            if (intent == DragIntent.BRIGHTNESS) {
+                                // Seeded from the system on the very first drag, so
+                                // the screen moves from where it already is instead
+                                // of jumping to an invented starting point.
+                                if (brightness == ScreenBrightness.FOLLOW_SYSTEM) {
+                                    brightness = context.systemBrightnessSeed()
+                                }
+                                brightnessHeld = true
+                                brightnessShown = true
+                                lastY = change.position.y
+                            }
                         }
-                        // Thirds: the outer columns turn pages, the middle toggles
-                        // chrome. Turning by tap matters more than it sounds — it is
-                        // the gesture a thumb can make without shifting grip.
-                        when {
-                            offset.x < size.width * 0.25f -> onPreviousPage()
-                            offset.x > size.width * 0.75f -> onNextPage()
-                            else -> onTap()
+
+                        if (intent == DragIntent.BRIGHTNESS) {
+                            brightness = ScreenBrightness.dragged(
+                                current = brightness,
+                                dragPx = change.position.y - lastY,
+                                trackPx = size.height.toFloat(),
+                            )
+                            lastY = change.position.y
+                            change.consume()
                         }
-                    },
-                )
+                    }
+
+                    if (intent == DragIntent.BRIGHTNESS) brightnessHeld = false
+
+                    when {
+                        // A page turn while a passage is chosen would take the page
+                        // out from under it.
+                        intent == DragIntent.PAGE_TURN && !liveSelecting ->
+                            when (ReaderGestures.turnFor(dx, SWIPE_THRESHOLD)) {
+                                PageTurn.NEXT -> onNextPage()
+                                PageTurn.PREVIOUS -> onPreviousPage()
+                                PageTurn.NONE -> Unit
+                            }
+
+                        // A tap: no drag decided, and the finger was not held long
+                        // enough for the long press to have taken it.
+                        intent == null &&
+                            lifted.uptimeMillis - down.uptimeMillis < longPress -> {
+                            if (liveSelecting) {
+                                onSelectionTap(textMap.anchorAt(down.position))
+                            } else {
+                                when (
+                                    ReaderGestures.tapZone(
+                                        down.position.x, size.width.toFloat(),
+                                    )
+                                ) {
+                                    TapZone.PREVIOUS -> onPreviousPage()
+                                    TapZone.NEXT -> onNextPage()
+                                    TapZone.CHROME -> onTap()
+                                }
+                            }
+                        }
+
+                        else -> Unit
+                    }
+                }
             }
-            .pointerInput(selecting) {
-                if (selecting) return@pointerInput
-                var dragged = 0f
-                detectHorizontalDragGestures(
-                    onDragEnd = {
-                        if (dragged < -SWIPE_THRESHOLD) onNextPage()
-                        else if (dragged > SWIPE_THRESHOLD) onPreviousPage()
-                        dragged = 0f
-                    },
-                ) { _, amount -> dragged += amount }
+            // Innermost, so a press near a handle is seen here first and consumed
+            // before anything above can read it as a tap or a page turn. This is the
+            // whole of the disambiguation between grabbing a handle and everything
+            // else — it is not a question of thresholds.
+            .pointerInput(state.chapterIndex, state.pageIndex) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val found = liveCarets ?: return@awaitEachGesture
+                    val edge = SelectionHandles.grabbed(
+                        down.position, found.start, found.end, handleRadiusPx,
+                    ) ?: return@awaitEachGesture
+
+                    down.consume()
+                    holding.value = edge
+                    onHandleGrab(edge)
+
+                    // The finger keeps the grip it took. Resolving the raw touch
+                    // point would put the caret wherever the thumb is — a line below
+                    // the text it is adjusting, since the handle hangs beneath it.
+                    val caret = if (edge == SelectionEdge.START) found.start else found.end
+                    val grip = down.position - Offset(
+                        caret?.x ?: down.position.x,
+                        caret?.let { (it.top + it.bottom) / 2f } ?: down.position.y,
+                    )
+
+                    var last: TextAnchor? = null
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        change.consume()
+                        if (!change.pressed) break
+
+                        val at = textMap.anchorAt(change.position - grip) ?: continue
+                        if (at == last) continue
+                        last = at
+                        // The only "which character am I on" signal there is without
+                        // a magnifier, and the one Android itself gives. A tick per
+                        // character is what makes a handle feel attached to the text
+                        // rather than to the finger.
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onHandleMove(at)
+                    }
+
+                    holding.value = null
+                    onHandleRelease()
+                }
             },
     ) {
         PageContent(
@@ -159,13 +337,42 @@ fun ReaderScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
+        if (selecting && carets != null) {
+            SelectionHandleOverlay(carets, handleRadiusPx, colors.accent)
+        }
+
         if (selecting) {
+            // Above the passage when the passage is low on the page. A bar pinned to
+            // the bottom sits on the words it is offering to copy, which is the one
+            // place it must never be.
+            val top = SelectionActionBar.prefersTop(
+                // A passage whose far end is not on this page runs off the foot of
+                // it, so it reaches as low as a passage can reach.
+                selectionBottomPx = when {
+                    carets?.end != null -> carets.end.bottom
+                    carets?.start != null -> pageSize.height.toFloat()
+                    else -> 0f
+                },
+                viewportHeightPx = pageSize.height.toFloat(),
+            )
             SelectionActions(
                 onHighlight = onHighlight,
                 onShare = onShareSelection,
                 onCopy = onCopySelection,
-                modifier = Modifier.align(Alignment.BottomCenter),
+                atTop = top,
+                modifier = Modifier.align(
+                    if (top) Alignment.TopCenter else Alignment.BottomCenter,
+                ),
             )
+        }
+
+        AnimatedVisibility(
+            visible = brightnessShown,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.CenterEnd),
+        ) {
+            BrightnessLevel(level = brightness)
         }
 
         AnimatedVisibility(
@@ -196,6 +403,103 @@ fun ReaderScreen(
 }
 
 private const val SWIPE_THRESHOLD = 80f
+
+/**
+ * The drawn radius of a selection handle.
+ *
+ * The *touch* target is much larger — see [SelectionHandles] — because the drawing is
+ * the affordance and the grabbable area is what has to fit a thumb. A control drawn
+ * and hit-tested at the same 10dp is one nobody can hit, and a reader's conclusion is
+ * that the handles do not work rather than that they missed.
+ */
+private val HANDLE_RADIUS = 10.dp
+
+/** How long the brightness bar stays after the finger lifts. */
+private const val BRIGHTNESS_LINGER_MS = 800L
+
+/** Where the two ends of the live passage are, on the page currently drawn. */
+data class SelectionCarets(val start: CaretRect?, val end: CaretRect?)
+
+/**
+ * The two grabbable ends of the chosen passage.
+ *
+ * Drawn over the text rather than in it, so nothing here changes a metric and nothing
+ * here can move a line break — which is what keeps `MeasureMatchesRenderTest` true
+ * while the reader has a selection open.
+ *
+ * A null caret means that end is on a block this page does not draw. It is simply not
+ * drawn: a passage can run off the foot of a page, and a handle parked in the margin
+ * would be a lie about where the passage stops.
+ */
+@Composable
+private fun SelectionHandleOverlay(
+    carets: SelectionCarets,
+    radiusPx: Float,
+    color: Color,
+) {
+    Canvas(Modifier.fillMaxSize()) {
+        listOfNotNull(
+            carets.start?.let { SelectionEdge.START to it },
+            carets.end?.let { SelectionEdge.END to it },
+        ).forEach { (edge, caret) ->
+            // The caret bar itself. Without it the teardrop hangs under the line with
+            // nothing saying which character it is actually holding.
+            drawRect(
+                color = color,
+                topLeft = Offset(caret.x - CARET_WIDTH_PX / 2f, caret.top),
+                size = Size(CARET_WIDTH_PX, caret.height),
+            )
+
+            val centre = SelectionHandles.centreOf(caret, edge, radiusPx)
+            drawCircle(color = color, radius = radiusPx, center = centre)
+            // The square corner that points back at the caret, which is what turns a
+            // circle into the teardrop every Android reader recognises — and which
+            // says, without a label, which end of the passage this handle is.
+            drawRect(
+                color = color,
+                topLeft = Offset(
+                    x = if (edge == SelectionEdge.START) caret.x - radiusPx else caret.x,
+                    y = caret.bottom,
+                ),
+                size = Size(radiusPx, radiusPx),
+            )
+        }
+    }
+}
+
+private const val CARET_WIDTH_PX = 4f
+
+/**
+ * How bright the screen is, while the reader is changing it.
+ *
+ * A bar and nothing else: no number, no dialog, nothing that outlives the gesture. It
+ * is drawn against the accent rather than the page so it stays legible at the floor —
+ * feedback that disappears as the screen dims is feedback exactly when it is needed.
+ */
+@Composable
+private fun BrightnessLevel(level: Float) {
+    val colors = Quire.colors
+    val shown = level.coerceIn(ScreenBrightness.FLOOR, ScreenBrightness.CEILING)
+    Box(
+        modifier = Modifier
+            // Inboard of the strip the thumb is on, or the thumb covers the only
+            // feedback the gesture has.
+            .padding(end = 34.dp)
+            .height(160.dp)
+            .width(5.dp)
+            .clip(QuireShapes.chip)
+            .background(colors.border),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Box(
+            Modifier
+                .fillMaxHeight(shown)
+                .width(5.dp)
+                .clip(QuireShapes.chip)
+                .background(colors.accent),
+        )
+    }
+}
 
 @Composable
 private fun PageContent(
@@ -430,13 +734,16 @@ private fun SelectionActions(
     onHighlight: () -> Unit,
     onShare: () -> Unit,
     onCopy: () -> Unit,
+    atTop: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colors = Quire.colors
     Row(
         modifier = modifier
-            .navigationBarsPadding()
-            .padding(bottom = 22.dp)
+            .then(
+                if (atTop) Modifier.statusBarsPadding().padding(top = 22.dp)
+                else Modifier.navigationBarsPadding().padding(bottom = 22.dp),
+            )
             .clip(QuireShapes.pill)
             .background(colors.bgAlt)
             .border(1.dp, colors.border, QuireShapes.pill)
