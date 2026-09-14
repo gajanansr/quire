@@ -370,6 +370,34 @@ class ReaderWindowTest {
     }
 
     @Test
+    fun `a chapter that opens with a page break still opens at its beginning`() {
+        // A reflowed PDF routinely starts a chapter with a `PageBreak`, which has no
+        // characters. `Chapter.cursorAt(0)` steps over it — correctly, since a cursor
+        // inside a block with no characters is ambiguous with the start of the next —
+        // so a window anchored through it would begin at `TextAnchor(1, 0)`. Then the
+        // page break's slice is dropped, `showsChapterHeaderFor` sees a window that
+        // does not start at the beginning and draws no chapter header, and turning back
+        // out of the chapter never reaches the previous one.
+        val blocks = listOf(ContentBlock.PageBreak(1)) + chapter.blocks.take(40)
+        val withBreak = Chapter(0, "One", blocks, 0, 0).let { it.copy(charCount = it.textLength) }
+        val w = runBlocking {
+            ReaderWindow.openAt(withBreak, null, charsBehind) { from, maxPages ->
+                paginator.paginateWindow(withBreak, from, maxPages, viewport, settings)
+            }
+        }
+        assertEquals(TextAnchor(0, 0), w.start)
+        assertTrue(ReaderWindow.atChapterStart(w))
+        assertEquals(
+            "the page break's own slice was dropped",
+            0, w.pages.first().slices.first().blockIndex,
+        )
+        assertTrue(
+            "the chapter header would not have been drawn",
+            showsChapterHeaderFor(withBreak, pageIndex = 0, windowStart = w.start),
+        )
+    }
+
+    @Test
     fun `an empty chapter still gives the Reader a page to stand on`() {
         val empty = Chapter(0, null, emptyList(), 0, 0)
         val w = runBlocking {

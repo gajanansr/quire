@@ -124,9 +124,24 @@ object ReaderWindow {
     ): WindowedPages {
         val offset =
             if (at == null) 0 else chapter.offsetOf(at.blockIndex, at.charOffset)
-        val start = chapter.cursorAt(anchorOffset(offset, charsBehind))
-        return laidOutFrom(chapter, start, offset, lay)
+        return laidOutFrom(chapter, startAt(chapter, anchorOffset(offset, charsBehind)), offset, lay)
     }
+
+    /**
+     * The cursor a window laid out from [offset] begins at.
+     *
+     * The chapter's beginning is `TextAnchor(0, 0)` and nothing else, even when block
+     * zero has no characters in it. `Chapter.cursorAt` steps over empty blocks —
+     * correctly, because a cursor inside one is ambiguous with the start of the next —
+     * and a reflowed PDF routinely opens a chapter with a `PageBreak`, so asking it
+     * for offset zero answers `TextAnchor(1, 0)`. Three things then go wrong at once
+     * and all of them are silent: the page break's own slice is dropped from the
+     * window, the chapter header is not drawn because the window does not look like it
+     * starts at the beginning, and turning back out of the chapter tries to re-anchor
+     * for ever instead of opening the previous one.
+     */
+    private fun startAt(chapter: Chapter, offset: Int): TextAnchor =
+        if (offset <= 0) TextAnchor(0, 0) else chapter.cursorAt(offset)
 
     /**
      * Where a window opened at [offset] starts, snapped to a grid.
@@ -241,7 +256,7 @@ object ReaderWindow {
         // them nothing for it, and the next tap would do it again.
         var reach = charsBehind.coerceAtLeast(1)
         repeat(RE_ANCHOR_ATTEMPTS) {
-            val start = chapter.cursorAt((was - reach).coerceAtLeast(0))
+            val start = startAt(chapter, was - reach)
             val out = laidOutFrom(chapter, start, was - 1, lay)
             if (out.pageIndex > 0 || start == TextAnchor(0, 0)) return out
             reach *= 2
