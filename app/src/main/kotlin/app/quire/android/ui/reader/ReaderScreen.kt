@@ -82,7 +82,6 @@ import app.quire.core.paginate.Indentation
 import app.quire.core.paginate.trailingSpacingPx
 import app.quire.core.paginate.spacingAbovePx
 import app.quire.core.model.ContentBlock
-import kotlin.math.roundToInt
 
 /**
  * The Reader.
@@ -1109,7 +1108,21 @@ private fun BottomBar(
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "${(state.progress * 100).roundToInt()}% · page ${state.pageIndex + 1} of ${state.pageCount}",
+            // Pages counted in the book, not in the pages currently laid out.
+            //
+            // This read "page 12 of 719", where the denominator was the whole chapter
+            // laid out at the reader's type size. A chapter is now laid out a window
+            // at a time, so that number would be the size of the window — "page 5 of
+            // 20", resetting as the reader went. The unit that survives is the printed
+            // page: `ReadingEstimates` counts characters, which is the same measure
+            // Book Details states a book's length in, and for this 565,896-character
+            // novel it says 315, exactly what the PDF has.
+            //
+            // "about", because that is what it is. An estimate presented as exact is
+            // worse than a different unit honestly labelled — and this one has the
+            // compensation of not changing when the reader changes the type size,
+            // which the old number did on every tap.
+            text = state.readingLine,
             color = colors.muted,
             style = MaterialTheme.typography.labelSmall,
         )

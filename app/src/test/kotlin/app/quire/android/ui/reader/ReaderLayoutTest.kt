@@ -9,6 +9,7 @@ import app.quire.core.paginate.Measured
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.TextMeasurer
 import app.quire.core.paginate.Viewport
+import app.quire.core.reading.TextAnchor
 import app.quire.android.ui.theme.QuireTypography
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -62,8 +63,14 @@ class ReaderLayoutTest {
         startCharOffset = 0, charCount = prose.length,
     )
 
-    private fun requestFor(chapter: Chapter, sizeSp: Float = 19f) = ReaderLayout.requestFor(
+    private fun requestFor(
+        chapter: Chapter,
+        sizeSp: Float = 19f,
+        from: TextAnchor = TextAnchor(0, 0),
+    ) = ReaderLayout.requestFor(
         chapter = chapter,
+        from = from,
+        maxPages = ReaderWindow.PAGES_BEHIND + ReaderWindow.PAGES_AHEAD,
         viewport = viewport,
         preferences = ReaderPreferences(fontSizeSp = sizeSp),
         pixelsPerSp = density,
@@ -122,14 +129,14 @@ class ReaderLayoutTest {
         val chapter = headedChapter()
 
         runBlocking {
-            pages.pagesFor(chapter, requestFor(chapter))
+            pages.windowFor(chapter, requestFor(chapter))
             val afterFirst = measurer.calls
             assertTrue("nothing was laid out at all", afterFirst > 0)
 
             // The effect runs again — the reader is deeper in, or the box was
             // remeasured and came back the same. Nothing the page breaks depend on
             // changed, so nothing should be measured again.
-            pages.pagesFor(chapter, requestFor(chapter))
+            pages.windowFor(chapter, requestFor(chapter))
             assertEquals("the chapter was laid out twice", afterFirst, measurer.calls)
         }
     }
@@ -142,9 +149,9 @@ class ReaderLayoutTest {
         val chapter = headedChapter()
 
         runBlocking {
-            pages.pagesFor(chapter, requestFor(chapter, sizeSp = 19f))
+            pages.windowFor(chapter, requestFor(chapter, sizeSp = 19f))
             val afterFirst = measurer.calls
-            pages.pagesFor(chapter, requestFor(chapter, sizeSp = 22f))
+            pages.windowFor(chapter, requestFor(chapter, sizeSp = 22f))
             assertTrue("a new type size served the old pages", measurer.calls > afterFirst)
         }
     }
@@ -157,17 +164,17 @@ class ReaderLayoutTest {
         val elsewhere = headedChapter(index = 4)
 
         runBlocking {
-            pages.pagesFor(here, requestFor(here))
-            pages.pagesFor(elsewhere, requestFor(elsewhere))
+            pages.windowFor(here, requestFor(here))
+            pages.windowFor(elsewhere, requestFor(elsewhere))
             val settled = measurer.calls
 
             // The reader steps the size. The Reader repaginates the chapter in hand
             // and nothing else — the other chapter's pages are still good at the size
             // they were laid out for, and will be wanted again at that size.
-            pages.pagesFor(here, requestFor(here, sizeSp = 20f))
+            pages.windowFor(here, requestFor(here, sizeSp = 20f))
             val afterResize = measurer.calls
 
-            pages.pagesFor(elsewhere, requestFor(elsewhere))
+            pages.windowFor(elsewhere, requestFor(elsewhere))
             assertEquals(
                 "a chapter the reader is not in was laid out again",
                 afterResize, measurer.calls,
@@ -183,13 +190,116 @@ class ReaderLayoutTest {
         val chapter = headedChapter()
 
         runBlocking {
-            pages.pagesFor(chapter, requestFor(chapter, sizeSp = 19f))
-            pages.pagesFor(chapter, requestFor(chapter, sizeSp = 20f))
+            pages.windowFor(chapter, requestFor(chapter, sizeSp = 19f))
+            pages.windowFor(chapter, requestFor(chapter, sizeSp = 20f))
             val settled = measurer.calls
-            pages.pagesFor(chapter, requestFor(chapter, sizeSp = 19f))
+            pages.windowFor(chapter, requestFor(chapter, sizeSp = 19f))
             assertEquals("stepping back re-laid the chapter out", settled, measurer.calls)
         }
     }
+
+    // ------------------------------------------------- when the pages may be grown
+
+    private fun windowedState(
+        sizeSp: Float = 19f,
+        laidOutAt: Float? = sizeSp,
+        view: Viewport = viewport,
+    ): ReaderState {
+        val chapter = headedChapter()
+        return ReaderState(
+            chapter = chapter,
+            chapterIndex = chapter.index,
+            preferences = ReaderPreferences(fontSizeSp = sizeSp),
+            windowLayout = laidOutAt?.let {
+                LayoutKey(view, ReaderPreferences(fontSizeSp = it).toSettings(density))
+            },
+        )
+    }
+
+    private fun settings(sizeSp: Float) = ReaderPreferences(fontSizeSp = sizeSp).toSettings(density)
+
+    @Test
+    fun `pages measured against what is on screen may be grown`() {
+        assertTrue(ReaderLayout.mayGrowWindow(windowedState(), viewport, settings(19f)))
+    }
+
+    @Test
+    fun `pages measured at another type size may not be grown`() {
+        // The fault this exists for: extending a window after a type-size change but
+        // before the repagination lands appends pages laid out at the new size to
+        // pages laid out at the old one. The reader then stands on a page list that is
+        // half one measurement and half another — the renderer draws more lines than
+        // were budgeted, and their character offset resolves against breaks that do
+        // not exist.
+        val stale = windowedState(sizeSp = 22f, laidOutAt = 19f)
+        assertFalse(ReaderLayout.mayGrowWindow(stale, viewport, settings(22f)))
+    }
+
+    @Test
+    fun `pages measured before a rotation may not be grown`() {
+        val turned = windowedState(view = Viewport(viewport.heightPx, viewport.widthPx))
+        assertFalse(ReaderLayout.mayGrowWindow(turned, viewport, settings(19f)))
+    }
+
+    @Test
+    fun `nothing may be grown before anything has been laid out`() {
+        assertFalse(ReaderLayout.mayGrowWindow(windowedState(laidOutAt = null), viewport, settings(19f)))
+        assertFalse(ReaderLayout.mayGrowWindow(ReaderState(), viewport, settings(19f)))
+    }
+
+    @Test
+    fun `a re-anchored window is adopted only if the reader has not moved`() {
+        // A backward re-anchor re-tiles the text and chooses which page of the new
+        // tiling to stand on, against the window it started from. Two ways that went
+        // wrong: a reader who tapped back and then forward was dragged backwards past
+        // the page they had just turned to, and two quick taps back launched two runs
+        // from the same window — the same answer twice, so two taps moved them one
+        // page. Queued now, and applied on top of the run in flight.
+        val base = WindowedPages(TextAnchor(4, 0), pages(6), next = null, pageIndex = 0)
+        val key = LayoutKey(viewport, settings(19f))
+        val standing = ReaderState(windowStart = base.start, pageIndex = 0, windowLayout = key)
+        assertTrue(ReaderLayout.mayAdoptReanchor(standing, base, key))
+        assertFalse(
+            "a turn made during the re-anchor was written back over",
+            ReaderLayout.mayAdoptReanchor(standing.copy(pageIndex = 1), base, key),
+        )
+        assertFalse(
+            "a window replaced during the re-anchor was written back over",
+            ReaderLayout.mayAdoptReanchor(standing.copy(windowStart = TextAnchor(9, 0)), base, key),
+        )
+    }
+
+    @Test
+    fun `a re-anchor started before a rotation is refused`() {
+        // The two fields above cannot see this on their own, and they are exactly the
+        // two a repagination is built to preserve: the window start is sticky, and
+        // `placedAt` leaves a reader who was on page zero on page zero. So a rotation
+        // alone lands a repagination and then lets the re-anchor write pages set in the
+        // old column over it. The last line of every page is then clipped, and
+        // `windowLayout` is left stale — so `mayGrowWindow` answers false for ever, the
+        // prefetch stops, and every tap at the window's edge queues with nothing to
+        // cash it until the reader rotates again.
+        val base = WindowedPages(TextAnchor(4, 0), pages(6), next = null, pageIndex = 0)
+        val started = LayoutKey(viewport, settings(19f))
+        val standing = ReaderState(windowStart = base.start, pageIndex = 0)
+
+        val rotated = standing.copy(
+            windowLayout = LayoutKey(Viewport(viewport.heightPx, viewport.widthPx), settings(19f)),
+        )
+        assertFalse(
+            "a window laid out before a rotation was written back over one laid out after",
+            ReaderLayout.mayAdoptReanchor(rotated, base, started),
+        )
+        val resized = standing.copy(windowLayout = LayoutKey(viewport, settings(22f)))
+        assertFalse(
+            "a window laid out at another type size was written back over",
+            ReaderLayout.mayAdoptReanchor(resized, base, started),
+        )
+    }
+
+    private fun pages(n: Int) = List(n) { app.quire.core.paginate.Page(
+        listOf(app.quire.core.paginate.PageSlice(it, 0, 10)),
+    ) }
 
     // ------------------------------------------------------------- when it may run
 
@@ -290,17 +400,34 @@ class ReaderLayoutTest {
         // The header is theme type at fixed sizes and two gaps in dp. None of it
         // depends on the reader's body size, and the old estimate pretending it did
         // is precisely how it under-budgeted at 15sp.
-        val atFifteen = ReaderLayout.requestFor(
-            headedChapter(), viewport, ReaderPreferences(fontSizeSp = 15f), density, density,
-        )
-        val atTwentyFour = ReaderLayout.requestFor(
-            headedChapter(), viewport, ReaderPreferences(fontSizeSp = 24f), density, density,
-        )
+        val atFifteen = requestFor(headedChapter(), sizeSp = 15f)
+        val atTwentyFour = requestFor(headedChapter(), sizeSp = 24f)
         assertEquals(
             "the header's height moved with the reader's type size",
             atTwentyFour.insetPx, atFifteen.insetPx, 0.01f,
         )
         assertEquals(drawnHeaderPx(2), atFifteen.insetPx, 0.01f)
+    }
+
+    @Test
+    fun `only the run that opens the chapter is charged for the header`() {
+        // A chapter is laid out a window at a time, and only the window that starts at
+        // the chapter's first character can produce the page the header is drawn on.
+        // Charging the inset at a seam would lay that page out for less than it draws
+        // and clip its last line — the failure `MeasureMatchesRenderTest` exists for,
+        // reached through chunking instead of through a style. The same cursor decides
+        // the budget here and the drawing in `showsChapterHeaderFor`.
+        val chapter = headedChapter()
+        val midChapter = TextAnchor(1, 240)
+        assertTrue("the chapter's own first page went unbudgeted", requestFor(chapter).insetPx > 0f)
+        assertEquals(
+            "a seam was charged for a header no page in it draws",
+            0f, requestFor(chapter, from = midChapter).insetPx, 0.001f,
+        )
+        assertFalse(
+            "the header would have been drawn above a seam",
+            showsChapterHeaderFor(chapter, pageIndex = 0, windowStart = midChapter),
+        )
     }
 
     @Test

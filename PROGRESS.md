@@ -2462,3 +2462,242 @@ and three lambdas are added. Nothing in that file is reorganised.
 - Back does not dismiss the options pill — it leaves the Reader, exactly as it already
   does with a live selection and the typography sheet. Consistent, and possibly still
   wrong; worth a verdict from someone holding the phone.
+## 2026-09-15 — A chapter is not a chunk
+
+`agent/chunked-pagination`, plan at
+`docs/superpowers/plans/2026-09-15-quire-chunked-pagination.md`, eight tasks, all
+ticked. **1,082 JVM tests (420 `:core` + 662 `:app`), 0 failures**, 75 added.
+
+*The Love Hypothesis*, a 315-page PDF, imports as **one chapter: 8,621 blocks,
+565,896 characters**. Its outline is unusable, so `ChapterDetector` correctly falls
+back to `single` — and pagination then laid the whole chapter out, on open and again
+on every tap of A+. The 2026-09-12 and 2026-09-15 fixes made that work *linear*; they
+could not make it *small*, because the unit was the chapter.
+
+So the unit is no longer the chapter. **A chapter is semantic** — what a reader picks
+from Contents, from the book's own outline or not at all; `ChapterDetector` is not
+touched and no heuristic returns. **A chunk is mechanical** — how much text is laid
+out at once, and the reader must never be able to tell one exists.
+
+**What it costs now.** `ChunkedPaginationCostTest` counts measured characters rather
+than milliseconds, as `PaginationCostTest` does, on a chapter of the real book's shape:
+
+| type | whole chapter | a window | |
+|---|---:|---:|---:|
+| 15sp | 560,365 | 20,805 | **27x** |
+| 19sp | 607,035 | 16,900 | **36x** |
+| 24sp | 609,427 | 9,166 | **66x** |
+
+Reading on costs **10,140** characters at 19sp — an extension is a third of an
+opening, and it is prefetched three pages before the reader arrives, so it is never on
+a page turn. A window is cheaper at large type because a page holds less of the book
+and a window is a fixed number of pages; the whole chapter cost the same whatever the
+reader had chosen, which was the shape of the problem.
+
+**Where a chunk is cut, and why not at a paragraph.** At a page boundary the paginator
+itself just produced — which is already a line boundary, because `Paginator` only ever
+splits where the measurer reported a line end. Three things follow. A single enormous
+block needs no special case, which matters because the one-block chapter (a TXT with
+no blank lines, a PDF whose reflow merged everything) is exactly the shape that causes
+this and has no paragraph boundary to cut at. The first page of a chunk starts
+mid-paragraph and already draws as a continuation, because `Indentation.shouldIndent`
+and `ChapterOpening.opensChapter` both refuse a block resumed part-way through. And no
+page is ever short: the only page a chunk may end on is one `flush()` produced inside
+the layout loop, which is a page that ran out of height.
+
+**How I know a seam is invisible, rather than merely small.** The claim is an equality:
+
+> Laying a chapter out as a sequence of chunks, each starting where the last one
+> stopped, produces **exactly** the pages that laying the whole chapter out produces.
+
+It holds because a fresh lay-out at a page boundary is in the state whole-chapter
+pagination is in when it reaches one — `used` zero, the page empty, spacing above the
+first block on a page zero by definition, indent and raised initial already
+suppressed. The only thing reset is the learned characters-per-line, which decides how
+much text one `measure` call asks for and never where a line breaks.
+`ChunkedPaginationTest` chunks four chapter shapes at budgets of 1, 2, 3, 5, 8, 13 and
+40 pages and compares the concatenated page list to `paginate(whole)` **slice for
+slice**. Deliberately breaking the heading rule was checked to break it.
+
+Two edges needed work to make that an equality. Orphan control moves a heading that
+ended a page onto the next one, and a chunk that cannot see the next page cannot — so
+**a chunk never stops on a page whose last block is a heading**; it runs on by a page,
+which is where that heading was going. And the carry is read off the last page's *end*
+rather than tracked alongside it, because orphan control adds slices to the front of
+that page and a separately tracked cursor would then describe a page that no longer
+exists.
+
+**The one case that is not an equality, and three things the plan got wrong.**
+
+Forward extension is a pure append and front-trimming is a pure drop, so neither can
+be seen. Backward extension re-tiles and *cannot not*: pages tile the text, so the
+pages before a place must end exactly at it, and pagination only runs forwards. The
+only exact prepend available would leave a deliberately short page at the seam, which
+is the most visible thing a reader could be shown.
+
+*The plan said to show the page ending at or before where the reader was.* Measured on
+the fixture, that page ends up to **680 characters short** — a single backward turn
+skipped most of a page, text on neither the page they left nor the page they were
+given. It shows the page holding the character immediately *before* their old start
+instead: it begins before them, so the turn really moves back, and it runs to at least
+where they were, so **nothing is skipped**. The cost is an overlap of at most a page —
+the top of what they were reading appearing at the foot of what they are given, which
+is text they were looking at a second ago. Once per eight pages of *backward* travel,
+never on a forward turn, never on a type-size change, and never speculatively, because
+moving a page under a reader who did not ask is the one thing a prefetch must not do.
+
+*The window anchor had to be snapped to a grid, or the book walks backwards.* Caught
+by `ResumeLoopTest`, not by reading. Where a window starts decides where its pages
+break, and the Reader saves the top of the page it was on — so a start taken as
+"exactly `charsBehind` before the reader" is a different start every session, landing
+the saved place mid-page and saving a slightly earlier one. A book left at `(219, 480)`
+came back at `(218, 640)`, and every open would have taken it back another fraction of
+a page. `ReaderWindow.anchorOffset` snaps to a grid of half `charsBehind`, so every
+place in a band gives the same start, the tiling is the same, and a saved page top is
+still a page top. Three opens and closes, and the second and third are identical.
+
+*Two effects could write two different page lists.* Growth and repagination are
+separate effects — they have to be, because one is keyed on the reader's position and
+the other must not be — so a reader who tapped A+ while near the window's edge had the
+extension, laid out at the *new* size, appended to pages laid out at the *old* one.
+Half one measurement and half another, in one page list: the renderer draws more lines
+than were budgeted, and the reader's character offset resolves against breaks that do
+not exist. That is the same class of fault as the four concurrent paginations of the
+last round, arrived at from the other direction. `ReaderState.windowLayout` records
+what the pages in hand were measured against, and `ReaderLayout.mayGrowWindow` is the
+one rule both call sites ask. A turn made in that window is queued rather than
+swallowed.
+
+*And a page turned during a prefetch was undone by it.* Laying out twelve pages takes
+tens of milliseconds, and a reader three pages from the edge is reading — so they turn
+a page while it runs. Appending to the window captured *before* the lay-out started
+wrote that window's page index back and put them silently on the page they had been on
+when it began. Laying out and appending are two calls now, and the append takes the
+window as it is at the moment it happens.
+
+*A chapter that opens with a `PageBreak` did not start at `TextAnchor(0, 0)`.*
+`Chapter.cursorAt` steps over blocks with no characters — correctly, since a cursor
+inside one is ambiguous with the start of the next — so asking it for offset zero on a
+reflowed PDF answers `TextAnchor(1, 0)`. Three things then went wrong at once and all
+of them silently: the page break's own slice dropped out of the window, the chapter
+header was not drawn because the window did not look like it began at the beginning,
+and turning back out of the chapter re-anchored for ever instead of opening the
+previous one. The chapter's beginning is `TextAnchor(0, 0)` and nothing else.
+
+**The page count, and a progress bar that never moved.** `state.pages` is a window, so
+`"38% · page 12 of 719"` could not survive — the denominator would have been the
+window's. It reads `"38% · about page 190 of 315"` now, counted in printed pages from
+the book's characters, which is the unit Book Details already states a length in and
+the only one a reader can check against a spine. For this book it says **315, which is exactly what the PDF
+has**. "about" is not decoration; and it has the compensation of no
+longer changing every time the reader changes the type size.
+
+Underneath it, a real bug. `ReaderState.progress` added `slice.startChar` — the offset
+inside the reader's *own block* — to the chapter's start offset. On a book of many
+small chapters the chapter offsets carried the number and it looked right; on a book
+with no outline, which is one chapter of 8,621 blocks, it never exceeded the length of
+one paragraph. **A reader three hundred screens into this novel was shown 0%**, and so
+were the widget and Book Details. `Chapter.blockStarts` is a lazy prefix sum, and the
+same array is what lets a window be anchored *n* characters behind the reader without
+walking 8,621 blocks on every page turn.
+
+**Nothing is stored, nothing is migrated, nothing is re-extracted.** A chunk is a
+cursor into a `Chapter` that is already on disk, worked out in memory at lay-out time.
+Every book already on the device works untouched — no Room migration, no schema
+change, no `FIXTURE_VERSION` bump — and a test serializes a `Chapter` and fails if a
+chunk boundary ever reaches the JSON. Chunking at import was considered and rejected
+for that reason and one more: a stored boundary would have been chosen for one viewport
+and one type size, and wrong for every other.
+
+Contents still lists the book's own chapters or nothing. It never sees a chunk.
+
+**What a review caught that the tests did not, and both were races between a tap and
+a lay-out.** A window takes long enough to lay out that a reader turns pages while one
+is in flight, and two places wrote a stale answer back over them.
+
+*A backward re-anchor was written back blind.* It chooses which page of a new tiling to
+stand on, and that choice is made against the window it started from — so it cannot be
+rebased the way an append can. Tap back, then forward, and the re-anchor landed and
+dragged the reader backwards past the page they had just turned to. Tap back twice
+quickly and two runs started from the same window, computed the same answer, and two
+taps moved them one page. `ReaderLayout.mayAdoptReanchor` adopts it only if the reader
+has not moved, and a tap made while a run is in flight is queued rather than starting a
+second one — `ReaderTransitions.windowed` applies what is queued on top of the window
+that lands.
+
+*And a page turned during a repagination was reverted* — a regression against `main`,
+which resolved the index from the state the pages were applied to rather than from the
+state the lay-out began in. `ReaderWindow.placedAt` does that again, by character
+offset rather than through `pageContaining`, whose fallback to page zero would now
+throw a reader to the top of a window they had read past. The review also caught that
+the new test helper had quietly stopped asserting this at all, by computing the page
+index itself and handing `repaginated` a finished answer to copy. It hands it page zero
+now.
+
+A last one, found on a second pass: moving the queued-tap application into `windowed`
+made a background prefetch able to cash a tap that a dropped run had left behind — the
+page moving a dozen pages later with nothing touching the screen, which is precisely
+what a prefetch must not do. The tap path applies them itself now, once, on every way
+out; `windowed` is called from three places and only one of them is a tap.
+
+Four smaller ones from the same review: `loadChapter` read the typography before
+suspending and the viewport after, so a type-size change during a chapter load left the
+state claiming pages matched a typography they were never laid out for; `layFor` re-read
+the viewport on each of the up-to-five runs a window takes, so a rotation could
+concatenate pages set in two different columns; the repagination effect read the viewport
+twice for the same reason; and a re-anchor that ran out of attempts returned the window
+unchanged, which is a page turn that silently does nothing. Two rapid taps at a chapter
+boundary also launched two loads of the same chapter, which is the same fault one branch
+up and is guarded the same way now.
+
+**The identity had one real hole, and a review found it by reading.** `measureWindow`
+stopped at the first window in its doubling sequence that overflowed the page — so
+whether it reported `reachedEnd`, which is what gates the widow pull-back, depended on
+where the doubling landed, and the learned characters-per-line is the one thing a chunk
+starts fresh with. Argued to be unreachable as shipped, because `Measure.widthPx` caps a
+column at 66 characters while the estimate starts at 80; pinned anyway, with a fixture at
+110 characters a line and blocks built to be **exactly one line longer than a page**. It
+failed on the first run: whole-chapter cut that block at 24 lines and a fresh chunk at 25.
+The rule is fixed rather than the fixture — a window is now widened while it shows fewer
+than `MIN_FRAGMENT_LINES` past the page, because that is exactly the band in which the
+widow decision needs to know what comes next. One extra measurement in a narrow case, and
+the estimate can no longer move a page break at all. The cost table above is measured
+after it.
+
+**A second from the same review, and a hang.** A viewport shorter than one line of a
+mid-chapter block flushed empty pages for ever, because the escape from "not even one
+line fits" required the page to be the *chapter's* first. Pre-existing, but chunking made
+it unbounded — a chunk may not end on an empty page, so a budget cannot stop it. The
+escape is now about the page being empty and nothing else, which ends the loop and also
+closes the other hole that had been documented in the identity. Its test bounds the run
+through `isActive`, so a regression fails the gate rather than hanging it.
+
+**And the last of them, which a rotation alone reaches.** The guard on adopting a
+backward re-anchor tested the window's start and the reader's page index — which are
+exactly the two things a repagination is built to *preserve*: the start is sticky by
+construction and `placedAt` leaves a reader on page zero on page zero. So rotating the
+phone mid-re-anchor landed the repagination and then let the re-anchor write pages set
+in the old column over it. Two silent failures at once: every page drawn in a column it
+was not measured in, so its last line is clipped — the failure
+`MeasureMatchesRenderTest` exists for, reached through the re-anchor — and a stale
+`windowLayout`, which makes `mayGrowWindow` false *for ever*. The prefetch stops, every
+tap at the window's edge queues, and nothing cashes the queue until the reader rotates
+again, at which point all of it fires at once. The guard takes the layout key now, and
+the forward branch refuses to stamp a stale one for the same reason.
+
+**What a device still has to answer.** Every number above is measured characters on a
+JVM; none of it is a stopwatch, because there is no phone here.
+
+- Whether a type-size change on the 315-page novel now *feels* immediate.
+- Whether a forward seam can be seen. Read about twenty pages without stopping and
+  watch for a page that is shorter than the others, a stutter on one particular turn,
+  or a paragraph that breaks oddly — the prefetch fires three pages before the edge,
+  so the tell would be a hitch on one turn in twelve.
+- Whether a backward seam can be seen. Turn back eight or more pages in one go: at the
+  seam the page will overlap the one before it by up to a page. Nothing should ever be
+  *missing*.
+- That the chapter header appears on the book's first page and on no other.
+- **Rotation**, which is the one input none of these fixes was designed around and
+  three of them turned out to reach: rotate while reading, rotate at the window's
+  first page, rotate immediately after tapping back, and check the text still fills
+  each page to the bottom and that taps keep working afterwards.

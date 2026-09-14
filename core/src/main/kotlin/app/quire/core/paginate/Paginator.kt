@@ -3,6 +3,7 @@ package app.quire.core.paginate
 import app.quire.core.model.Chapter
 import app.quire.core.model.ContentBlock
 import app.quire.core.model.ReadingPosition
+import app.quire.core.reading.TextAnchor
 import kotlin.coroutines.cancellation.CancellationException
 
 /** A run of one block's characters placed on a page. */
@@ -82,34 +83,104 @@ class Paginator(private val measurer: TextMeasurer) {
         settings: TypographySettings,
         firstPageInsetPx: Float = 0f,
         isActive: () -> Boolean = { true },
-    ): List<Page> {
-        if (viewport.widthPx <= 0f || viewport.heightPx <= 0f) return listOf(Page(emptyList()))
+    ): List<Page> = paginateWindow(
+        chapter = chapter,
+        from = TextAnchor(0, 0),
+        maxPages = Int.MAX_VALUE,
+        viewport = viewport,
+        settings = settings,
+        firstPageInsetPx = firstPageInsetPx,
+        isActive = isActive,
+    ).pages
 
+    /**
+     * Lays out at most [maxPages] pages of [chapter], starting at [from].
+     *
+     * **This is the whole of chunking.** A chapter with no outline is one chapter —
+     * 8,621 blocks and 565,896 characters for a 315-page novel — and laying all of it
+     * out on open, and again on every tap of the type stepper, is what made such a
+     * book hang. A chunk is a window over the same chapter: the reader's place plus
+     * enough either side of it, laid out in real time as they read.
+     *
+     * The returned [PageWindow.next] is where the following chunk begins, and it is
+     * always a boundary between two pages this run produced. That is what makes a
+     * seam invisible rather than merely small:
+     *
+     * - **Every page but the chapter's last is full.** The only page a chunk can end
+     *   on is one `flush()` produced inside the layout loop, which is a page that ran
+     *   out of height (or was deliberately shortened by orphan control, which is the
+     *   same decision whole-chapter pagination would make there).
+     * - **A chunk resumed at a page boundary is in the same state whole-chapter
+     *   pagination is in at that boundary** — `used` is zero, the page is empty, the
+     *   spacing above the first block on a page is zero by definition, and both the
+     *   paragraph indent and the raised initial are suppressed for a block resumed
+     *   part-way through. So the pages are identical, not merely similar, and
+     *   `ChunkedPaginationTest` asserts that slice for slice.
+     * - **A cut inside a block needs no special case**, which is why chunks are not
+     *   cut at paragraph boundaries: the one-block chapter — a TXT with no blank
+     *   lines, a PDF whose reflow merged everything — has no paragraph boundary to
+     *   cut at, and is exactly the shape that causes the problem.
+     *
+     * [firstPageInsetPx] belongs to the chapter's first page and therefore to the
+     * first chunk only. Charging it again at a seam would lay that page out for less
+     * than it draws, and clip the last line off it.
+     */
+    fun paginateWindow(
+        chapter: Chapter,
+        from: TextAnchor,
+        maxPages: Int,
+        viewport: Viewport,
+        settings: TypographySettings,
+        firstPageInsetPx: Float = 0f,
+        isActive: () -> Boolean = { true },
+    ): PageWindow {
         val blocks = chapter.blocks
-        if (blocks.isEmpty()) return listOf(Page(emptyList()))
+        val firstBlock = from.blockIndex.coerceAtLeast(0)
+        if (viewport.widthPx <= 0f || viewport.heightPx <= 0f ||
+            blocks.isEmpty() || firstBlock >= blocks.size
+        ) {
+            // One empty page rather than none. An empty page list reports "this is
+            // the last page", which the Reader once read as a chapter boundary and
+            // abandoned the turn — see ReaderState.pendingTurns.
+            return PageWindow(from, listOf(Page(emptyList())), null)
+        }
 
         val pages = mutableListOf<Page>()
         var current = mutableListOf<PageSlice>()
         var used = firstPageInsetPx.coerceAtLeast(0f)
         // Learned from each measurement and carried forward, so the window starts
         // close to right rather than doubling its way there on every page.
+        //
+        // Reset at a chunk boundary, which is the one piece of state a chunk does not
+        // inherit. It decides how much text a single `measure` call asks for, never
+        // where a line breaks, so it costs a measurement or two at a seam and cannot
+        // move a page break.
         var charsPerLine = ASSUMED_CHARS_PER_LINE
+        var stopped = false
+
+        val blockTexts = chapter.blockTexts
 
         fun flush() {
             // Once per page: often enough that a superseded run stops within a frame
             // or two, rarely enough to cost nothing when nothing is superseding it.
             if (!isActive()) throw CancellationException("pagination superseded")
-            pages += Page(current)
+            val page = Page(current)
+            pages += page
             current = mutableListOf()
             used = 0f
+            if (pages.size >= maxPages && mayEndAChunk(page, blocks)) stopped = true
         }
 
-        val blockTexts = chapter.blockTexts
         // Found once for the chapter, not searched for once per block. Asking per
         // block is what made pagination quadratic in block count.
         val openingIndex = ChapterOpening.openingIndex(blocks)
-        blocks.forEachIndexed { blockIndex, block ->
+        var blockIndex = firstBlock
+        while (blockIndex < blocks.size && !stopped) {
+            val block = blocks[blockIndex]
             val text = blockTexts[blockIndex]
+            // Asked with startChar = 0 whatever this chunk starts at, exactly as the
+            // whole-chapter run asks it, because both answers are suppressed below
+            // for a block resumed part-way through.
             val opensChapter = ChapterOpening.opensChapter(openingIndex, blockIndex, startChar = 0)
             val baseStyle = BlockStyles.of(block, settings)
                 .copy(openingInitial = opensChapter)
@@ -122,20 +193,33 @@ class Paginator(private val measurer: TextMeasurer) {
                 // it would shift every later block index.
                 current += PageSlice(blockIndex, 0, 0)
                 used += spacingAbove
-                return@forEachIndexed
+                blockIndex++
+                continue
             }
 
-            var cursor = 0
+            // Only the block this chunk opens on starts anywhere but its beginning.
+            var cursor =
+                if (blockIndex == firstBlock) from.charOffset.coerceIn(0, text.length) else 0
             var spacing = spacingAbove
 
-            while (cursor < text.length) {
+            while (cursor < text.length && !stopped) {
                 val remainingHeight = viewport.heightPx - used - spacing
 
                 if (remainingHeight < baseStyle.lineHeightPx) {
                     // Not even one line fits. Start a new page unless this page is
                     // already empty, in which case the viewport is smaller than a
-                    // single line and looping would never terminate.
-                    if (current.isEmpty() && pages.isEmpty() && used <= firstPageInsetPx) {
+                    // single line of this block and looping would never terminate.
+                    //
+                    // The emptiness of the page is the whole of the test. It used to
+                    // also require `pages.isEmpty()`, which saved only the *chapter's*
+                    // first page: a viewport shorter than one line of a mid-chapter
+                    // block — a level-one heading is 1.6x the body — flushed empty
+                    // pages for ever, and `maxPages` cannot bound that because
+                    // `mayEndAChunk` correctly refuses to end a chunk on an empty
+                    // page. It also made a chunk's first page behave differently from
+                    // the same page in a whole-chapter run, which was the one hole in
+                    // the identity `ChunkedPaginationTest` asserts.
+                    if (current.isEmpty() && used <= firstPageInsetPx) {
                         current += PageSlice(blockIndex, cursor, text.length)
                         cursor = text.length
                         break
@@ -213,11 +297,69 @@ class Paginator(private val measurer: TextMeasurer) {
             if (cursor >= text.length && current.isNotEmpty()) {
                 used += trailingSpacingPx(block, settings)
             }
+            if (cursor >= text.length) blockIndex++
         }
 
-        if (current.isNotEmpty() || pages.isEmpty()) flush()
+        // Captured before the final flush, which can set `stopped` on a chunk that
+        // happened to fill its budget with the chapter's last page.
+        val reachedChapterEnd = !stopped
+        if (reachedChapterEnd && (current.isNotEmpty() || pages.isEmpty())) flush()
 
-        return applyHeadingOrphanControl(pages, blocks)
+        val out = applyHeadingOrphanControl(pages, blocks)
+        return PageWindow(
+            start = from,
+            pages = out,
+            next = if (reachedChapterEnd) null else carryAfter(out.last(), blocks, blockTexts),
+        )
+    }
+
+    /**
+     * Whether a chunk may end on this page.
+     *
+     * Two pages it may not, and both would show as a seam:
+     *
+     * - **A page with nothing on it.** It carries no cursor to resume from, and a
+     *   blank page between two full ones is as visible as a seam gets.
+     * - **A page whose last block is a heading that orphan control is about to
+     *   move.** That pass runs over the pages one lay-out produced, so a chunk that
+     *   cannot see the next page cannot move the heading off this one — and a chapter
+     *   title stranded at the foot of a page would then happen at a seam and nowhere
+     *   else. Running on by one page puts the heading exactly where whole-chapter
+     *   pagination puts it. A page that is *only* headings is a chapter opening and
+     *   belongs where it is, which is the same exception `applyHeadingOrphanControl`
+     *   makes.
+     */
+    private fun mayEndAChunk(page: Page, blocks: List<ContentBlock>): Boolean {
+        if (page.slices.isEmpty()) return false
+        val trailing = page.slices.takeLastWhile {
+            blocks.getOrNull(it.blockIndex) is ContentBlock.Heading
+        }
+        return trailing.isEmpty() || trailing.size == page.slices.size
+    }
+
+    /**
+     * Where the chunk after [page] begins.
+     *
+     * Read off the page's end rather than tracked alongside it, because
+     * `applyHeadingOrphanControl` can add slices to the *front* of the last page and
+     * a separately tracked cursor would then describe a page that no longer exists.
+     *
+     * A slice that consumed its block to the end hands over at the next block rather
+     * than at (block, length): the two mean the same place, and the layout loop only
+     * produces the first, so keeping one spelling is what lets the identity with
+     * whole-chapter pagination be an equality.
+     */
+    private fun carryAfter(
+        page: Page,
+        blocks: List<ContentBlock>,
+        blockTexts: List<String>,
+    ): TextAnchor? {
+        val last = page.slices.lastOrNull() ?: return null
+        val text = blockTexts.getOrNull(last.blockIndex).orEmpty()
+        val at = if (last.endChar >= text.length) TextAnchor(last.blockIndex + 1, 0)
+        else TextAnchor(last.blockIndex, last.endChar)
+        // Past the last block is not a place: the chapter ended on this page.
+        return at.takeIf { it.blockIndex < blocks.size }
     }
 
     /** A measurement of part of a block, and what it taught us about line length. */
@@ -269,8 +411,24 @@ class Paginator(private val measurer: TextMeasurer) {
                 estimate = (complete.toFloat() / (measured.lineCount - 1)).coerceAtLeast(1f)
             }
 
-            // Enough when the page is provably full, or there is no more text.
-            if (reachedEnd || measured.lineCount > maxLines) {
+            // Enough when there is no more text, or when the page is provably full
+            // *and* the widow rule cannot need to know what comes after it.
+            //
+            // Stopping as soon as `lineCount > maxLines` was not enough, and it is the
+            // one place where the learned estimate could move a page break. The widow
+            // pull-back fires only when the block has exactly [MIN_FRAGMENT_LINES] - 1
+            // lines left over, and it can only know that by having reached the end —
+            // so a window that stops one line past the page answers "I did not reach
+            // the end" when a slightly wider one would have answered "I did, and there
+            // is one line left". A chunk starts with the estimate reset, so the two
+            // runs land on different sides of that and break the page differently.
+            // Measured on a fixture of blocks exactly one line longer than a page:
+            // whole-chapter cut at 24 lines, a fresh chunk at 25.
+            //
+            // A window showing [MIN_FRAGMENT_LINES] or more lines past the page needs
+            // no widening: whatever follows, the remainder is already too big to pull
+            // back.
+            if (reachedEnd || measured.lineCount >= maxLines + MIN_FRAGMENT_LINES) {
                 return Window(measured, reachedEnd, estimate)
             }
             windowChars *= 2

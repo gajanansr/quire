@@ -12,6 +12,7 @@ import app.quire.android.pdf.AndroidPdfTextSource
 import app.quire.android.ui.reader.ReaderPreferences
 import app.quire.android.ui.reader.ReaderState
 import app.quire.android.ui.reader.ReaderTransitions
+import app.quire.android.ui.reader.ReaderWindow
 import app.quire.core.fixtures.Fixtures
 import app.quire.core.model.ReadingPosition
 import app.quire.core.paginate.BlockStyle
@@ -19,6 +20,7 @@ import app.quire.core.paginate.Measured
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.TextMeasurer
 import app.quire.core.paginate.Viewport
+import app.quire.core.reading.TextAnchor
 import app.quire.core.source.PageRasterizer
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import kotlinx.coroutines.flow.first
@@ -103,7 +105,13 @@ class ResumeLoopTest {
         assertTrue("${file.name} failed to import: ${result.exceptionOrNull()}", result.isSuccess)
     }
 
-    /** Opens a book at its saved position, exactly as ReaderHost does. */
+    /**
+     * Opens a book at its saved position, exactly as ReaderHost does.
+     *
+     * Through `ReaderWindow`, because that is now what ReaderHost does: a chapter is
+     * laid out a window at a time, and the resume path is the one that has to place a
+     * reader inside a window that does not start at the chapter's first character.
+     */
     private suspend fun open(
         bookId: String,
         preferences: ReaderPreferences = ReaderPreferences(),
@@ -111,14 +119,19 @@ class ResumeLoopTest {
         val entity = repo.find(bookId)!!
         val saved = repo.progressOf(bookId)
         val chapter = repo.loadChapter(bookId, saved.chapterIndex)!!
-        val pages = paginator.paginate(chapter, viewport, preferences.toSettings(1f))
+        val settings = preferences.toSettings(1f)
+        val window = ReaderWindow.openAt(
+            chapter, saved, ReaderWindow.charsBehind(viewport, settings),
+        ) { from, maxPages ->
+            paginator.paginateWindow(chapter, from, maxPages, viewport, settings)
+        }
         return ReaderTransitions.openedChapter(
             ReaderState(
                 bookId = bookId, bookTitle = entity.title,
                 chapterCount = entity.chapterCount, bookTotalChars = entity.totalChars,
                 preferences = preferences,
             ),
-            chapter, pages, saved,
+            chapter, window, saved,
         )
     }
 
@@ -160,6 +173,102 @@ class ResumeLoopTest {
     @Test
     fun `a large book resumes exactly where it was left`() =
         runLoop(Fixtures.largeBook(), "large", turns = 5)
+
+    // -------------------------------------------- the hard version, with a window
+
+    /**
+     * The book this whole feature exists for: one chapter, hundreds of thousands of
+     * characters, no outline. Its own chapter 0, read deep enough that the window
+     * cannot start at the chapter's first character.
+     */
+    private suspend fun savedDeepInOneChapter(id: String): ReadingPosition {
+        import(Fixtures.largeBook(), id)
+        val chapter = repo.loadChapter(id, 0)!!
+        assertTrue(
+            "the fixture is too short to need a window: ${chapter.textLength} characters",
+            chapter.textLength > 100_000,
+        )
+        val deep = chapter.cursorAt(chapter.textLength / 2)
+        val at = ReadingPosition(0, deep.blockIndex, deep.charOffset)
+        repo.saveProgress(id, at, 0.5)
+        return at
+    }
+
+    @Test
+    fun `a book resumed deep in one long chapter opens on the saved sentence`() = runBlocking {
+        val at = savedDeepInOneChapter("deep")
+        val opened = open("deep")
+
+        assertTrue(
+            "the window started at the chapter's first character, so nothing was saved",
+            opened.windowStart != TextAnchor(0, 0),
+        )
+        // Not `position`, which is the top of the page: the saved place is somewhere
+        // inside the page the reader is put on, and that is what "resume on the same
+        // sentence" means when the sentence is not the first one on its page.
+        val chapter = opened.chapter!!
+        val page = opened.currentPage!!
+        val from = page.slices.first().let { chapter.offsetOf(it.blockIndex, it.startChar) }
+        val to = page.slices.last().let { chapter.offsetOf(it.blockIndex, it.endChar) }
+        val saved = chapter.offsetOf(at.blockIndex, at.charOffset)
+        assertTrue("$saved is not on the page [$from, $to)", saved in from until to)
+    }
+
+    @Test
+    fun `the loop closes for a book that is one long chapter`() = runBlocking {
+        savedDeepInOneChapter("loop")
+
+        val first = open("loop")
+        val left = readAndClose(first, pageTurns = 4)
+        assertTrue("the reader never left the window's first page", left != first.position)
+
+        val second = open("loop")
+        assertEquals("a windowed chapter did not resume where it was left", left, second.position)
+    }
+
+    @Test
+    fun `opening and closing a windowed book does not walk it backwards`() = runBlocking {
+        // The regression this caught. Where a window starts decides where its pages
+        // break, and the Reader saves the top of the page it was on — so a start taken
+        // as "exactly so far before the reader" made every reopen land mid-page and
+        // save a place a little earlier than the last one. A reader who opened a book
+        // and closed it without reading would have been walked back through it a
+        // fraction of a page at a time. `ReaderWindow.anchorOffset` snaps the start to
+        // a grid so the tiling is the same and the saved page top is still a page top.
+        savedDeepInOneChapter("stable")
+
+        val first = readAndClose(open("stable"), pageTurns = 2)
+        val second = readAndClose(open("stable"), pageTurns = 0)
+        val third = readAndClose(open("stable"), pageTurns = 0)
+
+        assertEquals("closing and reopening moved the reader", first, second)
+        assertEquals("the place did not settle", second, third)
+    }
+
+    @Test
+    fun `a windowed chapter survives a type-size change between sessions`() = runBlocking {
+        // `ResumeLoopTest`'s hard case with the window in the way. Nothing about a
+        // chunk boundary may reach the saved place: the position is a character
+        // offset, the window is worked out from it afresh, and the reader comes back
+        // to the same sentence at a size that has a different number of pages in it.
+        savedDeepInOneChapter("size")
+
+        val session = open("size", ReaderPreferences(fontSizeSp = 19f))
+        val left = readAndClose(session, pageTurns = 3)
+
+        val reopened = open("size", ReaderPreferences(fontSizeSp = 24f))
+        val chapter = reopened.chapter!!
+        assertEquals("chapter changed", left.chapterIndex, reopened.position.chapterIndex)
+        assertTrue("landed outside the window", reopened.pageIndex in reopened.pages.indices)
+
+        val was = chapter.offsetOf(left.blockIndex, left.charOffset)
+        val now = chapter.offsetOf(reopened.position.blockIndex, reopened.position.charOffset)
+        assertTrue("reopened past where the reader left off: $was -> $now", now <= was)
+        assertTrue(
+            "reopened a page or more before where the reader left off: $was -> $now",
+            was - now < 4_000,
+        )
+    }
 
     // ------------------------------------------------------- the hard version
 

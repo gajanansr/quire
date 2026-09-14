@@ -8,9 +8,12 @@ import app.quire.core.model.InlineSpan
 import app.quire.core.model.ReadingPosition
 import app.quire.core.paginate.BlockStyle
 import app.quire.core.paginate.Measured
+import app.quire.core.paginate.Page
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.TextMeasurer
 import app.quire.core.paginate.Viewport
+import app.quire.core.paginate.pageContaining
+import app.quire.core.reading.ReadingEstimates
 import app.quire.core.reading.TextAnchor
 import app.quire.core.reading.TextSpan
 import org.junit.Assert.assertEquals
@@ -55,6 +58,23 @@ class ReaderStateTest {
         )
     }
 
+    /**
+     * A freshly laid-out page list, as one arrives from a repagination.
+     *
+     * **Page zero, deliberately.** A window carries the index it was *built* for, and
+     * `repaginated` must not trust it: laying a long chapter out takes long enough for
+     * the reader to turn a page meanwhile, and writing the stale index back puts them
+     * where they were when it started. Handing these tests a finished page index would
+     * make every one of them assert only that `repaginated` copies a number it was
+     * given — which is what they briefly did, and it is precisely the property that
+     * had regressed.
+     */
+    private fun ReaderState.windowOf(
+        newPages: List<Page>,
+        start: TextAnchor = windowStart,
+        next: TextAnchor? = windowNext,
+    ) = WindowedPages(start, newPages, next, pageIndex = 0)
+
     // ------------------------------------------------------------- page turns
 
     @Test
@@ -92,7 +112,7 @@ class ReaderStateTest {
         val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = true)
         assertEquals("nothing to turn to yet", 0, queued.pageIndex)
 
-        val settled = ReaderTransitions.repaginated(queued, queued.chapter, longState().pages, queued.preferences)
+        val settled = ReaderTransitions.repaginated(queued, queued.chapter, queued.windowOf(longState().pages), queued.preferences, layout = null)
         assertEquals("the tap was thrown away", 1, settled.pageIndex)
         assertEquals("the turn was applied twice", 0, settled.pendingTurns)
     }
@@ -101,7 +121,7 @@ class ReaderStateTest {
     fun `three taps during pagination land three pages on`() {
         var s = stillPaginating()
         repeat(3) { s = ReaderTransitions.queuedTurn(s, forward = true) }
-        val settled = ReaderTransitions.repaginated(s, s.chapter, longState().pages, s.preferences)
+        val settled = ReaderTransitions.repaginated(s, s.chapter, s.windowOf(longState().pages), s.preferences, layout = null)
         assertEquals(3, settled.pageIndex)
     }
 
@@ -110,14 +130,14 @@ class ReaderStateTest {
         var s = stillPaginating()
         s = ReaderTransitions.queuedTurn(s, forward = true)
         s = ReaderTransitions.queuedTurn(s, forward = false)
-        val settled = ReaderTransitions.repaginated(s, s.chapter, longState().pages, s.preferences)
+        val settled = ReaderTransitions.repaginated(s, s.chapter, s.windowOf(longState().pages), s.preferences, layout = null)
         assertEquals(0, settled.pageIndex)
     }
 
     @Test
     fun `turning back before there are pages does not go past the start`() {
         val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = false)
-        val settled = ReaderTransitions.repaginated(queued, queued.chapter, longState().pages, queued.preferences)
+        val settled = ReaderTransitions.repaginated(queued, queued.chapter, queued.windowOf(longState().pages), queued.preferences, layout = null)
         assertEquals(0, settled.pageIndex)
     }
 
@@ -130,7 +150,7 @@ class ReaderStateTest {
         var s = stillPaginating()
         repeat(500) { s = ReaderTransitions.queuedTurn(s, forward = true) }
         val pages = longState().pages
-        val settled = ReaderTransitions.repaginated(s, s.chapter, pages, s.preferences)
+        val settled = ReaderTransitions.repaginated(s, s.chapter, s.windowOf(pages), s.preferences, layout = null)
         assertEquals(pages.lastIndex, settled.pageIndex)
         assertEquals(0, settled.pendingTurns)
     }
@@ -142,7 +162,7 @@ class ReaderStateTest {
         val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = true)
         val chapter = queued.chapter!!
         val settled = ReaderTransitions.openedChapter(
-            queued, chapter, longState().pages, at = ReadingPosition.START,
+            queued, chapter, queued.windowOf(longState().pages), at = ReadingPosition.START,
         )
         assertEquals(1, settled.pageIndex)
         assertEquals(0, settled.pendingTurns)
@@ -187,6 +207,79 @@ class ReaderStateTest {
         assertEquals(0.0, ReaderState().progress, 1e-9)
     }
 
+    // ------------------------------------------------------------ the footer line
+
+    @Test
+    fun `the footer counts the book in printed pages, not in the pages laid out`() {
+        // It read "38% · page 12 of 719", and the denominator was the chapter laid out
+        // whole at the reader's type size. `pages` is a window now, so that number
+        // would be the window's — "page 5 of 20", resetting as the reader went, which
+        // is a chunk boundary announcing itself in the chrome.
+        val s = manyBlockState().copy(bookTotalChars = 565_896)
+        val line = s.copy(pageIndex = s.pages.lastIndex).readingLine
+        assertTrue("the window's page count reached the footer: $line", !line.contains("of ${s.pageCount}"))
+        assertTrue("the estimate is not marked as one: $line", line.contains("about page"))
+        assertTrue("the footer lost the percentage: $line", line.contains("%"))
+    }
+
+    @Test
+    fun `the estimated length of the real book is the length printed on it`() {
+        // *The Love Hypothesis*: 565,896 characters, and a PDF of 315 pages. The footer
+        // counts printed pages because that is the one unit a reader can check against
+        // the object in their hand, and the arithmetic has to earn that.
+        assertEquals(315, ReadingEstimates.pageCount(565_896))
+    }
+
+    @Test
+    fun `a book with no length says only how far through it the reader is`() {
+        // Better nothing than "about page 0 of 0", which is a claim and a false one.
+        assertEquals("0%", ReaderState().readingLine)
+    }
+
+    /** One chapter of many blocks — the shape a book with no outline imports as. */
+    private fun manyBlockState(blocks: Int = 400): ReaderState {
+        val each = lorem.repeat(3)
+        val chapter = Chapter(
+            index = 0, title = null,
+            blocks = (0 until blocks).map { ContentBlock.Paragraph(listOf(InlineSpan(each))) },
+            startCharOffset = 0, charCount = blocks * each.length,
+        )
+        val prefs = ReaderPreferences()
+        return ReaderState(
+            loading = false, bookId = "b", chapterCount = 1, chapterIndex = 0,
+            chapter = chapter,
+            pages = paginator.paginate(chapter, viewport, prefs.toSettings(pixelsPerSp = 1f)),
+            preferences = prefs, bookTotalChars = chapter.charCount,
+        )
+    }
+
+    @Test
+    fun `progress reaches the end of a chapter that is the whole book`() {
+        // The bug this pins. Progress added `slice.startChar` — the offset inside the
+        // reader's *own block* — to the chapter's start offset. On a book of many
+        // small chapters that is nearly right, because the chapter offsets carry it.
+        // On a book with no outline, which is one chapter of 8,621 blocks, the number
+        // never exceeds the length of one paragraph: a reader three hundred screens
+        // into The Love Hypothesis still read 0%.
+        val s = manyBlockState()
+        val last = s.copy(pageIndex = s.pages.lastIndex)
+        assertTrue(
+            "a reader on the last page of the book read ${"%.1f".format(last.progress * 100)}%",
+            last.progress > 0.95,
+        )
+    }
+
+    @Test
+    fun `progress rises page by page within one long chapter`() {
+        val s = manyBlockState()
+        var previous = -1.0
+        s.pages.indices.forEach { page ->
+            val at = s.copy(pageIndex = page).progress
+            assertTrue("progress went backwards at page $page: $previous -> $at", at > previous)
+            previous = at
+        }
+    }
+
     // ------------------------------------------------------------ repagination
 
     @Test
@@ -196,7 +289,7 @@ class ReaderStateTest {
 
         val bigger = s.preferences.copy(fontSizeSp = 24f)
         val repaged = paginator.paginate(s.chapter!!, viewport, bigger.toSettings(pixelsPerSp = 1f))
-        val after = ReaderTransitions.repaginated(s, s.chapter, repaged, bigger)
+        val after = ReaderTransitions.repaginated(s, s.chapter, s.windowOf(repaged), bigger, layout = null)
 
         // The page number changes; the place in the text does not.
         assertTrue("expected more pages at 24sp", after.pages.size > s.pages.size)
@@ -205,6 +298,69 @@ class ReaderStateTest {
             after.position.charOffset <= before.charOffset,
         )
         assertTrue(after.pageIndex in after.pages.indices)
+    }
+
+    @Test
+    fun `taps made while a window was growing are applied when it lands`() {
+        // A tap at the edge of the window starts one run. Taps made while it is in
+        // flight do not start more — two runs from the same window compute the same
+        // answer, so the second tap would move the reader nowhere. They are queued,
+        // and the run cashes them as it finishes.
+        val s = state(text = lorem.repeat(200))
+        var waiting = ReaderTransitions.queuedTurn(s, forward = true)
+        waiting = ReaderTransitions.queuedTurn(waiting, forward = true)
+
+        val adopted = ReaderTransitions.windowed(waiting, waiting.chapter, s.window, layout = null)
+        val landed = ReaderTransitions.pendingTurnsApplied(adopted)
+
+        assertEquals("two taps during a run moved the reader one page", 2, landed.pageIndex)
+        assertEquals(0, landed.pendingTurns)
+    }
+
+    @Test
+    fun `adopting a window does not cash a queued tap by itself`() {
+        // It used to, and that stranded a turn whenever the run that queued it was
+        // dropped — the carry had moved, or the reader had. `windowed` is called from
+        // three places and only one of them is a tap, so the next **background
+        // prefetch** cashed the leftover: the page moving a dozen pages later with
+        // nothing touching the screen, which is the one thing a prefetch must not do.
+        val s = state(text = lorem.repeat(200))
+        val waiting = ReaderTransitions.queuedTurn(s, forward = true)
+
+        val prefetched = ReaderTransitions.windowed(waiting, waiting.chapter, s.window, layout = null)
+
+        assertEquals("a background extension took the reader's tap", 0, prefetched.pageIndex)
+        assertEquals("the tap was lost rather than kept", 1, prefetched.pendingTurns)
+    }
+
+    @Test
+    fun `a run that was dropped still cashes the taps made during it`() {
+        // The other half. When a run is dropped — the window moved under it — the tap
+        // path still applies what it queued, once, on its way out.
+        val s = state(text = lorem.repeat(200))
+        val waiting = ReaderTransitions.queuedTurn(s, forward = true)
+        assertEquals(1, ReaderTransitions.pendingTurnsApplied(waiting).pageIndex)
+        assertEquals(0, ReaderTransitions.pendingTurnsApplied(waiting).pendingTurns)
+    }
+
+    @Test
+    fun `a page turned while the chapter was being re-laid out is not reverted`() {
+        // Laying a long chapter out takes seconds, and the reader can turn a page in
+        // them — the pages in hand are still good, so the turn is taken at once. The
+        // window that then lands carries the page index it was *built* for, a second
+        // earlier, and adopting that index silently puts the reader back where they
+        // started. Resolved against the state it lands in instead.
+        val s = state(text = lorem.repeat(200))
+        val started = s.window
+        val turned = ReaderTransitions.nextPage(ReaderTransitions.nextPage(s)!!)!!
+        val where = turned.position
+
+        val late = ReaderTransitions.repaginated(
+            turned, turned.chapter, started, turned.preferences, layout = null,
+        )
+
+        assertEquals("the reader was dragged back two pages", where, late.position)
+        assertEquals(turned.pageIndex, late.pageIndex)
     }
 
     @Test
@@ -227,7 +383,7 @@ class ReaderStateTest {
         )
         val stalePages = here.pages
 
-        val after = ReaderTransitions.repaginated(arrived, left, stalePages, arrived.preferences)
+        val after = ReaderTransitions.repaginated(arrived, left, arrived.windowOf(stalePages), arrived.preferences, layout = null)
 
         assertEquals("the stale pages were accepted", arrived.pages, after.pages)
         assertEquals(10, after.position.chapterIndex)
@@ -245,7 +401,7 @@ class ReaderStateTest {
             chosen, viewport, s.preferences.toSettings(pixelsPerSp = 1f),
         )
 
-        val after = ReaderTransitions.openedChapter(s, chosen, pages, at = null)
+        val after = ReaderTransitions.openedChapter(s, chosen, s.windowOf(pages), at = null)
 
         assertEquals("the queued taps were carried into a chosen chapter", 0, after.pageIndex)
         assertEquals(0, after.pendingTurns)
@@ -257,7 +413,7 @@ class ReaderStateTest {
         val far = s.copy(pageIndex = s.pages.lastIndex)
         val smaller = far.preferences.copy(fontSizeSp = 15f)
         val repaged = paginator.paginate(far.chapter!!, viewport, smaller.toSettings(pixelsPerSp = 1f))
-        val after = ReaderTransitions.repaginated(far, far.chapter, repaged, smaller)
+        val after = ReaderTransitions.repaginated(far, far.chapter, far.windowOf(repaged), smaller, layout = null)
         assertTrue(after.pageIndex in after.pages.indices)
     }
 
@@ -304,9 +460,12 @@ class ReaderStateTest {
     fun `opening a chapter at a position lands on the right page`() {
         val s = state()
         val target = s.pages[2].slices.first()
+        val at = ReadingPosition(0, target.blockIndex, target.startChar)
         val opened = ReaderTransitions.openedChapter(
-            ReaderState(), s.chapter!!, s.pages,
-            ReadingPosition(0, target.blockIndex, target.startChar),
+            ReaderState(), s.chapter!!,
+            // Opening resolves the place itself, before the state exists to resolve
+            // it against, so the window arrives already placed.
+            s.windowOf(s.pages).copy(pageIndex = s.pages.pageContaining(at)), at,
         )
         assertEquals(2, opened.pageIndex)
         assertFalse(opened.loading)
@@ -315,7 +474,9 @@ class ReaderStateTest {
     @Test
     fun `opening a chapter with no saved position starts at the beginning`() {
         val s = state()
-        val opened = ReaderTransitions.openedChapter(ReaderState(), s.chapter!!, s.pages, null)
+        val opened = ReaderTransitions.openedChapter(
+            ReaderState(), s.chapter!!, s.windowOf(s.pages), null,
+        )
         assertEquals(0, opened.pageIndex)
         assertNotNull(opened.chapter)
     }
@@ -584,7 +745,13 @@ class ReaderStateTest {
         val next = chapter(1, lorem.repeat(30))
         val moved = ReaderTransitions.openedChapter(
             open, next,
-            paginator.paginate(next, viewport, ReaderPreferences().toSettings(1f)),
+            // A whole short chapter is one window, starting at its own beginning
+            // rather than carrying over the anchor from the chapter being left.
+            open.windowOf(
+                paginator.paginate(next, viewport, ReaderPreferences().toSettings(1f)),
+                start = TextAnchor(0, 0),
+                next = null,
+            ),
             null,
         )
         assertNull(moved.editingHighlightId)

@@ -2,10 +2,11 @@ package app.quire.android.ui.reader
 
 import app.quire.core.model.Chapter
 import app.quire.core.paginate.ChapterOpening
-import app.quire.core.paginate.Page
+import app.quire.core.paginate.PageWindow
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.TypographySettings
 import app.quire.core.paginate.Viewport
+import app.quire.core.reading.TextAnchor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
@@ -22,11 +23,22 @@ import kotlin.math.ceil
  */
 data class PaginationRequest(
     val chapterIndex: Int,
+    /**
+     * Where this run starts, and how many pages it may produce.
+     *
+     * Part of the request rather than arguments alongside it for the same reason the
+     * inset is: they decide the pages, so they decide the cache key, and a key that
+     * knows less than the pages depend on serves one window's pages for another's
+     * cursor — which puts the reader somewhere they have never been.
+     */
+    val from: TextAnchor,
+    val maxPages: Int,
     val viewport: Viewport,
     val settings: TypographySettings,
     val insetPx: Float,
 ) {
-    val key: PageCache.Key get() = PageCache.Key(chapterIndex, viewport, settings, insetPx)
+    val key: PageCache.Key
+        get() = PageCache.Key(chapterIndex, from, maxPages, viewport, settings, insetPx)
 }
 
 /** What the Reader's one pagination effect should do this time round. */
@@ -119,6 +131,64 @@ object ReaderLayout {
     }
 
     /**
+     * Whether the pages in hand may be grown rather than thrown away.
+     *
+     * They may only when they were measured against what is on screen *now*. A window
+     * extended after a type-size change but before the repagination lands appends
+     * pages laid out at the new size to pages laid out at the old one, and the reader
+     * is then standing on a page list that is half one measurement and half another:
+     * the renderer draws more lines than the paginator budgeted, and `pageContaining`
+     * resolves their character offset against breaks that do not exist. That is the
+     * same class of fault as the four concurrent paginations of 2026-09-15, and it
+     * comes back the moment growth and repagination are two effects rather than one.
+     *
+     * A rule rather than an inline condition because there are two call sites — the
+     * prefetch and a reader outrunning it — and a rule that holds at one of them is
+     * not a rule.
+     */
+    fun mayGrowWindow(
+        state: ReaderState,
+        viewport: Viewport,
+        settings: TypographySettings,
+    ): Boolean = state.chapter != null && state.windowLayout == LayoutKey(viewport, settings)
+
+    /**
+     * Whether a re-anchored window may be adopted.
+     *
+     * Only when the reader has not moved since it was started. A backward re-anchor
+     * re-tiles the text and chooses which page of the new tiling to stand on, and
+     * that choice was made against the window it began from — so it cannot be rebased
+     * onto a different one the way an append can. Two things made it wrong to write
+     * back regardless:
+     *
+     * - A reader who tapped back and then *forward* while the re-anchor ran was
+     *   dragged backwards past the page they had just turned to.
+     * - Two quick taps back launched two runs from the same window, which computed the
+     *   same answer, so two taps moved the reader one page. They are queued now, and
+     *   `ReaderTransitions.pendingTurnsApplied` cashes them on the way out of the run
+     *   they were made during, whether its own window was adopted or dropped.
+     *
+     * [key] is the third test and it is not optional, because the first two cannot see
+     * the event that most needs to invalidate a re-anchor. `windowStart` is sticky
+     * across a repagination by construction and `ReaderWindow.placedAt` leaves a reader
+     * who was on page zero on page zero — so **a rotation is enough**: the repagination
+     * lands, then the re-anchor finishes and writes pages set in the old column over
+     * it. Two silent failures follow. The pages are drawn in a column they were not
+     * measured in, so the last line of each is clipped, which is the failure
+     * `MeasureMatchesRenderTest` exists for reached through the re-anchor. And
+     * `windowLayout` is left stale, so [mayGrowWindow] answers false for ever after:
+     * the prefetch stops, every tap at the window's edge is queued, and nothing cashes
+     * the queue until the reader rotates again — at which point all of it fires at once.
+     *
+     * Dropping it costs the tap nothing the reader can see: the window is unchanged,
+     * so the next tap starts the same run again from where they now are.
+     */
+    fun mayAdoptReanchor(state: ReaderState, base: WindowedPages, key: LayoutKey): Boolean =
+        state.windowLayout == key &&
+            state.windowStart == base.start &&
+            state.pageIndex == base.pageIndex
+
+    /**
      * Height the chapter header will take on the first page.
      *
      * Estimated rather than measured: measuring it would mean composing before
@@ -202,16 +272,26 @@ object ReaderLayout {
      */
     fun requestFor(
         chapter: Chapter,
+        from: TextAnchor,
+        maxPages: Int,
         viewport: Viewport,
         preferences: ReaderPreferences,
         pixelsPerSp: Float,
         pixelsPerDp: Float,
     ): PaginationRequest = PaginationRequest(
         chapterIndex = chapter.index,
+        from = from,
+        maxPages = maxPages,
         viewport = viewport,
         settings = preferences.toSettings(pixelsPerSp),
+        // Only the run that starts at the chapter's first character is charged the
+        // header, because only that run can produce the page the header is drawn on.
+        // Charging it at a seam would lay that page out for less than it draws and
+        // clip the last line off it; not charging it at the chapter's start would
+        // do the same to the page the header actually heads. The same cursor decides
+        // both the budget here and the drawing in `showsChapterHeaderFor`.
         insetPx = headerInsetPx(
-            showsHeader = showsChapterHeaderFor(chapter, pageIndex = 0),
+            showsHeader = showsChapterHeaderFor(chapter, pageIndex = 0, windowStart = from),
             title = chapter.title,
             viewport = viewport,
             pixelsPerSp = pixelsPerSp,
@@ -241,19 +321,21 @@ class ChapterPaginator(
      * page list is indistinguishable from a short chapter, and resolving a reading
      * position against it would put the reader somewhere they have never been.
      */
-    suspend fun pagesFor(chapter: Chapter, request: PaginationRequest): List<Page> {
+    suspend fun windowFor(chapter: Chapter, request: PaginationRequest): PageWindow {
         cache.get(request.key)?.let { return it }
-        val pages = withContext(Dispatchers.Default) {
+        val window = withContext(Dispatchers.Default) {
             val running = this
-            paginator.paginate(
+            paginator.paginateWindow(
                 chapter = chapter,
+                from = request.from,
+                maxPages = request.maxPages,
                 viewport = request.viewport,
                 settings = request.settings,
                 firstPageInsetPx = request.insetPx,
                 isActive = { running.isActive },
             )
         }
-        cache.put(request.key, pages)
-        return pages
+        cache.put(request.key, window)
+        return window
     }
 }

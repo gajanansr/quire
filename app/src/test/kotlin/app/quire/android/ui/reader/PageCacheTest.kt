@@ -2,8 +2,10 @@ package app.quire.android.ui.reader
 
 import app.quire.core.paginate.Page
 import app.quire.core.paginate.PageSlice
+import app.quire.core.paginate.PageWindow
 import app.quire.core.paginate.TypographySettings
 import app.quire.core.paginate.Viewport
+import app.quire.core.reading.TextAnchor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -15,10 +17,18 @@ class PageCacheTest {
     private val viewport = Viewport(1000f, 2000f)
     private val settings = TypographySettings(fontSizeSp = 19f)
 
-    private fun key(chapter: Int, s: TypographySettings = settings, v: Viewport = viewport) =
-        PageCache.Key(chapter, v, s, insetPx = 0f)
+    private val start = TextAnchor(0, 0)
 
-    private fun pages(n: Int) = List(n) { Page(listOf(PageSlice(it, 0, 10))) }
+    private fun key(
+        chapter: Int,
+        s: TypographySettings = settings,
+        v: Viewport = viewport,
+        from: TextAnchor = start,
+        maxPages: Int = 12,
+    ) = PageCache.Key(chapter, from, maxPages, v, s, insetPx = 0f)
+
+    private fun pages(n: Int) =
+        PageWindow(start, List(n) { Page(listOf(PageSlice(it, 0, 10))) }, next = null)
 
     @Test
     fun `a chapter paginated once is not paginated again`() {
@@ -59,7 +69,7 @@ class PageCacheTest {
         // going missing off the bottom.
         val cache = PageCache()
         cache.put(key(0), pages(3))
-        assertNull(cache.get(PageCache.Key(0, viewport, settings, insetPx = 120f)))
+        assertNull(cache.get(PageCache.Key(0, start, 12, viewport, settings, insetPx = 120f)))
     }
 
     @Test
@@ -81,6 +91,18 @@ class PageCacheTest {
         cache.put(key(3), pages(2))
         assertNotNull("the touched chapter should have survived", cache.get(key(0)))
         assertNull("the untouched one should have gone", cache.get(key(1)))
+    }
+
+    @Test
+    fun `two windows over the same chapter are two entries`() {
+        // A chapter's number no longer identifies a page list: it is laid out a window
+        // at a time, and two windows at the same type size hold different pages.
+        // Serving one for the other would resolve the reader's character offset
+        // against a tiling it does not belong to.
+        val cache = PageCache()
+        cache.put(key(0), pages(3))
+        assertNull(cache.get(key(0, from = TextAnchor(40, 0))))
+        assertNull(cache.get(key(0, maxPages = 20)))
     }
 
     @Test
