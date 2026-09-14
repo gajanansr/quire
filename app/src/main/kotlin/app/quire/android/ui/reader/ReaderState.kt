@@ -1,5 +1,7 @@
 package app.quire.android.ui.reader
 
+import app.quire.android.data.SavedHighlight
+import app.quire.android.ui.theme.HighlightColour
 import app.quire.android.ui.theme.ReaderFont
 import app.quire.core.model.Chapter
 import app.quire.core.model.ReadingPosition
@@ -113,7 +115,16 @@ data class ReaderState(
      */
     val selectionEdge: SelectionEdge? = null,
     /** Saved highlights for the open chapter, drawn on whichever page shows them. */
-    val highlights: List<TextSpan> = emptyList(),
+    val highlights: List<SavedHighlight> = emptyList(),
+    /**
+     * The colour the next highlight is made in.
+     *
+     * Session state, and inherited rather than picked: the action bar offers one
+     * Highlight button, not six, because it sits over the words the reader is looking
+     * at. Choosing a colour on a mark they have already made sets this too, so a
+     * reader who colour-codes chooses once and every mark after it follows.
+     */
+    val highlightColour: HighlightColour = HighlightColour.DEFAULT,
     /**
      * Page turns asked for before there were any pages to turn, net of direction.
      *

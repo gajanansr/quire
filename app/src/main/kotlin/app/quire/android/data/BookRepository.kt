@@ -5,12 +5,27 @@ import app.quire.core.model.Chapter
 import app.quire.core.model.ChapterRef
 import kotlinx.coroutines.flow.combine
 import app.quire.core.model.ReadingPosition
+import app.quire.android.ui.theme.HighlightColour
+import app.quire.android.ui.theme.highlightColourNamed
 import app.quire.core.reading.TextAnchor
 import app.quire.core.reading.TextSpan
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /** What the Library needs to draw a row, without loading any content. */
+/**
+ * One saved highlight, as the page needs it: which row, which characters, what colour.
+ *
+ * The colour is the reader's *choice* rather than a `Color` — the page resolves it
+ * against whatever theme is in force when it draws, which is what lets a mark made on
+ * Paper survive being read on E-ink.
+ */
+data class SavedHighlight(
+    val id: Long,
+    val span: TextSpan,
+    val colour: HighlightColour,
+)
+
 /** A bookmark with the title of the book it belongs to. */
 data class BookmarkWithBook(
     val bookmark: BookmarkEntity,
@@ -173,7 +188,16 @@ class BookRepository(
             endBlockIndex = mark.endBlockIndex,
             endCharOffset = mark.endCharOffset,
         )
-        return already?.id ?: db.bookmarks().add(mark)
+        if (already == null) return db.bookmarks().add(mark)
+        // Highlighting a passage that is already highlighted, in another colour, is
+        // a *recolour* — one row, not two. Two rows would put the same words in the
+        // Bookmarks list twice and stack two washes on one run, where only the last
+        // one drawn can be seen: the list and the page would disagree, and the copy
+        // underneath would be unreachable.
+        if (already.highlightColour != mark.highlightColour) {
+            db.bookmarks().recolour(already.id, mark.highlightColour)
+        }
+        return already.id
     }
 
     /**
@@ -188,6 +212,7 @@ class BookRepository(
         chapterIndex: Int,
         span: TextSpan,
         snippet: String,
+        colour: HighlightColour,
     ): Long = addOnce(
         BookmarkEntity(
             bookId = bookId,
@@ -196,19 +221,36 @@ class BookRepository(
             charOffset = span.start.charOffset,
             endBlockIndex = span.end.blockIndex,
             endCharOffset = span.end.charOffset,
+            highlightColour = colour.name,
             snippet = snippet.take(MAX_SNIPPET).trim(),
             createdAt = now(),
         )
     )
 
-    /** The highlights in one chapter, as spans the reader can paint. */
-    fun observeHighlights(bookId: String, chapterIndex: Int): Flow<List<TextSpan>> =
+    /** Repaints one mark the reader already made. */
+    suspend fun recolourHighlight(id: Long, colour: HighlightColour) =
+        db.bookmarks().recolour(id, colour.name)
+
+    /**
+     * The highlights in one chapter, ready to paint and ready to tap.
+     *
+     * The id travels with the span because a tap on the page has to resolve to a
+     * *row*: it is what tells "change this one's colour" from "change one that looks
+     * like it". The colour is resolved from its stored name here, at the one boundary
+     * where the string leaves the database, so nothing downstream ever handles a name
+     * it might not recognise.
+     */
+    fun observeHighlights(bookId: String, chapterIndex: Int): Flow<List<SavedHighlight>> =
         db.bookmarks().observeFor(bookId).map { marks ->
             marks.filter { it.chapterIndex == chapterIndex && it.isHighlight }
                 .map {
-                    TextSpan(
-                        TextAnchor(it.blockIndex, it.charOffset),
-                        TextAnchor(it.endBlockIndex, it.endCharOffset),
+                    SavedHighlight(
+                        id = it.id,
+                        span = TextSpan(
+                            TextAnchor(it.blockIndex, it.charOffset),
+                            TextAnchor(it.endBlockIndex, it.endCharOffset),
+                        ),
+                        colour = highlightColourNamed(it.highlightColour),
                     )
                 }
         }

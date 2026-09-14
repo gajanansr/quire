@@ -2,6 +2,7 @@ package app.quire.android.data
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import app.quire.android.ui.theme.HighlightColour
 import app.quire.core.model.ReadingPosition
 import app.quire.core.reading.TextAnchor
 import app.quire.core.reading.TextSpan
@@ -92,10 +93,82 @@ class BookmarkDedupeTest {
     @Test
     fun `highlighting the same passage twice keeps one`() = runBlocking {
         val span = TextSpan.of(TextAnchor(2, 10), TextAnchor(2, 64))
-        books.addHighlight("b1", chapterIndex = 1, span = span, snippet = "The words.")
-        books.addHighlight("b1", chapterIndex = 1, span = span, snippet = "The words.")
+        books.addHighlight("b1", 1, span, "The words.", HighlightColour.KEEP)
+        books.addHighlight("b1", 1, span, "The words.", HighlightColour.KEEP)
 
         assertEquals("the same passage was highlighted twice", 1, saved().size)
+    }
+
+    @Test
+    fun `highlighting the same passage in another colour recolours it`() = runBlocking {
+        // One row, not two. Two rows would put the same words in the Bookmarks list
+        // twice and stack two washes on one run, where only the last one drawn can be
+        // seen — so the list would claim two marks and the page would show one.
+        val span = TextSpan.of(TextAnchor(2, 10), TextAnchor(2, 64))
+        val first = books.addHighlight("b1", 1, span, "The words.", HighlightColour.KEEP)
+        val second = books.addHighlight("b1", 1, span, "The words.", HighlightColour.DOUBT)
+
+        assertEquals("a recolour created a second row", 1, saved().size)
+        assertEquals("a recolour changed the row's id", first, second)
+        assertEquals(HighlightColour.DOUBT, books.observeHighlights("b1", 1).first().single().colour)
+    }
+
+    @Test
+    fun `a recoloured highlight keeps its place in the list`() = runBlocking {
+        // An update rather than a delete and re-insert. createdAt is what orders the
+        // Bookmarks list, so re-inserting would jump the mark to the top the moment
+        // the reader changed its colour — and the id is what a tap on the page
+        // resolves to, so a new one mid-gesture leaves the options open on a row that
+        // no longer exists.
+        val span = TextSpan.of(TextAnchor(2, 10), TextAnchor(2, 64))
+        books.addHighlight("b1", 1, span, "The words.", HighlightColour.KEEP)
+        val before = saved().single()
+        books.addHighlight("b1", 1, span, "The words.", HighlightColour.LOVELY)
+        val after = saved().single()
+
+        assertEquals(before.id, after.id)
+        assertEquals(before.createdAt, after.createdAt)
+        assertEquals(before.snippet, after.snippet)
+    }
+
+    @Test
+    fun `recolouring by id repaints exactly that mark`() = runBlocking {
+        val one = books.addHighlight(
+            "b1", 1, TextSpan.of(TextAnchor(2, 10), TextAnchor(2, 64)), "One.",
+            HighlightColour.KEEP,
+        )
+        books.addHighlight(
+            "b1", 1, TextSpan.of(TextAnchor(3, 0), TextAnchor(3, 20)), "Two.",
+            HighlightColour.KEEP,
+        )
+
+        books.recolourHighlight(one, HighlightColour.FACT)
+
+        val marks = books.observeHighlights("b1", 1).first().associateBy { it.id }
+        assertEquals(HighlightColour.FACT, marks.getValue(one).colour)
+        assertEquals(
+            "recolouring one mark repainted another",
+            listOf(HighlightColour.KEEP, HighlightColour.FACT),
+            marks.values.map { it.colour }.sortedBy { it.ordinal },
+        )
+    }
+
+    @Test
+    fun `a colour this version does not recognise still paints`() = runBlocking {
+        // A row written by a later build, or restored from a backup. It has to
+        // resolve to a real colour: a highlight the reader made and can no longer see
+        // is worse than one in the wrong shade of gold.
+        db.bookmarks().add(
+            BookmarkEntity(
+                bookId = "b1", chapterIndex = 1, blockIndex = 2, charOffset = 10,
+                endBlockIndex = 2, endCharOffset = 64, highlightColour = "TEAL",
+                snippet = "The words.", createdAt = 1,
+            )
+        )
+        assertEquals(
+            HighlightColour.DEFAULT,
+            books.observeHighlights("b1", 1).first().single().colour,
+        )
     }
 
     @Test
@@ -106,9 +179,9 @@ class BookmarkDedupeTest {
         val at = ReadingPosition(chapterIndex = 1, blockIndex = 2, charOffset = 10)
         books.addBookmark("b1", at, "A saved place")
         books.addHighlight(
-            "b1", chapterIndex = 1,
+            bookId = "b1", chapterIndex = 1,
             span = TextSpan.of(TextAnchor(2, 10), TextAnchor(2, 64)),
-            snippet = "The words.",
+            snippet = "The words.", colour = HighlightColour.KEEP,
         )
 
         assertEquals(2, saved().size)

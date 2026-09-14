@@ -123,6 +123,17 @@ interface BookmarkDao {
     @Query("SELECT * FROM bookmarks ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<BookmarkEntity>>
 
+    /**
+     * Repaints one mark.
+     *
+     * An update rather than a delete and re-insert: the row's id is what the page
+     * uses to know which highlight a tap landed on, and a new id mid-gesture would
+     * leave the options open on a highlight that no longer exists. `createdAt` also
+     * stays put, so recolouring does not shuffle the Bookmarks list under the reader.
+     */
+    @Query("UPDATE bookmarks SET highlightColour = :colour WHERE id = :id")
+    suspend fun recolour(id: Long, colour: String)
+
     @Query("DELETE FROM bookmarks WHERE id = :id")
     suspend fun remove(id: Long)
 
@@ -165,7 +176,7 @@ interface SettingsDao {
         BookEntity::class, ReadingProgressEntity::class, BookmarkEntity::class,
         ReadingDayEntity::class, AppSettingsEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class QuireDatabase : RoomDatabase() {
@@ -176,6 +187,28 @@ abstract class QuireDatabase : RoomDatabase() {
     abstract fun settings(): SettingsDao
 
     companion object {
+        /**
+         * Gives a highlight a colour.
+         *
+         * `'KEEP'` for every existing row, and that is not a fallback — gold is the
+         * only colour a highlight has ever been drawn in, so seeding every row with
+         * it means the update that brings five colours to the app changes nothing on
+         * anybody's page. Nobody opens Quire after this to find their marks
+         * reassigned to meanings they never chose.
+         *
+         * Plain bookmarks take the column too and ignore it: a bookmark is a
+         * highlight of no width, they share a table, and a nullable column whose
+         * null case is "this row is the other kind" is a condition every reader of
+         * the table then has to remember.
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE bookmarks ADD COLUMN highlightColour TEXT NOT NULL DEFAULT 'KEEP'"
+                )
+            }
+        }
+
         /**
          * Adds the flag that says the opening guide has been through.
          *

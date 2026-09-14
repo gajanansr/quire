@@ -134,23 +134,23 @@ invariant.
 **Files:** `data/Entities.kt`, `data/QuireDatabase.kt`, `data/BookRepository.kt`,
 `QuireApp.kt`, `test/data/SettingsMigrationTest.kt`, `test/data/BookRepositoryTest.kt`
 
-- [ ] `BookmarkEntity.highlightColour: String = "KEEP"`.
-- [ ] `MIGRATION_7_8`, database version 8: adds the column with default `'KEEP'`.
+- [x] `BookmarkEntity.highlightColour: String = "KEEP"`.
+- [x] `MIGRATION_7_8`, database version 8: adds the column with default `'KEEP'`.
       Every existing highlight becomes Keep, which is not a guess — gold is the only
       colour highlights have ever had, so nothing on screen changes for anyone.
-- [ ] Registered in `QuireApp.kt`.
-- [ ] Test, raw SQLite the way the rest of `SettingsMigrationTest` works: a
+- [x] Registered in `QuireApp.kt`.
+- [x] Test, raw SQLite the way the rest of `SettingsMigrationTest` works: a
       version-7 bookmarks table with a highlight and a plain bookmark in it comes out
       at version 8 with both at `KEEP` and every other column untouched; and the
       migrated `bookmarks` matches the table Room builds from the entity.
-- [ ] `addHighlight` takes a colour. **Two highlights of the same passage in
+- [x] `addHighlight` takes a colour. **Two highlights of the same passage in
       different colours are one row, not two:** the six-coordinate dedupe stays, and
       a second highlight of an already-highlighted passage *recolours* it. Two rows
       would put two entries in Bookmarks for one passage and stack two washes on one
       run, where only the last one drawn is visible — a list that disagrees with the
       page.
-- [ ] `recolourHighlight(id, colour)` for the same change made deliberately.
-- [ ] `observeHighlights` returns `SavedHighlight(id, span, colour)` rather than a
+- [x] `recolourHighlight(id, colour)` for the same change made deliberately.
+- [x] `observeHighlights` returns `SavedHighlight(id, span, colour)` rather than a
       bare `TextSpan`: the page needs the id to know what a tap landed on, and the
       colour to paint it.
 

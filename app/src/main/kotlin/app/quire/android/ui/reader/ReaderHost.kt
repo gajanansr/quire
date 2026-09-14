@@ -295,8 +295,8 @@ fun ReaderHost(
     // once, so a passage the reader highlights appears under their finger instead of
     // on the next visit.
     LaunchedEffect(bookId, state.chapterIndex) {
-        repository.observeHighlights(bookId, state.chapterIndex).collect { spans ->
-            state = state.copy(highlights = spans)
+        repository.observeHighlights(bookId, state.chapterIndex).collect { marks ->
+            state = state.copy(highlights = marks)
         }
     }
 
@@ -362,6 +362,7 @@ fun ReaderHost(
                             chapterIndex = snapshot.chapterIndex,
                             span = span,
                             snippet = snapshot.selectedText,
+                            colour = snapshot.highlightColour,
                         )
                         // Cleared only after the row is written, so the passage stays
                         // lit until there is something saved to light it.

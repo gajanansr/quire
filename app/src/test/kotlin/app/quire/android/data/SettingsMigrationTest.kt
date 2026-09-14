@@ -4,6 +4,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import app.quire.android.ui.theme.HighlightColour
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -331,6 +332,128 @@ class SettingsMigrationTest {
             expected,
             actual,
         )
+    }
+
+    // ------------------------------------------ highlight colour (7 -> 8)
+
+    /**
+     * A version-7 bookmarks table, with a highlight and a plain bookmark in it.
+     *
+     * Shaped as `MIGRATION_4_5` leaves it: the two end columns were the last thing to
+     * happen to this table.
+     */
+    private fun versionSevenBookmarks(): SupportSQLiteDatabase {
+        val db = versionSix(onboarded = 1)
+        QuireDatabase.MIGRATION_6_7.migrate(db)
+        db.execSQL(
+            """
+            CREATE TABLE bookmarks (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                bookId TEXT NOT NULL,
+                chapterIndex INTEGER NOT NULL,
+                blockIndex INTEGER NOT NULL,
+                charOffset INTEGER NOT NULL,
+                endBlockIndex INTEGER NOT NULL DEFAULT 0,
+                endCharOffset INTEGER NOT NULL DEFAULT 0,
+                snippet TEXT NOT NULL,
+                createdAt INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX index_bookmarks_bookId ON bookmarks (bookId)")
+        // A highlight: it covers words.
+        db.execSQL(
+            "INSERT INTO bookmarks (bookId, chapterIndex, blockIndex, charOffset, " +
+                "endBlockIndex, endCharOffset, snippet, createdAt) " +
+                "VALUES ('b1', 3, 7, 120, 7, 186, 'The words they kept.', 500)"
+        )
+        // A plain bookmark: it marks a place, so it has no width.
+        db.execSQL(
+            "INSERT INTO bookmarks (bookId, chapterIndex, blockIndex, charOffset, " +
+                "endBlockIndex, endCharOffset, snippet, createdAt) " +
+                "VALUES ('b1', 4, 0, 0, 0, 0, 'A saved place', 600)"
+        )
+        return db
+    }
+
+    @Test
+    fun `every existing highlight becomes the colour it already was`() {
+        // Gold is not a guess. It is the only colour a highlight has ever been drawn
+        // in, so seeding every row with it means the update that brings colours to
+        // the app changes nothing on anybody's page — which is the whole reason this
+        // is a migration rather than a Kotlin default that reaches new rows only.
+        val db = versionSevenBookmarks()
+        QuireDatabase.MIGRATION_7_8.migrate(db)
+        db.query("SELECT highlightColour FROM bookmarks ORDER BY createdAt").use {
+            it.moveToFirst()
+            assertEquals("an existing highlight lost its colour", "KEEP", it.getString(0))
+            it.moveToNext()
+            assertEquals("a plain bookmark has no colour to fall back on", "KEEP", it.getString(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun `a migrated highlight still covers the same words`() {
+        // The coordinates are the highlight. Six numbers decide which characters light
+        // up, and a column added beside them must disturb none of them — a shift here
+        // paints the mark over the wrong words, which reads as a rendering bug rather
+        // than as lost data and so gets reported as one.
+        val db = versionSevenBookmarks()
+        QuireDatabase.MIGRATION_7_8.migrate(db)
+        db.query(
+            "SELECT bookId, chapterIndex, blockIndex, charOffset, endBlockIndex, " +
+                "endCharOffset, snippet, createdAt FROM bookmarks ORDER BY createdAt"
+        ).use {
+            it.moveToFirst()
+            assertEquals("b1", it.getString(0))
+            assertEquals(3, it.getInt(1))
+            assertEquals(7, it.getInt(2))
+            assertEquals(120, it.getInt(3))
+            assertEquals(7, it.getInt(4))
+            assertEquals(186, it.getInt(5))
+            assertEquals("The words they kept.", it.getString(6))
+            assertEquals(500, it.getInt(7))
+        }
+        db.close()
+    }
+
+    @Test
+    fun `the migrated bookmarks table is the one Room expects to find`() {
+        // Room validates the schema after a migration, and a column it did not expect
+        // is an IllegalStateException at launch on every upgrading device. Compared
+        // against what Room builds from BookmarkEntity rather than against a literal
+        // list, so a column added to the entity and forgotten here fails without
+        // anyone having to remember this file exists.
+        val room = androidx.room.Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(), QuireDatabase::class.java,
+        ).allowMainThreadQueries().build()
+        val expected = columnsOf(room.openHelper.writableDatabase, "bookmarks")
+        room.close()
+
+        val migrated = versionSevenBookmarks()
+        QuireDatabase.MIGRATION_7_8.migrate(migrated)
+        val actual = columnsOf(migrated, "bookmarks")
+        migrated.close()
+
+        assertEquals(
+            "the migrated bookmarks does not match the one Room builds from the entity",
+            expected,
+            actual,
+        )
+    }
+
+    @Test
+    fun `a fresh row and a migrated one agree about colour`() {
+        // Two descriptions of the same default — the Kotlin one for rows written from
+        // now on, the SQL one for every row already saved. They drift apart silently,
+        // and then a highlight made before the update and one made after are different
+        // colours for no reason the reader can see.
+        val fresh = BookmarkEntity(
+            bookId = "b1", chapterIndex = 0, blockIndex = 0, charOffset = 0,
+            snippet = "", createdAt = 0,
+        )
+        assertEquals(HighlightColour.DEFAULT.name, fresh.highlightColour)
     }
 
     /**

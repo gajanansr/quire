@@ -76,6 +76,7 @@ class QuireGraph(context: Context) {
                 QuireDatabase.MIGRATION_4_5,
                 QuireDatabase.MIGRATION_5_6,
                 QuireDatabase.MIGRATION_6_7,
+                QuireDatabase.MIGRATION_7_8,
             )
             .build()
     }

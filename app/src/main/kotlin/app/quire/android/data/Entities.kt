@@ -59,6 +59,23 @@ data class BookmarkEntity(
      */
     val endBlockIndex: Int = blockIndex,
     val endCharOffset: Int = charOffset,
+    /**
+     * The reader's colour *choice*, by name — never a resolved colour.
+     *
+     * Stored the way `themeName` is, and for the same reason: a reader who marks a
+     * passage on Paper and then reads on E-ink has not changed their mind about what
+     * the mark meant, and a stored `#EBDAB3` would be a cream highlighter on a panel
+     * that cannot draw one. `HighlightColour` is the vocabulary; `QuireHighlights`
+     * decides what it looks like on the page in front of them today.
+     *
+     * A literal rather than `HighlightColour.DEFAULT.name`, so the data layer does
+     * not reach into the theme for a constant. `SettingsMigrationTest` asserts the
+     * two agree, which is the failure that actually matters: a default here and a
+     * default there that quietly disagree.
+     *
+     * A plain bookmark carries one too and ignores it. It has no words to colour.
+     */
+    val highlightColour: String = "KEEP",
     /** Snapshot of the text, so a bookmark survives reprocessing. */
     val snippet: String,
     val createdAt: Long,

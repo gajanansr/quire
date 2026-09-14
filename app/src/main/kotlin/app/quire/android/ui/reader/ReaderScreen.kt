@@ -63,7 +63,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.annotation.DrawableRes
 import app.quire.android.ui.QuireStrings
-import app.quire.android.ui.theme.HighlightColour
 import app.quire.android.ui.theme.Quire
 import app.quire.android.ui.theme.QuireHighlights
 import app.quire.android.ui.theme.QuireIcon
@@ -793,9 +792,11 @@ private fun BlockText(
  * The marks to paint behind one slice of one block: saved highlights first, the live
  * selection over them.
  *
- * Saved highlights and a selection are the same shape — both are [TextSpan]s in
- * chapter coordinates — so both go through the same arithmetic and neither can drift
- * from the other.
+ * Saved highlights and a selection are the same shape — both are spans in chapter
+ * coordinates — so both go through the same arithmetic and neither can drift from the
+ * other. Only the colour differs: a saved mark wears the reader's choice, resolved
+ * against the theme in force at the moment it is drawn rather than at the moment it
+ * was made.
  */
 @Composable
 private fun marksFor(
@@ -805,10 +806,10 @@ private fun marksFor(
     sliceEnd: Int,
 ): List<ReaderMark> {
     val colors = Quire.colors
-    val wash = QuireHighlights.tint(Quire.theme, HighlightColour.DEFAULT)
-    val saved = state.highlights.mapNotNull { span ->
-        Selection.portionOf(span, blockIndex, sliceStart, sliceEnd)
-            ?.let { ReaderMark(it, wash, colors.ink) }
+    val theme = Quire.theme
+    val saved = state.highlights.mapNotNull { highlight ->
+        Selection.portionOf(highlight.span, blockIndex, sliceStart, sliceEnd)
+            ?.let { ReaderMark(it, QuireHighlights.tint(theme, highlight.colour), colors.ink) }
     }
     val live = state.selection
         ?.let { Selection.portionOf(it, blockIndex, sliceStart, sliceEnd) }
