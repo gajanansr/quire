@@ -57,6 +57,7 @@ fun BookDetailsScreen(
     onOpenContents: () -> Unit,
     onOpenBookmarks: () -> Unit,
     onShare: () -> Unit,
+    onRemove: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = Quire.colors
@@ -130,7 +131,27 @@ fun BookDetailsScreen(
                 SecondaryButton("Contents", onOpenContents, Modifier.weight(1f))
                 SecondaryButton(QuireStrings.BOOKMARKS, onOpenBookmarks, Modifier.weight(1f))
             }
-            Spacer(Modifier.height(30.dp))
+            Spacer(Modifier.height(26.dp))
+            // Quiet, and last. Removing a book is rare, permanent, and the one action
+            // on this screen a reader must not hit by accident — so it is a line of
+            // text at the bottom rather than a fourth button competing with the three
+            // things they came here to do.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(QuireShapes.button)
+                    .clickable(onClick = onRemove)
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    QuireStrings.REMOVE_BOOK,
+                    color = colors.muted,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
             Spacer(Modifier.navigationBarsPadding())
         }
     }

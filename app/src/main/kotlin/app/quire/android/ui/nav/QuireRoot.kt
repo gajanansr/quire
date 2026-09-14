@@ -161,6 +161,7 @@ fun QuireRoot(
     val settings = storedSettings ?: AppSettingsEntity()
 
     var confirmExit by remember { mutableStateOf(false) }
+    var confirmRemoveBook by remember { mutableStateOf<String?>(null) }
     val activity = LocalActivity.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
@@ -349,6 +350,7 @@ fun QuireRoot(
                     },
                     onOpenContents = { /* Contents sheet arrives in Plan 4 */ },
                     onOpenBookmarks = { openBookId = null; destination = QuireDestination.BOOKMARKS },
+                    onRemove = { confirmRemoveBook = details.id },
                     onShare = {
                         shareCard = ShareCard.Quote(
                             bookId = details.id,
@@ -479,6 +481,39 @@ fun QuireRoot(
 
             shareCard?.let { card ->
                 ShareSheet(card = card, onDismiss = { shareCard = null })
+            }
+
+            confirmRemoveBook?.let { removingId ->
+                // Asked, because it cannot be undone. The body says what actually
+                // goes and what does not; "are you sure?" would tell the reader
+                // nothing they did not already know.
+                val colors = app.quire.android.ui.theme.Quire.colors
+                AlertDialog(
+                    onDismissRequest = { confirmRemoveBook = null },
+                    containerColor = colors.bgAlt,
+                    titleContentColor = colors.ink,
+                    textContentColor = colors.muted,
+                    shape = app.quire.android.ui.theme.QuireShapes.card,
+                    title = { Text(QuireStrings.REMOVE_BOOK_TITLE) },
+                    text = { Text(QuireStrings.REMOVE_BOOK_BODY) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            confirmRemoveBook = null
+                            // Leave the book's own page first: it is about to stop
+                            // existing, and its details would be read from a row that
+                            // is no longer there.
+                            openBookId = null
+                            scope.launch { repository.delete(removingId) }
+                        }) {
+                            Text(QuireStrings.REMOVE, color = colors.errorText)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirmRemoveBook = null }) {
+                            Text(QuireStrings.KEEP_READING, color = colors.muted)
+                        }
+                    },
+                )
             }
 
             if (confirmExit) {

@@ -136,6 +136,15 @@ object QuireStrings {
     const val HIGHLIGHT = "Highlight"
     const val REMOVE = "Remove"
 
+    // Removing a book. The second line is the one that matters: Quire keeps its own
+    // copy, so a reader deleting a book here is not deleting the file they imported,
+    // and nothing else on this screen tells them that.
+    const val REMOVE_BOOK = "Remove from library"
+    const val REMOVE_BOOK_TITLE = "Remove this book?"
+    const val REMOVE_BOOK_BODY =
+        "Your place, bookmarks and highlights for it go too. The file you imported " +
+            "is not touched \u2014 you can add it again whenever you like."
+
     /**
      * What the reminders row says.
      *

@@ -85,7 +85,22 @@ fun BookmarksScreen(
             Spacer(Modifier.height(6.dp))
         }
 
-        items(bookmarks, key = { it.bookmark.id }) { entry ->
+        BookmarkGroups.of(bookmarks).forEach { group ->
+        item(key = "book-${group.bookId}") {
+            // The book's name, once, above its own passages — rather than repeated
+            // under every row as part of "Title · Chapter 4", which is where it used
+            // to live and why three books read as one interleaved list.
+            Text(
+                group.bookTitle,
+                color = colors.ink,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+        }
+
+        items(group.marks, key = { it.bookmark.id }) { entry ->
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -116,7 +131,7 @@ fun BookmarksScreen(
                         Spacer(Modifier.size(8.dp))
                     }
                     Text(
-                        "${entry.bookTitle} · Chapter ${entry.bookmark.chapterIndex + 1}",
+                        "Chapter ${entry.bookmark.chapterIndex + 1}",
                         color = colors.muted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -130,6 +145,7 @@ fun BookmarksScreen(
                     }
                 }
             }
+        }
         }
     }
 }

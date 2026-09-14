@@ -96,40 +96,36 @@ fun StreakScreen(
             restDays = summary.restDays.toSet(),
         )
 
-        Spacer(Modifier.height(16.dp))
-        Text(
-            // What actually happened, in words, beside the picture of it. A run that
-            // carried a rest day and said nothing about it would be a lie told by
-            // omission — the one thing forgiveness here is not allowed to be.
-            restSentence(summary),
-            color = colors.muted,
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-
-        Spacer(Modifier.height(16.dp))
-        Text(
-            // The rule, stated plainly where the reader can check it against the
-            // squares above. Replaces the handoff's "the streak resets, but the
-            // reading doesn't", which stopped being true the day rest days shipped.
-            "A run keeps going through one quiet day a week. " +
-                "Only the days you read are counted.",
-            color = colors.muted,
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        // Only when a rest day was actually carried. The disclosure matters — a run
+        // that quietly survived a missed day and said nothing would be a lie by
+        // omission — but the other three cases only restated the squares above, and
+        // the standing rule ("a run keeps going through one quiet day a week") was a
+        // notice printed on every visit for a thing that happens rarely. Saying it at
+        // the moment it applies teaches it better than saying it always, and this
+        // screen had four paragraphs of prose stacked under one picture.
+        if (summary.restDays.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            Text(
+                restSentence(summary),
+                color = colors.muted,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
 
         if (summary.daysRead > 0) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
             Text(
                 // The number that never resets. A reader whose run has just ended
                 // still has this one, and it is the honest total rather than the
-                // fragile one — the reading survives whatever the chain does.
+                // fragile one — the reading survives whatever the chain does. Set
+                // quietly: it is a second fact, and it was competing with the one the
+                // screen is named after.
                 if (summary.daysRead == 1) "One day of reading, all told."
                 else "${summary.daysRead} days of reading, all told.",
-                color = colors.ink,
+                color = colors.muted,
                 textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
 
@@ -223,10 +219,11 @@ private fun streakSentence(summary: HabitSummary): String = when {
  * forgiveness and a repaired number. It is stated as a fact and never as a cost:
  * nothing was spent, nothing is owed, and the figure above never counted it.
  */
-private fun restSentence(summary: HabitSummary): String = when {
-    summary.currentStreak == 0 -> "Every day you read is drawn above, gaps included."
-    summary.restDays.isEmpty() -> "Every day of this run is a day you read."
-    summary.restDays.size == 1 -> "One quiet day along the way, carried — not counted."
+private fun restSentence(summary: HabitSummary): String = when (summary.restDays.size) {
+    // Called only when there is a rest day to disclose; the no-rest-day wordings it
+    // used to carry were captions for the heatmap, and the heatmap does not need one.
+    0 -> ""
+    1 -> "One quiet day along the way, carried — not counted."
     else -> "${summary.restDays.size} quiet days along the way, carried — not counted."
 }
 
