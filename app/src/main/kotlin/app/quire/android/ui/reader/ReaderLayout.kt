@@ -9,6 +9,7 @@ import app.quire.core.paginate.Viewport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import kotlin.math.ceil
 
 /**
  * Everything one pagination of one chapter depends on.
@@ -48,11 +49,45 @@ sealed interface PaginationStep {
  */
 object ReaderLayout {
 
-    /** The label line, as a multiple of body line height. */
-    private const val LABEL_LINES = 1.2f
+    /**
+     * The header's own measurements, taken from what `ReaderScreen` draws.
+     *
+     * Every one of these is the theme's, not the reader's. The label is
+     * `labelSmall` and the title is `headlineLarge`, both fixed sizes, and the two
+     * gaps are in dp — so **the header's height does not change with the reader's
+     * type size**. The estimate used to be a multiple of the body line height, which
+     * got this backwards: it shrank exactly when the reader chose small type, and at
+     * 15sp it budgeted 8sp less than a two-line title draws. Short means the last
+     * line of the chapter's first page is clipped away, silently.
+     *
+     * `ReaderThemeTest` pins these against the theme, so restyling the header fails a
+     * test rather than losing the bottom of a page.
+     */
+    internal const val LABEL_LINE_SP = 14f
 
-    /** The title beneath it. Two lines' worth, because titles wrap. */
-    private const val TITLE_LINES = 2.4f
+    /** The gap `ReaderScreen` puts between the label and the title. */
+    internal const val LABEL_GAP_DP = 10f
+
+    /** One line of the title, at `headlineLarge`. */
+    internal const val TITLE_LINE_SP = 34f
+
+    /** The type size of that line, for working out where the title wraps. */
+    internal const val TITLE_SIZE_SP = 28f
+
+    /**
+     * Average character width as a fraction of type size, for a serif face.
+     *
+     * Only ever used to guess how many lines a title takes. Guessing high costs
+     * whitespace at the top of one page; guessing low clips text off the bottom of
+     * it, so the count is rounded up and floored at two.
+     */
+    private const val TITLE_CHAR_EM = 0.5f
+
+    /** Never fewer than this, because titles wrap more often than they do not. */
+    private const val MIN_TITLE_LINES = 2
+
+    /** And never more, so one absurd title cannot swallow the page it opens. */
+    private const val MAX_TITLE_LINES = 4
 
     /** The air between the header and the text it introduces, in dp. */
     private const val AIR_DP = 30f
@@ -86,27 +121,63 @@ object ReaderLayout {
     /**
      * Height the chapter header will take on the first page.
      *
-     * Estimated rather than measured: it is label, title and spacing at known sizes,
-     * and measuring it would mean composing before paginating. Erring generous leaves
-     * a little whitespace; erring short clips the last line.
+     * Estimated rather than measured: measuring it would mean composing before
+     * paginating. The one thing that is genuinely a guess is how many lines the title
+     * wraps to; everything else is arithmetic over what `ReaderScreen` draws, term for
+     * term — sink, label line, gap, title lines, air.
      *
-     * @param pixelsPerSp the device's sp-to-pixel factor.
-     * @param pixelsPerDp the device's dp-to-pixel factor.
+     * Erring generous leaves a little whitespace; erring short clips the last line off
+     * the page, which reads as text going missing and is the failure
+     * `MeasureMatchesRenderTest` exists for.
+     *
+     * @param title the chapter's own title, or null. The Reader draws the title line
+     *   only when there is one, so budgeting for it regardless left a gap above the
+     *   text of every untitled chapter.
+     * @param viewport the column the text is set in — its height decides the sink and
+     *   its width decides where the title wraps.
      */
     fun headerInsetPx(
         showsHeader: Boolean,
-        viewportHeightPx: Float,
-        fontSizeSp: Float,
+        title: String?,
+        viewport: Viewport,
         pixelsPerSp: Float,
         pixelsPerDp: Float,
     ): Float {
         if (!showsHeader) return 0f
-        val body = fontSizeSp * ReaderPreferences.LINE_HEIGHT * pixelsPerSp
         // The sink is the space a chapter opens below — a proportion of the page,
         // because the gap that looks generous on a phone is a rounding error on a
-        // tablet. The rest is label, title and the air beneath them.
-        return ChapterOpening.sinkPx(viewportHeightPx) +
-            body * LABEL_LINES + body * TITLE_LINES + AIR_DP * pixelsPerDp
+        // tablet.
+        return ChapterOpening.sinkPx(viewport.heightPx) +
+            LABEL_LINE_SP * pixelsPerSp +
+            titleHeightPx(title, viewport.widthPx, pixelsPerSp, pixelsPerDp) +
+            AIR_DP * pixelsPerDp
+    }
+
+    /** The title line or lines, and the gap above them, or nothing at all. */
+    private fun titleHeightPx(
+        title: String?,
+        columnWidthPx: Float,
+        pixelsPerSp: Float,
+        pixelsPerDp: Float,
+    ): Float {
+        val text = title?.trim().orEmpty()
+        if (text.isEmpty()) return 0f
+        return LABEL_GAP_DP * pixelsPerDp +
+            TITLE_LINE_SP * pixelsPerSp * titleLines(text, columnWidthPx, pixelsPerSp)
+    }
+
+    /**
+     * How many lines a title of this length takes in a column this wide.
+     *
+     * Rounded up and floored at [MIN_TITLE_LINES], because the two directions are not
+     * equally bad: one line too many is whitespace, one line too few is a sentence cut
+     * in half at the bottom of the page.
+     */
+    internal fun titleLines(title: String, columnWidthPx: Float, pixelsPerSp: Float): Int {
+        val perLine = columnWidthPx / (TITLE_SIZE_SP * TITLE_CHAR_EM * pixelsPerSp)
+        if (perLine < 1f) return MAX_TITLE_LINES
+        val needed = ceil(title.length / perLine).toInt()
+        return needed.coerceIn(MIN_TITLE_LINES, MAX_TITLE_LINES)
     }
 
     /**
@@ -141,8 +212,8 @@ object ReaderLayout {
         settings = preferences.toSettings(pixelsPerSp),
         insetPx = headerInsetPx(
             showsHeader = showsChapterHeaderFor(chapter, pageIndex = 0),
-            viewportHeightPx = viewport.heightPx,
-            fontSizeSp = preferences.fontSizeSp,
+            title = chapter.title,
+            viewport = viewport,
             pixelsPerSp = pixelsPerSp,
             pixelsPerDp = pixelsPerDp,
         ),

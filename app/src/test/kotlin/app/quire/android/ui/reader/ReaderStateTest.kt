@@ -88,7 +88,7 @@ class ReaderStateTest {
         val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = true)
         assertEquals("nothing to turn to yet", 0, queued.pageIndex)
 
-        val settled = ReaderTransitions.repaginated(queued, longState().pages, queued.preferences)
+        val settled = ReaderTransitions.repaginated(queued, queued.chapter, longState().pages, queued.preferences)
         assertEquals("the tap was thrown away", 1, settled.pageIndex)
         assertEquals("the turn was applied twice", 0, settled.pendingTurns)
     }
@@ -97,7 +97,7 @@ class ReaderStateTest {
     fun `three taps during pagination land three pages on`() {
         var s = stillPaginating()
         repeat(3) { s = ReaderTransitions.queuedTurn(s, forward = true) }
-        val settled = ReaderTransitions.repaginated(s, longState().pages, s.preferences)
+        val settled = ReaderTransitions.repaginated(s, s.chapter, longState().pages, s.preferences)
         assertEquals(3, settled.pageIndex)
     }
 
@@ -106,14 +106,14 @@ class ReaderStateTest {
         var s = stillPaginating()
         s = ReaderTransitions.queuedTurn(s, forward = true)
         s = ReaderTransitions.queuedTurn(s, forward = false)
-        val settled = ReaderTransitions.repaginated(s, longState().pages, s.preferences)
+        val settled = ReaderTransitions.repaginated(s, s.chapter, longState().pages, s.preferences)
         assertEquals(0, settled.pageIndex)
     }
 
     @Test
     fun `turning back before there are pages does not go past the start`() {
         val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = false)
-        val settled = ReaderTransitions.repaginated(queued, longState().pages, queued.preferences)
+        val settled = ReaderTransitions.repaginated(queued, queued.chapter, longState().pages, queued.preferences)
         assertEquals(0, settled.pageIndex)
     }
 
@@ -126,16 +126,20 @@ class ReaderStateTest {
         var s = stillPaginating()
         repeat(500) { s = ReaderTransitions.queuedTurn(s, forward = true) }
         val pages = longState().pages
-        val settled = ReaderTransitions.repaginated(s, pages, s.preferences)
+        val settled = ReaderTransitions.repaginated(s, s.chapter, pages, s.preferences)
         assertEquals(pages.lastIndex, settled.pageIndex)
         assertEquals(0, settled.pendingTurns)
     }
 
     @Test
-    fun `opening a chapter applies a turn queued while it was loading`() {
+    fun `opening the book applies a turn queued while it was loading`() {
+        // The book opening at where it was left — which is the case those taps were
+        // made in, since there was nothing else on screen to tap at.
         val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = true)
         val chapter = queued.chapter!!
-        val settled = ReaderTransitions.openedChapter(queued, chapter, longState().pages, at = null)
+        val settled = ReaderTransitions.openedChapter(
+            queued, chapter, longState().pages, at = ReadingPosition.START,
+        )
         assertEquals(1, settled.pageIndex)
         assertEquals(0, settled.pendingTurns)
     }
@@ -188,7 +192,7 @@ class ReaderStateTest {
 
         val bigger = s.preferences.copy(fontSizeSp = 24f)
         val repaged = paginator.paginate(s.chapter!!, viewport, bigger.toSettings(pixelsPerSp = 1f))
-        val after = ReaderTransitions.repaginated(s, repaged, bigger)
+        val after = ReaderTransitions.repaginated(s, s.chapter, repaged, bigger)
 
         // The page number changes; the place in the text does not.
         assertTrue("expected more pages at 24sp", after.pages.size > s.pages.size)
@@ -200,12 +204,56 @@ class ReaderStateTest {
     }
 
     @Test
+    fun `pages laid out for a chapter the reader has left are discarded`() {
+        // Laying out a long chapter takes seconds, and the Contents sheet loads a
+        // chapter in a coroutine the repagination effect does not cancel. Accepting
+        // chapter 3's pages while the state describes chapter 10 leaves `position` a
+        // character offset from one chapter stamped with the other's index — and that
+        // is what gets written to the progress row when the Reader closes, so the book
+        // reopens somewhere the reader has never been.
+        val here = state()
+        val left = here.chapter!!
+        val arrived = here.copy(
+            chapterIndex = 10,
+            chapter = chapter(10, lorem.repeat(40)),
+            pages = paginator.paginate(
+                chapter(10, lorem.repeat(40)), viewport,
+                here.preferences.toSettings(pixelsPerSp = 1f),
+            ),
+        )
+        val stalePages = here.pages
+
+        val after = ReaderTransitions.repaginated(arrived, left, stalePages, arrived.preferences)
+
+        assertEquals("the stale pages were accepted", arrived.pages, after.pages)
+        assertEquals(10, after.position.chapterIndex)
+    }
+
+    @Test
+    fun `a turn queued while loading does not follow the reader into a chapter they chose`() {
+        // Three taps waiting for the book to appear, then the reader opens Contents
+        // and picks a chapter. The taps were for the chapter they were looking at, and
+        // landing three pages into a chapter just chosen is not what they asked for.
+        var s = stillPaginating()
+        repeat(3) { s = ReaderTransitions.queuedTurn(s, forward = true) }
+        val chosen = chapter(7, lorem.repeat(200))
+        val pages = paginator.paginate(
+            chosen, viewport, s.preferences.toSettings(pixelsPerSp = 1f),
+        )
+
+        val after = ReaderTransitions.openedChapter(s, chosen, pages, at = null)
+
+        assertEquals("the queued taps were carried into a chosen chapter", 0, after.pageIndex)
+        assertEquals(0, after.pendingTurns)
+    }
+
+    @Test
     fun `repagination never leaves the page index out of range`() {
         val s = state()
         val far = s.copy(pageIndex = s.pages.lastIndex)
         val smaller = far.preferences.copy(fontSizeSp = 15f)
         val repaged = paginator.paginate(far.chapter!!, viewport, smaller.toSettings(pixelsPerSp = 1f))
-        val after = ReaderTransitions.repaginated(far, repaged, smaller)
+        val after = ReaderTransitions.repaginated(far, far.chapter, repaged, smaller)
         assertTrue(after.pageIndex in after.pages.indices)
     }
 

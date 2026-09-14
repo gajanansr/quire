@@ -1988,8 +1988,46 @@ six negative tests hold it — a subtitle, a differing heading, a paragraph that
 begins with the title, and a chapter whose heading is only the label while it has a
 title of its own.
 
+**Three more the review found, two of them sharper than anything above.**
+
+*Pages for one chapter could be written onto another.* The repagination effect captures
+its chapter before it suspends and re-reads the state after, and the Contents sheet
+loads a chapter in a coroutine that effect does not cancel. Pick a new chapter while a
+long one is still laying out and the state ends up describing chapter 10 with chapter
+3's page breaks — so `position` is a character offset from one chapter stamped with the
+other's index, and `onDispose` writes it to the progress row. The book then reopens
+somewhere the reader has never been. `repaginated` now takes the chapter the pages were
+laid out *for* and discards them when it is not the one in hand. The guard lives in the
+transition, not at the call site, because there is no call site that may skip it.
+
+*The header inset under-budgeted, and clipped the page it heads.* The estimate was a
+multiple of the **body** line height, but the header is drawn at fixed theme sizes —
+`labelSmall` at 14sp and `headlineLarge` at 34sp — plus two gaps in dp. So it shrank
+exactly when the reader chose small type: at 15sp it came up eight points short of a
+two-line title, and three-line titles were short at 19sp too. Carried over unchanged
+from before this work, but this is where it became reachable, because before the fix
+above the inset was usually wrongly zero, which is worse. It is now arithmetic over
+what `ReaderScreen` draws, term for term, with the title's line count the only guess —
+rounded up, floored at two, capped at four, because one line too many is whitespace and
+one line too few is a sentence cut in half.
+
+*A turn queued during pagination followed the reader into a chapter they chose.* Tap
+three times waiting for the book, then pick a chapter from Contents, and you landed on
+its page three. Queued turns are now honoured only when opening *at* a position, which
+is the book resuming — a chapter opened with no position is a deliberate jump.
+
+Also from the review: the loading screen drew "Chapter 1" above a book being resumed in
+chapter 12, because the header answered "yes" for a chapter that did not exist yet —
+and waiting for the typography lengthened that window. And finding where a chapter opens
+is now hoisted out of the render loop as well as the paginator's.
+
+One finding was declined. `typographyLoaded` has no failure path, and wrapping the
+settings read in `finally` would set it on *cancellation* too — paginating the book at
+default typography precisely when the effect was being torn down. Degrading properly
+would mean swallowing a database error, which this codebase does not do.
+
 **What a device still has to answer.** Every fault above was fixed against a property a
 JVM test can state; none of them was fixed against a stopwatch, because there is no
 phone here. The 276-page book is the check.
 
-Gates: 839 JVM tests (357 `:core` + 482 `:app`), 0 failures. 46 added.
+Gates: 848 JVM tests (357 `:core` + 491 `:app`), 0 failures. 55 added.

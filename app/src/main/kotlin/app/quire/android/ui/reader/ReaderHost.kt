@@ -36,11 +36,9 @@ import app.quire.core.paginate.Page
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.Viewport
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Loads a book, paginates it, and keeps the reader's position saved.
@@ -173,7 +171,12 @@ fun ReaderHost(
 
             is PaginationStep.Repaginate -> {
                 val pages = pagesFor(step.chapter, requestFor(step.chapter, state.preferences))
-                state = ReaderTransitions.repaginated(state, pages, state.preferences)
+                // Named, so `repaginated` can refuse pages laid out for a chapter the
+                // reader has since left: the Contents sheet loads one in a coroutine
+                // this effect does not cancel.
+                state = ReaderTransitions.repaginated(
+                    state, step.chapter, pages, state.preferences,
+                )
             }
         }
     }

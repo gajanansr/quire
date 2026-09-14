@@ -4,6 +4,7 @@ import app.quire.core.model.Chapter
 import app.quire.core.model.ContentBlock
 import app.quire.core.model.InlineSpan
 import app.quire.core.paginate.BlockStyle
+import app.quire.core.paginate.ChapterOpening
 import app.quire.core.paginate.Measured
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.TextMeasurer
@@ -238,16 +239,105 @@ class ReaderLayoutTest {
 
     // ------------------------------------------------------------------ the inset
 
+    // ------------------------------------------------------------------ the inset
+
+    private fun inset(
+        title: String?,
+        view: Viewport = viewport,
+        shows: Boolean = true,
+    ) = ReaderLayout.headerInsetPx(shows, title, view, density, density)
+
+    /**
+     * Exactly what `ReaderScreen.PageContent` draws above the text, in pixels.
+     *
+     * Written out term by term rather than calling the thing under test, because the
+     * whole point is that two independent descriptions of this height agree. If they
+     * ever stop agreeing the surplus is clipped off the bottom of the page with no
+     * error anywhere.
+     */
+    private fun drawnHeaderPx(titleLines: Int, view: Viewport = viewport): Float =
+        ChapterOpening.sinkPx(view.heightPx) +
+            14f * density +
+            (if (titleLines > 0) 10f * density + 34f * density * titleLines else 0f) +
+            30f * density
+
     @Test
-    fun `the inset scales with the page and the type, not with a fixed number`() {
+    fun `the budget matches what the header draws, line for line`() {
+        val short = "The Fall"
+        assertEquals(
+            drawnHeaderPx(ReaderLayout.titleLines(short, viewport.widthPx, density)),
+            inset(short),
+            0.01f,
+        )
+    }
+
+    @Test
+    fun `a title that wraps is budgeted for every line it wraps to`() {
+        // The bug this replaces: the title was budgeted as a multiple of the *body*
+        // line height, but it is drawn at a fixed headlineLarge. So the estimate
+        // shrank exactly when the reader chose small type — at 15sp it came up eight
+        // points short of a two-line title, and the last line of the chapter's first
+        // page was sliced off.
+        val long = "A Very Long Chapter Title That Will Certainly Not Fit On One Line"
+        val lines = ReaderLayout.titleLines(long, viewport.widthPx, density)
+        assertTrue("a 65-character title was thought to fit on one line", lines >= 2)
+        assertEquals(drawnHeaderPx(lines), inset(long), 0.01f)
+    }
+
+    @Test
+    fun `the budget does not shrink when the reader chooses smaller type`() {
+        // The header is theme type at fixed sizes and two gaps in dp. None of it
+        // depends on the reader's body size, and the old estimate pretending it did
+        // is precisely how it under-budgeted at 15sp.
+        val atFifteen = ReaderLayout.requestFor(
+            headedChapter(), viewport, ReaderPreferences(fontSizeSp = 15f), density, density,
+        )
+        val atTwentyFour = ReaderLayout.requestFor(
+            headedChapter(), viewport, ReaderPreferences(fontSizeSp = 24f), density, density,
+        )
+        assertEquals(
+            "the header's height moved with the reader's type size",
+            atTwentyFour.insetPx, atFifteen.insetPx, 0.01f,
+        )
+        assertEquals(drawnHeaderPx(2), atFifteen.insetPx, 0.01f)
+    }
+
+    @Test
+    fun `an untitled chapter is not budgeted for a title it does not draw`() {
+        // The Reader draws the title line only when the chapter has one.
+        assertEquals(drawnHeaderPx(titleLines = 0), inset(null), 0.01f)
+        assertEquals(drawnHeaderPx(titleLines = 0), inset("   "), 0.01f)
+    }
+
+    @Test
+    fun `a taller page opens lower`() {
         // The sink is a proportion of the page: the gap that looks generous on a
         // phone is a rounding error on a tablet.
-        val small = ReaderLayout.headerInsetPx(true, 2000f, 19f, density, density)
-        val tall = ReaderLayout.headerInsetPx(true, 3000f, 19f, density, density)
-        val large = ReaderLayout.headerInsetPx(true, 2000f, 24f, density, density)
+        assertTrue(
+            inset("The Fall", Viewport(900f, 3000f)) > inset("The Fall", Viewport(900f, 2000f)),
+        )
+    }
 
-        assertTrue("a taller page did not open lower", tall > small)
-        assertTrue("larger type did not take more room", large > small)
-        assertEquals(0f, ReaderLayout.headerInsetPx(false, 2000f, 19f, density, density), 0f)
+    @Test
+    fun `a chapter drawing no header is budgeted nothing`() {
+        assertEquals(0f, inset("The Fall", shows = false), 0f)
+    }
+
+    @Test
+    fun `a narrow column wraps a title onto more lines than a wide one`() {
+        val title = "The Weight of Silence in the Long Afternoon"
+        val narrow = ReaderLayout.titleLines(title, 400f, density)
+        val wide = ReaderLayout.titleLines(title, 1600f, density)
+        assertTrue("a narrower column did not wrap more", narrow >= wide)
+    }
+
+    @Test
+    fun `a title is never budgeted at fewer than two lines or more than four`() {
+        // Rounding up and flooring at two is deliberate: one line too many is
+        // whitespace, one line too few is a sentence cut in half at the foot of the
+        // page. The ceiling stops one absurd title swallowing the page it opens.
+        assertEquals(2, ReaderLayout.titleLines("A", 2000f, density))
+        assertEquals(4, ReaderLayout.titleLines("x".repeat(5_000), 900f, density))
+        assertEquals(4, ReaderLayout.titleLines("anything", 0.5f, density))
     }
 }

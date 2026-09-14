@@ -36,7 +36,12 @@ fun chapterLabelFor(index: Int): String = "Chapter ${index + 1}"
  */
 fun showsChapterHeaderFor(chapter: Chapter?, pageIndex: Int): Boolean {
     if (pageIndex != 0) return false
-    val ch = chapter ?: return true
+    // No chapter, no chapter header. This used to answer `true`, and the Reader draws
+    // the header above the guard that returns early when there is nothing to draw —
+    // so for the whole pre-pagination window a reader resuming in chapter 12 was shown
+    // a sink and the words "Chapter 1". Waiting for the saved typography lengthened
+    // that window by a database read, which is what made it worth noticing.
+    val ch = chapter ?: return false
     // The label of the chapter being asked about, not of whichever is open.
     return !ChapterHeading.repeatsHeader(ch.blockTexts, ch.title, chapterLabelFor(ch.index))
 }
@@ -258,12 +263,25 @@ object ReaderTransitions {
      *
      * The page index is meaningless across a repagination — this is the moment the
      * character-offset position earns its place.
+     *
+     * [chapter] is the chapter the pages were laid out *for*, and pages laid out for
+     * one chapter are discarded rather than written onto another. Laying out a long
+     * chapter takes seconds, and the Contents sheet loads a chapter in a coroutine
+     * the repagination effect does not cancel — so the reader can be in chapter 10 by
+     * the time chapter 3's pages arrive. Accepting them would leave the state
+     * describing chapter 10 with chapter 3's page breaks, and `position` would then
+     * be a character offset from chapter 3 stamped with chapter 10's index. That gets
+     * written to the progress row when the Reader closes, so the next time the book
+     * is opened it lands somewhere the reader has never been. The guard is here
+     * rather than at the call site because there is no call site that may skip it.
      */
     fun repaginated(
         state: ReaderState,
+        chapter: Chapter?,
         pages: List<Page>,
         preferences: ReaderPreferences,
     ): ReaderState {
+        if (state.chapter !== chapter) return state.copy(preferences = preferences)
         val anchor = state.position
         return withPendingTurnsApplied(
             state.copy(
@@ -275,14 +293,23 @@ object ReaderTransitions {
         )
     }
 
-    /** Opens a chapter at a given position, or at its start. */
+    /**
+     * Opens a chapter at a given position, or at its start.
+     *
+     * Turns queued during pagination are honoured only when opening *at* a position —
+     * which is the book being opened at where it was left, the case those taps were
+     * made in. A chapter opened with no position is a deliberate jump: the Contents
+     * sheet, or crossing a boundary. Carrying the taps there would take a reader who
+     * tapped three times waiting for their own chapter to appear and drop them on
+     * page three of a chapter they had only just chosen.
+     */
     fun openedChapter(
         state: ReaderState,
         chapter: Chapter,
         pages: List<Page>,
         at: ReadingPosition?,
-    ): ReaderState = withPendingTurnsApplied(
-        state.copy(
+    ): ReaderState {
+        val opened = state.copy(
             loading = false,
             chapterIndex = chapter.index,
             chapterTitle = chapter.title,
@@ -290,7 +317,9 @@ object ReaderTransitions {
             pages = pages,
             pageIndex = at?.let { pages.pageContaining(it) } ?: 0,
         )
-    )
+        return if (at == null) opened.copy(pendingTurns = 0)
+        else withPendingTurnsApplied(opened)
+    }
 
     fun withChrome(state: ReaderState, visible: Boolean): ReaderState =
         state.copy(chromeVisible = visible)
