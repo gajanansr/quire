@@ -209,6 +209,31 @@ one:
 
 ---
 
+### Where the two credentials actually live
+
+Neither is in this repository and neither ever can be. On the machine they were
+made on:
+
+    ~/Documents/Gajanan/keys/quire-upload.jks          the upload keystore
+    ~/Documents/Gajanan/keys/quire-play-publisher.json the Play service account key
+
+Both are mode 600. `keystore.properties` points at the first; it is gitignored,
+which is also why a wrong path in it survives every commit and only surfaces as a
+failed release build. Its store password and key password are the same value —
+worth knowing, because entering one where the other belongs fails with
+`Get Key failed: Given final block not properly padded`, which names neither.
+
+### The organisation policy that blocks the service account key
+
+Creating the JSON key can fail with `iam.disableServiceAccountKeyCreation`. That is
+a Google "secure by default" org policy, and it can only apply if the Cloud project
+sits inside an organisation — which a Workspace on a domain you own creates
+silently. Two ways out: lift the constraint at the organisation level if the
+organisation is yours, or create the project under a plain `@gmail.com` account,
+which has no organisation at all. The second leaves the default switched on and
+costs nothing, because Play grants a service account access by *email* — the
+account that created it does not have to be the one that owns the Play Console.
+
 ## 5. The store listing
 
 All of it is in the repo, in fastlane's standard layout, so it can be diffed and
