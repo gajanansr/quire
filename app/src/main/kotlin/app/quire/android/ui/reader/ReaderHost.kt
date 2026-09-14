@@ -387,13 +387,17 @@ fun ReaderHost(
         val chapter = state.chapter
         if (chapter != null && !(if (forward) state.atChapterEnd else state.atChapterStart)) {
             // Two reasons to remember the tap rather than act on it, and neither may
-            // swallow it — `windowed` and `repaginated` both apply what is queued.
+            // swallow it. Each has its own thing that cashes the queue, and
+            // `ReaderTransitions.windowed` is deliberately not either of them — see
+            // the note on it for what a background prefetch did with a leftover turn.
             //
             // - The pages in hand are about to be replaced by a repagination, so
-            //   growing them would mix two type sizes in one page list.
+            //   growing them would mix two type sizes in one page list. `repaginated`
+            //   applies what is queued when the new pages land.
             // - A run is already in flight. A second tap would start a second run from
             //   the *same* window, which computes the same answer — so two taps would
-            //   move the reader one page. Queued, they move them two.
+            //   move the reader one page. Queued, they move them two, and the run in
+            //   flight cashes them through `pendingTurnsApplied` on its way out.
             if (windowInFlight || !ReaderLayout.mayGrowWindow(state, viewport, layoutSettings)) {
                 state = ReaderTransitions.queuedTurn(state, forward)
                 tracker.record()
