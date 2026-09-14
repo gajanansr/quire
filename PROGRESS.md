@@ -2426,10 +2426,10 @@ previous one. The chapter's beginning is `TextAnchor(0, 0)` and nothing else.
 
 **The page count, and a progress bar that never moved.** `state.pages` is a window, so
 `"38% · page 12 of 719"` could not survive — the denominator would have been the
-window's. It reads `"38% · about page 190 of 314"` now, counted in printed pages from
+window's. It reads `"38% · about page 190 of 315"` now, counted in printed pages from
 the book's characters, which is the unit Book Details already states a length in and
-the only one a reader can check against a spine. For this book it says **314 against
-the PDF's real 315**. "about" is not decoration; and it has the compensation of no
+the only one a reader can check against a spine. For this book it says **315, which is exactly what the PDF
+has**. "about" is not decoration; and it has the compensation of no
 longer changing every time the reader changes the type size.
 
 Underneath it, a real bug. `ReaderState.progress` added `slice.startChar` — the offset

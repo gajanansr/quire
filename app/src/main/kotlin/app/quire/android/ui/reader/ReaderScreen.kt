@@ -937,7 +937,7 @@ private fun BottomBar(
             // 20", resetting as the reader went. The unit that survives is the printed
             // page: `ReadingEstimates` counts characters, which is the same measure
             // Book Details states a book's length in, and for this 565,896-character
-            // novel it says 314 against the PDF's real 315.
+            // novel it says 315, exactly what the PDF has.
             //
             // "about", because that is what it is. An estimate presented as exact is
             // worse than a different unit honestly labelled — and this one has the

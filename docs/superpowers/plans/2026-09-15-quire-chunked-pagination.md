@@ -210,11 +210,11 @@ It is replaced with a book-wide count in characters, which is honest, stable acr
 type-size change, and already how `BookDetailsScreen` states length:
 
 ```
-38% · about page 190 of 314
+38% · about page 190 of 315
 ```
 
 from `ReadingEstimates.currentPage/pageCount`, at 1,800 characters a page. For this
-book that is **314 pages against the PDF's real 315** — the unit is the printed page,
+book that is **315 pages, exactly what the PDF has** — the unit is the printed page,
 which is the one the reader can check. The word "about" is not decoration: it is the
 difference between an estimate and a claim.
 

@@ -11,6 +11,7 @@ import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.TextMeasurer
 import app.quire.core.paginate.Viewport
 import app.quire.core.paginate.pageContaining
+import app.quire.core.reading.ReadingEstimates
 import app.quire.core.reading.TextAnchor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -198,6 +199,35 @@ class ReaderStateTest {
     @Test
     fun `progress is zero rather than NaN for an empty book`() {
         assertEquals(0.0, ReaderState().progress, 1e-9)
+    }
+
+    // ------------------------------------------------------------ the footer line
+
+    @Test
+    fun `the footer counts the book in printed pages, not in the pages laid out`() {
+        // It read "38% · page 12 of 719", and the denominator was the chapter laid out
+        // whole at the reader's type size. `pages` is a window now, so that number
+        // would be the window's — "page 5 of 20", resetting as the reader went, which
+        // is a chunk boundary announcing itself in the chrome.
+        val s = manyBlockState().copy(bookTotalChars = 565_896)
+        val line = s.copy(pageIndex = s.pages.lastIndex).readingLine
+        assertTrue("the window's page count reached the footer: $line", !line.contains("of ${s.pageCount}"))
+        assertTrue("the estimate is not marked as one: $line", line.contains("about page"))
+        assertTrue("the footer lost the percentage: $line", line.contains("%"))
+    }
+
+    @Test
+    fun `the estimated length of the real book is the length printed on it`() {
+        // *The Love Hypothesis*: 565,896 characters, and a PDF of 315 pages. The footer
+        // counts printed pages because that is the one unit a reader can check against
+        // the object in their hand, and the arithmetic has to earn that.
+        assertEquals(315, ReadingEstimates.pageCount(565_896))
+    }
+
+    @Test
+    fun `a book with no length says only how far through it the reader is`() {
+        // Better nothing than "about page 0 of 0", which is a claim and a false one.
+        assertEquals("0%", ReaderState().readingLine)
     }
 
     /** One chapter of many blocks — the shape a book with no outline imports as. */

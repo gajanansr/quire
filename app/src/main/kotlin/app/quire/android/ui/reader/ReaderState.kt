@@ -188,7 +188,7 @@ data class ReaderState(
      * states a book's length in. **"about" is not decoration** — it is the difference
      * between an estimate and a claim, and the reader can check this one against the
      * spine of the book. For the 565,896-character novel this was built for it reads
-     * 314 against the PDF's real 315.
+     * 315, which is exactly what that PDF has.
      *
      * It also stops changing when the type size does, which the old number did on
      * every tap of the stepper.
