@@ -132,10 +132,13 @@ jobs:
 
       - name: Upload to Play
         if: ${{ inputs.dryRun != true }}
-        # Pin this to a commit SHA rather than a tag before you rely on it: a moving
-        # tag on a third-party action is a supply-chain hole, and this is the one step
-        # in the repository that handles the signing key and the Play credentials.
-        uses: r0adkll/upload-google-play@v1
+        # Pinned to a commit, not the v1 tag. A tag can be moved to point at code
+        # nobody reviewed, and this is the one step in the repository that is handed
+        # the signing key and the Play credentials. To take a newer version, resolve
+        # the tag yourself and replace the SHA:
+        #   gh api repos/r0adkll/upload-google-play/git/ref/tags/v1
+        # then dereference the annotated tag it returns. This is v1 as of 2026-09-15.
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: app.quire.android

@@ -1,0 +1,9 @@
+Large books now open straight away. A long PDF with no chapter marks used to lay out its whole text at once; Quire now sets only the part you are reading.
+
+Also:
+- Five highlight colours, lighter on the page, and marks you can recolour or remove.
+- Bookmarks grouped by book, in the order they appear in it.
+- Books can be removed from the library.
+- Selection is easier to start and drag.
+- Slide the right edge to set brightness.
+- Pick a reminder time; miss a day without losing your streak.
