@@ -3,8 +3,9 @@
 > **For agentic workers:** steps use checkbox (`- [x]`) syntax. Gate on
 > `./scripts/check.sh` before every commit. Never commit red.
 >
-> **Complete.** 418 `:core` + 656 `:app` tests, 0 failures. Five things the plan did
-> not foresee are corrected in place and marked:
+> **Complete.** 420 `:core` + 659 `:app` tests, 0 failures. Reviewed, and seven
+> findings addressed — two of them blocking, both races between a page turn and a
+> lay-out. Nine things the plan did not foresee are corrected in place and marked:
 >
 > 1. Where a backward seam puts the reader — the plan's answer skipped most of a page.
 > 2. The window anchor has to be snapped to a grid, or reopening walks the book
@@ -16,6 +17,15 @@
 >    it.
 > 5. Laying out an extension and appending it have to be separate calls, or a page
 >    turned while the lay-out ran is written back over.
+> 6. A backward re-anchor cannot be rebased at all, so it is adopted only if the
+>    reader has not moved — and a tap made while a run is in flight is queued rather
+>    than starting a second, identical run.
+> 7. `repaginated` has to resolve the page index against the state it lands in, which
+>    `main` did and this briefly stopped doing.
+> 8. The identity theorem has an unstated precondition in `measureWindow`'s doubling;
+>    it is pinned at 110 characters a line.
+> 9. A viewport shorter than one line of a mid-chapter block looped for ever. Fixing
+>    it also closed the one hole that had been documented in the identity.
 
 **Goal:** *The Love Hypothesis* — a 315-page PDF with no usable outline, imported as
 **one chapter of 8,621 blocks and 565,896 characters** — must open at once and must

@@ -2306,7 +2306,7 @@ classification. No new dependencies, no version bumps, no manifest change.
 
 `agent/chunked-pagination`, plan at
 `docs/superpowers/plans/2026-09-15-quire-chunked-pagination.md`, eight tasks, all
-ticked. **1,074 JVM tests (418 `:core` + 656 `:app`), 0 failures**, 67 added.
+ticked. **1,079 JVM tests (420 `:core` + 659 `:app`), 0 failures**, 72 added.
 
 *The Love Hypothesis*, a 315-page PDF, imports as **one chapter: 8,621 blocks,
 565,896 characters**. Its outline is unusable, so `ChapterDetector` correctly falls
@@ -2450,6 +2450,49 @@ for that reason and one more: a stored boundary would have been chosen for one v
 and one type size, and wrong for every other.
 
 Contents still lists the book's own chapters or nothing. It never sees a chunk.
+
+**What a review caught that the tests did not, and both were races between a tap and
+a lay-out.** A window takes long enough to lay out that a reader turns pages while one
+is in flight, and two places wrote a stale answer back over them.
+
+*A backward re-anchor was written back blind.* It chooses which page of a new tiling to
+stand on, and that choice is made against the window it started from — so it cannot be
+rebased the way an append can. Tap back, then forward, and the re-anchor landed and
+dragged the reader backwards past the page they had just turned to. Tap back twice
+quickly and two runs started from the same window, computed the same answer, and two
+taps moved them one page. `ReaderLayout.mayAdoptReanchor` adopts it only if the reader
+has not moved, and a tap made while a run is in flight is queued rather than starting a
+second one — `ReaderTransitions.windowed` applies what is queued on top of the window
+that lands.
+
+*And a page turned during a repagination was reverted* — a regression against `main`,
+which resolved the index from the state the pages were applied to rather than from the
+state the lay-out began in. `ReaderWindow.placedAt` does that again, by character
+offset rather than through `pageContaining`, whose fallback to page zero would now
+throw a reader to the top of a window they had read past. The review also caught that
+the new test helper had quietly stopped asserting this at all, by computing the page
+index itself and handing `repaginated` a finished answer to copy. It hands it page zero
+now.
+
+Three smaller ones from the same review: `loadChapter` read the typography before
+suspending and the viewport after, so a type-size change during a chapter load left the
+state claiming pages matched a typography they were never laid out for; `layFor` re-read
+the viewport on each of the up-to-five runs a window takes, so a rotation could
+concatenate pages set in two different columns; and a re-anchor that ran out of attempts
+returned the window unchanged, which is a page turn that silently does nothing.
+
+**Two more the review argued rather than found.** The identity claim has an unstated
+precondition — `measureWindow` stops at the first window in its doubling sequence that
+overflows, so whether it reports `reachedEnd` (which gates the widow pull-back) depends
+on where the doubling lands, and an assumed 80 characters a line sitting at 0.71–0.74 of
+the real figure can break a page differently. Unreachable as shipped, because
+`Measure.widthPx` caps a column at 66 characters — but nothing ties those two constants
+together, so the theorem is now also run at 110 characters a line, inside that band. And
+a viewport shorter than one line of a mid-chapter block flushed empty pages for ever,
+because the escape required the page to be the *chapter's* first. Pre-existing, but
+chunking made it unbounded — a chunk may not end on an empty page, so the budget cannot
+stop it. The escape is now about the page being empty and nothing else, which also closes
+the one hole that had been documented in the chunk/whole-chapter identity.
 
 **What a device still has to answer.** Every number above is measured characters on a
 JVM; none of it is a stopwatch, because there is no phone here.
