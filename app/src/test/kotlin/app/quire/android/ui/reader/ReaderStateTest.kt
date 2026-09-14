@@ -71,6 +71,79 @@ class ReaderStateTest {
         assertNull(ReaderTransitions.previousPage(state()))
     }
 
+    // ------------------------------------------- page turns made during pagination
+
+    /** A chapter long enough to have somewhere to turn to. */
+    private fun longState() = state(text = lorem.repeat(200))
+
+    /** The Reader as it is while a long chapter is still being laid out. */
+    private fun stillPaginating() = longState().copy(pages = emptyList(), pageIndex = 0)
+
+    @Test
+    fun `a page turn asked for before there were pages is honoured when they arrive`() {
+        // Reported from a real phone: on a large book, "initially page change doesn't
+        // work at all". With no pages, nextPage reports that this is the last one,
+        // which the Reader read as a chapter boundary and abandoned — and the chapter
+        // count was not loaded either, so the tap simply vanished.
+        val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = true)
+        assertEquals("nothing to turn to yet", 0, queued.pageIndex)
+
+        val settled = ReaderTransitions.repaginated(queued, queued.chapter, longState().pages, queued.preferences)
+        assertEquals("the tap was thrown away", 1, settled.pageIndex)
+        assertEquals("the turn was applied twice", 0, settled.pendingTurns)
+    }
+
+    @Test
+    fun `three taps during pagination land three pages on`() {
+        var s = stillPaginating()
+        repeat(3) { s = ReaderTransitions.queuedTurn(s, forward = true) }
+        val settled = ReaderTransitions.repaginated(s, s.chapter, longState().pages, s.preferences)
+        assertEquals(3, settled.pageIndex)
+    }
+
+    @Test
+    fun `taps that cancel out leave the reader where they were`() {
+        var s = stillPaginating()
+        s = ReaderTransitions.queuedTurn(s, forward = true)
+        s = ReaderTransitions.queuedTurn(s, forward = false)
+        val settled = ReaderTransitions.repaginated(s, s.chapter, longState().pages, s.preferences)
+        assertEquals(0, settled.pageIndex)
+    }
+
+    @Test
+    fun `turning back before there are pages does not go past the start`() {
+        val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = false)
+        val settled = ReaderTransitions.repaginated(queued, queued.chapter, longState().pages, queued.preferences)
+        assertEquals(0, settled.pageIndex)
+    }
+
+    @Test
+    fun `a queued turn does not run past the end of the chapter`() {
+        // Clamped inside the chapter on purpose. A tap made while the reader could
+        // not see what they were turning is not evidence that they wanted the next
+        // chapter, and loading one from a queue would move them somewhere they never
+        // chose.
+        var s = stillPaginating()
+        repeat(500) { s = ReaderTransitions.queuedTurn(s, forward = true) }
+        val pages = longState().pages
+        val settled = ReaderTransitions.repaginated(s, s.chapter, pages, s.preferences)
+        assertEquals(pages.lastIndex, settled.pageIndex)
+        assertEquals(0, settled.pendingTurns)
+    }
+
+    @Test
+    fun `opening the book applies a turn queued while it was loading`() {
+        // The book opening at where it was left — which is the case those taps were
+        // made in, since there was nothing else on screen to tap at.
+        val queued = ReaderTransitions.queuedTurn(stillPaginating(), forward = true)
+        val chapter = queued.chapter!!
+        val settled = ReaderTransitions.openedChapter(
+            queued, chapter, longState().pages, at = ReadingPosition.START,
+        )
+        assertEquals(1, settled.pageIndex)
+        assertEquals(0, settled.pendingTurns)
+    }
+
     @Test
     fun `book boundaries are recognised`() {
         val s = state()
@@ -119,7 +192,7 @@ class ReaderStateTest {
 
         val bigger = s.preferences.copy(fontSizeSp = 24f)
         val repaged = paginator.paginate(s.chapter!!, viewport, bigger.toSettings(pixelsPerSp = 1f))
-        val after = ReaderTransitions.repaginated(s, repaged, bigger)
+        val after = ReaderTransitions.repaginated(s, s.chapter, repaged, bigger)
 
         // The page number changes; the place in the text does not.
         assertTrue("expected more pages at 24sp", after.pages.size > s.pages.size)
@@ -131,12 +204,56 @@ class ReaderStateTest {
     }
 
     @Test
+    fun `pages laid out for a chapter the reader has left are discarded`() {
+        // Laying out a long chapter takes seconds, and the Contents sheet loads a
+        // chapter in a coroutine the repagination effect does not cancel. Accepting
+        // chapter 3's pages while the state describes chapter 10 leaves `position` a
+        // character offset from one chapter stamped with the other's index — and that
+        // is what gets written to the progress row when the Reader closes, so the book
+        // reopens somewhere the reader has never been.
+        val here = state()
+        val left = here.chapter!!
+        val arrived = here.copy(
+            chapterIndex = 10,
+            chapter = chapter(10, lorem.repeat(40)),
+            pages = paginator.paginate(
+                chapter(10, lorem.repeat(40)), viewport,
+                here.preferences.toSettings(pixelsPerSp = 1f),
+            ),
+        )
+        val stalePages = here.pages
+
+        val after = ReaderTransitions.repaginated(arrived, left, stalePages, arrived.preferences)
+
+        assertEquals("the stale pages were accepted", arrived.pages, after.pages)
+        assertEquals(10, after.position.chapterIndex)
+    }
+
+    @Test
+    fun `a turn queued while loading does not follow the reader into a chapter they chose`() {
+        // Three taps waiting for the book to appear, then the reader opens Contents
+        // and picks a chapter. The taps were for the chapter they were looking at, and
+        // landing three pages into a chapter just chosen is not what they asked for.
+        var s = stillPaginating()
+        repeat(3) { s = ReaderTransitions.queuedTurn(s, forward = true) }
+        val chosen = chapter(7, lorem.repeat(200))
+        val pages = paginator.paginate(
+            chosen, viewport, s.preferences.toSettings(pixelsPerSp = 1f),
+        )
+
+        val after = ReaderTransitions.openedChapter(s, chosen, pages, at = null)
+
+        assertEquals("the queued taps were carried into a chosen chapter", 0, after.pageIndex)
+        assertEquals(0, after.pendingTurns)
+    }
+
+    @Test
     fun `repagination never leaves the page index out of range`() {
         val s = state()
         val far = s.copy(pageIndex = s.pages.lastIndex)
         val smaller = far.preferences.copy(fontSizeSp = 15f)
         val repaged = paginator.paginate(far.chapter!!, viewport, smaller.toSettings(pixelsPerSp = 1f))
-        val after = ReaderTransitions.repaginated(far, repaged, smaller)
+        val after = ReaderTransitions.repaginated(far, far.chapter, repaged, smaller)
         assertTrue(after.pageIndex in after.pages.indices)
     }
 
@@ -283,5 +400,64 @@ class ReaderStateTest {
         // make the list unreadable, which is why sharing borrowed the wrong one.
         val state = pageOpeningWith("The 5 p.m. sun lit up the hotel.", "Palm trees swayed.")
         assertEquals("The 5 p.m. sun lit up the hotel.", state.currentPageSnippet)
+    }
+
+    // -------------------------------------------------------------- chapter header
+
+    /** A chapter shaped the way an EPUB delivers one. */
+    private fun chapterOf(title: String?, vararg blocks: ContentBlock) = Chapter(
+        index = 2, title = title, blocks = blocks.toList(),
+        startCharOffset = 0, charCount = 0,
+    )
+
+    private fun headed(title: String?, vararg blocks: ContentBlock) =
+        state().copy(chapterIndex = 2, chapterTitle = title, chapter = chapterOf(title, *blocks))
+
+    @Test
+    fun `a chapter whose heading repeats its title does not draw the header`() {
+        // Reported from a real phone: "part 1 part 1 comes twice". The chapter opens
+        // with a page break, so the old rule looked at the break instead of the
+        // heading behind it and drew the title above a page that already said it.
+        val state = headed(
+            "Part 1",
+            ContentBlock.PageBreak(sourcePage = 41),
+            ContentBlock.Heading(1, listOf(InlineSpan("Part 1"))),
+            ContentBlock.Paragraph(listOf(InlineSpan(lorem))),
+        )
+        assertFalse("Part 1 was drawn above Part 1", state.showsChapterHeader)
+    }
+
+    @Test
+    fun `a chapter whose heading differs still draws its header`() {
+        val state = headed(
+            "Part 1",
+            ContentBlock.Heading(1, listOf(InlineSpan("The Fall"))),
+            ContentBlock.Paragraph(listOf(InlineSpan(lorem))),
+        )
+        assertTrue("a real chapter title was lost", state.showsChapterHeader)
+    }
+
+    @Test
+    fun `the header only heads the first page`() {
+        val state = headed(
+            "Part 1",
+            ContentBlock.Heading(1, listOf(InlineSpan("The Fall"))),
+            ContentBlock.Paragraph(listOf(InlineSpan(lorem))),
+        )
+        assertFalse(state.copy(pageIndex = 1).showsChapterHeader)
+    }
+
+    @Test
+    fun `the label the header draws is the one the check compares against`() {
+        // Two expressions for "Chapter 3" is how the check and the drawing drift
+        // apart: the chapter says Chapter 3, the header prints Chapter 3, and the
+        // comparison is against something else.
+        val state = headed(
+            null,
+            ContentBlock.Heading(1, listOf(InlineSpan("Chapter 3"))),
+            ContentBlock.Paragraph(listOf(InlineSpan(lorem))),
+        )
+        assertEquals("Chapter 3", state.chapterLabel)
+        assertFalse("Chapter 3 was drawn above Chapter 3", state.showsChapterHeader)
     }
 }

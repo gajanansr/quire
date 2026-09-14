@@ -2063,3 +2063,141 @@ reader's head. It now says "nothing to join".
 the contrast is asserted but the *look* is not; the rotating dial gesture; the guide
 on a genuinely fresh install; and the reminder's expanded notification, where the
 quotation lives.
+
+## 2026-09-15 — Large books, and a chapter title printed twice
+
+Plan: `docs/superpowers/plans/2026-09-15-quire-large-books.md`. Two reports from a
+real phone: *"large books font resize and initially page change and all doesnt work at
+all after some time settles"*, and *"part 1 part 1 comes twice"*.
+
+**The quadratic came back, in blocks instead of characters.** `ChapterOpening`
+answered "does a chapter open here?" with `blocks.take(index).none { it is Paragraph }`
+and `Paginator` asked it once per block, so block *i* copied and scanned *i* blocks.
+Counted rather than guessed — a `List<ContentBlock>` that records every `get`, in the
+spirit of the character counter written for the last one:
+
+| blocks in the chapter | block reads | per block |
+|---|---|---|
+| 500 | 127,301 | 254 |
+| 1,000 | 504,604 | 504 |
+| 2,000 | 2,009,209 | 1,004 |
+| 4,000 | 8,018,420 | 2,004 |
+
+Exactly N/2 + 4, the same doubling signature as the 2026-09-12 substring bug, reached
+by the same books: the one-chapter TXT and the reflowed PDF are where N gets large.
+**Four reads per block afterwards, flat.** The same function also rebuilt the block's
+whole text to ask whether it was blank — `plainText` again, on a path `ReaderScreen`
+runs per drawn slice per recomposition.
+
+In milliseconds, on a warmed JVM with a trivial measurer, so this is the *scan* alone
+and sits on top of whatever real text measurement costs: 0.7 → 0.4 at 500 blocks,
+2.0 → 0.8 at 1,000, 6.3 → 1.5 at 2,000, and **20.0 → 1.8 at 4,000**. The curve is the
+point rather than the numbers.
+
+**Three scheduling faults, one symptom.**
+
+*The cache could never hit.* The first-page header inset was taken from the open
+state, whose page index is wherever the reader is standing, and `showsChapterHeader` is
+false on every page but the first. So the inset was the header's full height on page
+one and zero everywhere else — two keys per chapter in a three-entry cache, and every
+repagination after the first laid the chapter out again. Worse than the wasted work:
+a type-size change made on page seven laid the chapter out with **no room for the
+header the renderer then drew on page one**, and the bottom of that page was clipped
+away. That is the failure `MeasureMatchesRenderTest` exists to catch, arrived at
+through scheduling rather than through a style, which is why the test did not.
+
+*Pagination raced the reader's own typography.* The viewport is reported as soon as the
+page is laid out; the saved font and size are a suspending database read. Losing that
+race laid a long chapter out at the default 19sp serif and then drew it at the saved
+22sp Lora. Nothing repaginated it — so it stayed wrong until the reader touched the
+type stepper themselves, which is what "after some time settles" actually was.
+
+*Nothing cancelled anything.* `applyPreferences` paginated in a coroutine of its own,
+so four taps on the size stepper left four layouts of the same chapter live at once,
+racing to write the state: the size that stuck was whichever finished last, not
+whichever was asked for. And cancelling would not have helped — `paginate` is an
+ordinary function inside `withContext`, so the coroutine dies and the work carries on.
+
+There is one `LaunchedEffect` now, keyed on the viewport and the typography, so Compose
+cancels the run it replaces; `ReaderLayout.requestFor` returns one value carrying the
+inset *and* the cache key so the two cannot be built differently at two sites; and
+`paginate` takes an `isActive` probe checked once per page. It throws rather than
+returning the pages so far, because a short page list is indistinguishable from a short
+chapter and would be cached — and a reading position resolved against it would put the
+reader somewhere they have never been.
+
+**And every tap during pagination vanished.** `nextPage` on an empty page list reports
+that this is the last page; `turn` read that as a chapter boundary and abandoned it,
+because the chapter count had not loaded either. On a book small enough, pagination
+finishes before a finger can land. On a large one it is seconds of taps doing nothing.
+`ReaderState.pendingTurns` remembers them and applies them when the pages arrive,
+clamped inside the chapter: a tap made while the reader could not see what they were
+turning is not evidence that they wanted the next chapter.
+
+**Part 1, Part 1.** `showsChapterHeader` required `blocks.first()` to be a `Heading`
+whose trimmed text equalled the trimmed title, case-insensitively. Real books defeat
+every clause, and eight tests over real chapter shapes fail against that rule: a page
+break, an empty block or a running page number ahead of the heading; a title set as a
+styled paragraph rather than an `<h1>`; `Part&nbsp;1` against `Part 1`; a doubled space
+from a line break inside the tag; a trailing full stop; a soft hyphen; and an untitled
+chapter whose own heading says the "Chapter N" the header would draw.
+
+`ChapterHeading` finds the first of the leading blocks that carries a letter — which is
+what steps over the break, the blank and the page number — and compares letters and
+digits only, case-folded, walking both strings rather than reducing them to two new
+ones. That last part matters: this is asked on every recomposition and the opening
+block can be the whole book.
+
+**The line that must not move:** a heading that genuinely differs from the title is a
+real chapter title, and hiding its header loses it. The comparison is an equality, and
+six negative tests hold it — a subtitle, a differing heading, a paragraph that merely
+begins with the title, and a chapter whose heading is only the label while it has a
+title of its own.
+
+**Three more the review found, two of them sharper than anything above.**
+
+*Pages for one chapter could be written onto another.* The repagination effect captures
+its chapter before it suspends and re-reads the state after, and the Contents sheet
+loads a chapter in a coroutine that effect does not cancel. Pick a new chapter while a
+long one is still laying out and the state ends up describing chapter 10 with chapter
+3's page breaks — so `position` is a character offset from one chapter stamped with the
+other's index, and `onDispose` writes it to the progress row. The book then reopens
+somewhere the reader has never been. `repaginated` now takes the chapter the pages were
+laid out *for* and discards them when it is not the one in hand. The guard lives in the
+transition, not at the call site, because there is no call site that may skip it.
+
+*The header inset under-budgeted, and clipped the page it heads.* The estimate was a
+multiple of the **body** line height, but the header is drawn at fixed theme sizes —
+`labelSmall` at 14sp and `headlineLarge` at 34sp — plus two gaps in dp. So it shrank
+exactly when the reader chose small type: at 15sp it came up eight points short of a
+two-line title, and three-line titles were short at 19sp too. Carried over unchanged
+from before this work, but this is where it became reachable, because before the fix
+above the inset was usually wrongly zero, which is worse. It is now arithmetic over
+what `ReaderScreen` draws, term for term, with the title's line count the only guess —
+rounded up, floored at two, capped at four, because one line too many is whitespace and
+one line too few is a sentence cut in half.
+
+*A turn queued during pagination followed the reader into a chapter they chose.* Tap
+three times waiting for the book, then pick a chapter from Contents, and you landed on
+its page three. Queued turns are now honoured only when opening *at* a position, which
+is the book resuming — a chapter opened with no position is a deliberate jump.
+
+Also from the review: the loading screen drew "Chapter 1" above a book being resumed in
+chapter 12, because the header answered "yes" for a chapter that did not exist yet —
+and waiting for the typography lengthened that window. And finding where a chapter opens
+is now hoisted out of the render loop as well as the paginator's.
+
+The header's measurements are now pinned against `QuireTypography` by a test, so
+restyling the header fails the gate instead of quietly clipping the page it heads —
+which is the same trick `BlockStyles` plays for every other kind of block.
+
+One finding was declined. `typographyLoaded` has no failure path, and wrapping the
+settings read in `finally` would set it on *cancellation* too — paginating the book at
+default typography precisely when the effect was being torn down. Degrading properly
+would mean swallowing a database error, which this codebase does not do.
+
+**What a device still has to answer.** Every fault above was fixed against a property a
+JVM test can state; none of them was fixed against a stopwatch, because there is no
+phone here. The 276-page book is the check.
+
+Gates: 849 JVM tests (357 `:core` + 492 `:app`), 0 failures. 56 added.

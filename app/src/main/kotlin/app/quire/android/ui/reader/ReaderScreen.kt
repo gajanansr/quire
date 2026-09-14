@@ -256,7 +256,9 @@ private fun PageContent(
                 ),
             )
             Text(
-                text = "Chapter ${state.chapterIndex + 1}",
+                // The same expression the "does the chapter already say this?" check
+                // compares against, so the two cannot drift into disagreeing.
+                text = state.chapterLabel,
                 color = colors.muted,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.labelSmall,
@@ -282,6 +284,11 @@ private fun PageContent(
         // the last — is space the page was never laid out for, and it pushes the
         // final line off the bottom.
         val settings = state.preferences.toSettings(with(density) { 1.sp.toPx() })
+        // Found once for the page, not once per block drawn on it. The search stops at
+        // the chapter's first paragraph, so it is usually a step or two — but a chapter
+        // with no paragraph at all (a plates section, a reflow that produced only
+        // headings) walks every block, and asking per slice did that on every frame.
+        val openingIndex = ChapterOpening.openingIndex(chapter.blocks)
         page.slices.forEachIndexed { position, slice ->
             val block = chapter.blocks.getOrNull(slice.blockIndex) ?: return@forEachIndexed
             // The chapter's cached text, not block.plainText: this runs for every
@@ -307,8 +314,8 @@ private fun PageContent(
                 indented = Indentation.shouldIndent(
                     chapter.blocks, slice.blockIndex, slice.startChar,
                 ),
-                opensChapter = ChapterOpening.isChapterOpening(
-                    chapter.blocks, slice.blockIndex, slice.startChar,
+                opensChapter = ChapterOpening.opensChapter(
+                    openingIndex, slice.blockIndex, slice.startChar,
                 ),
                 // Marks are cut to this slice here, where both the span and the
                 // slice are in hand. A highlight stated in chapter coordinates and

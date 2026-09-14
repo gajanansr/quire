@@ -2,8 +2,8 @@ package app.quire.android.ui.reader
 
 import app.quire.android.ui.theme.ReaderFont
 import app.quire.core.model.Chapter
-import app.quire.core.model.ContentBlock
 import app.quire.core.model.ReadingPosition
+import app.quire.core.paginate.ChapterHeading
 import app.quire.core.paginate.Page
 import app.quire.core.paginate.TypographySettings
 import app.quire.core.paginate.pageContaining
@@ -14,6 +14,37 @@ import app.quire.core.reading.TextSpan
 
 /** Which overlay, if any, is covering the page. */
 enum class ReaderOverlay { NONE, CONTENTS, TYPOGRAPHY, BOOKMARK }
+
+/**
+ * What the chapter header's small line reads, for a chapter at [index].
+ *
+ * One expression. The header drew it and the share card fell back to it, each with
+ * its own copy; the third caller — deciding whether the chapter's own heading already
+ * says it — has to compare against exactly the string the header draws, and two
+ * copies of a string are two chances for that comparison to be against the wrong one.
+ */
+fun chapterLabelFor(index: Int): String = "Chapter ${index + 1}"
+
+/**
+ * Whether the Reader draws its header above [chapter] on page [pageIndex].
+ *
+ * A free function, not only a property of the open state, because the question has
+ * to be answerable about a chapter that is *not* open yet: the paginator has to
+ * budget the header's height into the first page before the chapter it is
+ * paginating reaches the state. Asking the open state answered for the chapter being
+ * left, at the page index the reader was standing on — see [ReaderLayout].
+ */
+fun showsChapterHeaderFor(chapter: Chapter?, pageIndex: Int): Boolean {
+    if (pageIndex != 0) return false
+    // No chapter, no chapter header. This used to answer `true`, and the Reader draws
+    // the header above the guard that returns early when there is nothing to draw —
+    // so for the whole pre-pagination window a reader resuming in chapter 12 was shown
+    // a sink and the words "Chapter 1". Waiting for the saved typography lengthened
+    // that window by a database read, which is what made it worth noticing.
+    val ch = chapter ?: return false
+    // The label of the chapter being asked about, not of whichever is open.
+    return !ChapterHeading.repeatsHeader(ch.blockTexts, ch.title, chapterLabelFor(ch.index))
+}
 
 data class ReaderPreferences(
     val font: ReaderFont = ReaderFont.SERIF,
@@ -66,6 +97,16 @@ data class ReaderState(
     val selectionAnchor: TextAnchor? = null,
     /** Saved highlights for the open chapter, drawn on whichever page shows them. */
     val highlights: List<TextSpan> = emptyList(),
+    /**
+     * Page turns asked for before there were any pages to turn, net of direction.
+     *
+     * A large book spends seconds being paginated, and every tap in that window used
+     * to vanish: with no pages, "next page" reports that this is the last one, which
+     * the Reader read as a chapter boundary and abandoned. The reader taps, nothing
+     * moves, and the first tap that works is the first one after pagination finished
+     * — which is what "initially page change doesn't work at all" was.
+     */
+    val pendingTurns: Int = 0,
 ) {
     val pageCount: Int get() = pages.size
 
@@ -96,23 +137,19 @@ data class ReaderState(
             return (consumed.toDouble() / bookTotalChars).coerceIn(0.0, 1.0)
         }
 
+    /** What the header's small line reads for the open chapter. */
+    val chapterLabel: String get() = chapterLabelFor(chapterIndex)
+
     /**
      * Whether to draw the chapter header above the text.
      *
-     * Suppressed when the chapter's own first block is a heading saying the same
-     * thing — most EPUBs open a chapter with an `<h1>` of its title, and drawing
-     * both prints the title twice.
+     * Suppressed when the chapter's own opening already says the same thing — most
+     * EPUBs open a chapter with an `<h1>` of its title, and drawing both prints the
+     * title twice. See [ChapterHeading] for why matching on the first block's exact
+     * characters was not enough on a real book.
      */
     val showsChapterHeader: Boolean
-        get() {
-            if (pageIndex != 0) return false
-            val ch = chapter ?: return true
-            val first = ch.blocks.firstOrNull() ?: return true
-            if (first !is ContentBlock.Heading) return true
-            val heading = ch.blockTexts.firstOrNull()?.trim().orEmpty()
-            val title = chapterTitle?.trim().orEmpty()
-            return !heading.equals(title, ignoreCase = true)
-        }
+        get() = showsChapterHeaderFor(chapter, pageIndex)
 
     val hasSelection: Boolean get() = selection != null && selection.isEmpty.not()
 
@@ -196,38 +233,93 @@ object ReaderTransitions {
         if (state.atFirstPage) null else state.copy(pageIndex = state.pageIndex - 1)
 
     /**
+     * Remembers a page turn asked for while there was nothing to turn.
+     *
+     * Kept as a count and a direction rather than a queue of events: what the reader
+     * means by three taps during a long pagination is "three pages on", and replaying
+     * three separate turns against a page list that arrives all at once means the
+     * same thing.
+     */
+    fun queuedTurn(state: ReaderState, forward: Boolean): ReaderState =
+        state.copy(pendingTurns = state.pendingTurns + if (forward) 1 else -1)
+
+    /**
+     * Applies the turns that were asked for before the pages existed.
+     *
+     * Clamped inside the chapter rather than carried across a boundary. A tap made
+     * while the reader could not see what they were turning is not evidence that they
+     * wanted the next chapter, and loading one from a queue would move them somewhere
+     * they never chose.
+     */
+    private fun withPendingTurnsApplied(state: ReaderState): ReaderState {
+        if (state.pendingTurns == 0) return state
+        if (state.pages.isEmpty()) return state
+        val target = (state.pageIndex + state.pendingTurns).coerceIn(0, state.pages.lastIndex)
+        return state.copy(pageIndex = target, pendingTurns = 0)
+    }
+
+    /**
      * Re-pages after a typography change, keeping the reader where they were.
      *
      * The page index is meaningless across a repagination — this is the moment the
      * character-offset position earns its place.
+     *
+     * [chapter] is the chapter the pages were laid out *for*, and pages laid out for
+     * one chapter are discarded rather than written onto another. Laying out a long
+     * chapter takes seconds, and the Contents sheet loads a chapter in a coroutine
+     * the repagination effect does not cancel — so the reader can be in chapter 10 by
+     * the time chapter 3's pages arrive. Accepting them would leave the state
+     * describing chapter 10 with chapter 3's page breaks, and `position` would then
+     * be a character offset from chapter 3 stamped with chapter 10's index. That gets
+     * written to the progress row when the Reader closes, so the next time the book
+     * is opened it lands somewhere the reader has never been. The guard is here
+     * rather than at the call site because there is no call site that may skip it.
      */
     fun repaginated(
         state: ReaderState,
+        chapter: Chapter?,
         pages: List<Page>,
         preferences: ReaderPreferences,
     ): ReaderState {
+        if (state.chapter !== chapter) return state.copy(preferences = preferences)
         val anchor = state.position
-        return state.copy(
-            pages = pages,
-            pageIndex = pages.pageContaining(anchor).coerceIn(0, (pages.size - 1).coerceAtLeast(0)),
-            preferences = preferences,
+        return withPendingTurnsApplied(
+            state.copy(
+                pages = pages,
+                pageIndex = pages.pageContaining(anchor)
+                    .coerceIn(0, (pages.size - 1).coerceAtLeast(0)),
+                preferences = preferences,
+            )
         )
     }
 
-    /** Opens a chapter at a given position, or at its start. */
+    /**
+     * Opens a chapter at a given position, or at its start.
+     *
+     * Turns queued during pagination are honoured only when opening *at* a position —
+     * which is the book being opened at where it was left, the case those taps were
+     * made in. A chapter opened with no position is a deliberate jump: the Contents
+     * sheet, or crossing a boundary. Carrying the taps there would take a reader who
+     * tapped three times waiting for their own chapter to appear and drop them on
+     * page three of a chapter they had only just chosen.
+     */
     fun openedChapter(
         state: ReaderState,
         chapter: Chapter,
         pages: List<Page>,
         at: ReadingPosition?,
-    ): ReaderState = state.copy(
-        loading = false,
-        chapterIndex = chapter.index,
-        chapterTitle = chapter.title,
-        chapter = chapter,
-        pages = pages,
-        pageIndex = at?.let { pages.pageContaining(it) } ?: 0,
-    )
+    ): ReaderState {
+        val opened = state.copy(
+            loading = false,
+            chapterIndex = chapter.index,
+            chapterTitle = chapter.title,
+            chapter = chapter,
+            pages = pages,
+            pageIndex = at?.let { pages.pageContaining(it) } ?: 0,
+        )
+        return if (at == null) opened.copy(pendingTurns = 0)
+        else withPendingTurnsApplied(opened)
+    }
 
     fun withChrome(state: ReaderState, visible: Boolean): ReaderState =
         state.copy(chromeVisible = visible)

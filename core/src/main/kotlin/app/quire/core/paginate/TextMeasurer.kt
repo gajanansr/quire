@@ -240,10 +240,34 @@ object ChapterOpening {
     fun sinkPx(viewportHeightPx: Float): Float = viewportHeightPx * SINK_RATIO
 
     /**
-     * Whether this block is the one a chapter opens with.
+     * Which block a chapter's prose begins at, or -1 if none does.
      *
      * The first paragraph, not the first block: a chapter usually begins with its
-     * own heading, and the letter to set large is the one that starts the prose.
+     * own heading, and the letter to set large is the one that starts the prose. A
+     * first paragraph with nothing in it opens nothing, and nothing later takes its
+     * place — a chapter has one opening or none.
+     *
+     * Stops at the first paragraph rather than walking the chapter, and asks the
+     * spans whether they are blank rather than joining them into a string to ask.
+     * Both matter: this used to be `blocks.take(index).none { it is Paragraph }`
+     * called once per block, which read each block N/2 times — 2,005 reads per block
+     * on a four-thousand-block chapter, the substring bug of 2026-09-12 in a new
+     * place — and it rebuilt the paragraph's whole text every time, on the render
+     * path, per frame, which is the allocation `Chapter.blockTexts` exists to avoid.
+     */
+    fun openingIndex(blocks: List<ContentBlock>): Int {
+        val index = blocks.indexOfFirst { it is ContentBlock.Paragraph }
+        if (index < 0) return -1
+        val paragraph = blocks[index] as ContentBlock.Paragraph
+        val hasWords = paragraph.spans.any { span ->
+            span.text.any { !it.isWhitespace() }
+        }
+        return if (hasWords) index else -1
+    }
+
+    /**
+     * Whether this block is the one a chapter opens with.
+     *
      * Never a continuation — a paragraph carried over from the previous page has
      * already begun, and a raised initial mid-sentence is nonsense.
      */
@@ -251,13 +275,16 @@ object ChapterOpening {
         blocks: List<ContentBlock>,
         index: Int,
         startChar: Int,
-    ): Boolean {
-        if (startChar > 0) return false
-        val block = blocks.getOrNull(index) ?: return false
-        if (block !is ContentBlock.Paragraph) return false
-        if (block.spans.joinToString("") { it.text }.isBlank()) return false
-        return blocks.take(index).none { it is ContentBlock.Paragraph }
-    }
+    ): Boolean = opensChapter(openingIndex(blocks), index, startChar)
+
+    /**
+     * The same question, asked against an [openingIndex] worked out in advance.
+     *
+     * For callers in a loop over every block of a chapter, so the answer costs one
+     * comparison rather than a fresh search.
+     */
+    fun opensChapter(openingIndex: Int, index: Int, startChar: Int): Boolean =
+        startChar == 0 && openingIndex >= 0 && index == openingIndex
 }
 
 /**
