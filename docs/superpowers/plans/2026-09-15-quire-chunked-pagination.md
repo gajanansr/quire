@@ -3,11 +3,19 @@
 > **For agentic workers:** steps use checkbox (`- [x]`) syntax. Gate on
 > `./scripts/check.sh` before every commit. Never commit red.
 >
-> **Complete.** 418 `:core` + 648 `:app` tests, 0 failures. Three things the plan got
-> wrong are corrected in place, each marked and each caught by a test rather than by
-> reading: where a backward seam puts the reader, that the window anchor has to be
-> snapped to a grid or the book walks backwards, and that a chapter opening with a
-> page break does not start at `TextAnchor(0, 0)` unless it is made to.
+> **Complete.** 418 `:core` + 653 `:app` tests, 0 failures. Five things the plan did
+> not foresee are corrected in place and marked:
+>
+> 1. Where a backward seam puts the reader — the plan's answer skipped most of a page.
+> 2. The window anchor has to be snapped to a grid, or reopening walks the book
+>    backwards.
+> 3. A chapter opening with a page break does not start at `TextAnchor(0, 0)` unless
+>    it is made to.
+> 4. Growth and repagination are two effects, so a window can be grown at one type
+>    size and measured at another; `ReaderLayout.mayGrowWindow` is the rule that stops
+>    it.
+> 5. Laying out an extension and appending it have to be separate calls, or a page
+>    turned while the lay-out ran is written back over.
 
 **Goal:** *The Love Hypothesis* — a 315-page PDF with no usable outline, imported as
 **one chapter of 8,621 blocks and 565,896 characters** — must open at once and must

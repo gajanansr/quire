@@ -2306,7 +2306,7 @@ classification. No new dependencies, no version bumps, no manifest change.
 
 `agent/chunked-pagination`, plan at
 `docs/superpowers/plans/2026-09-15-quire-chunked-pagination.md`, eight tasks, all
-ticked. **1,066 JVM tests (418 `:core` + 648 `:app`), 0 failures**, 59 added.
+ticked. **1,071 JVM tests (418 `:core` + 653 `:app`), 0 failures**, 64 added.
 
 *The Love Hypothesis*, a 315-page PDF, imports as **one chapter: 8,621 blocks,
 565,896 characters**. Its outline is unusable, so `ChapterDetector` correctly falls
@@ -2395,6 +2395,25 @@ came back at `(218, 640)`, and every open would have taken it back another fract
 a page. `ReaderWindow.anchorOffset` snaps to a grid of half `charsBehind`, so every
 place in a band gives the same start, the tiling is the same, and a saved page top is
 still a page top. Three opens and closes, and the second and third are identical.
+
+*Two effects could write two different page lists.* Growth and repagination are
+separate effects — they have to be, because one is keyed on the reader's position and
+the other must not be — so a reader who tapped A+ while near the window's edge had the
+extension, laid out at the *new* size, appended to pages laid out at the *old* one.
+Half one measurement and half another, in one page list: the renderer draws more lines
+than were budgeted, and the reader's character offset resolves against breaks that do
+not exist. That is the same class of fault as the four concurrent paginations of the
+last round, arrived at from the other direction. `ReaderState.windowLayout` records
+what the pages in hand were measured against, and `ReaderLayout.mayGrowWindow` is the
+one rule both call sites ask. A turn made in that window is queued rather than
+swallowed.
+
+*And a page turned during a prefetch was undone by it.* Laying out twelve pages takes
+tens of milliseconds, and a reader three pages from the edge is reading — so they turn
+a page while it runs. Appending to the window captured *before* the lay-out started
+wrote that window's page index back and put them silently on the page they had been on
+when it began. Laying out and appending are two calls now, and the append takes the
+window as it is at the moment it happens.
 
 *A chapter that opens with a `PageBreak` did not start at `TextAnchor(0, 0)`.*
 `Chapter.cursorAt` steps over blocks with no characters — correctly, since a cursor
