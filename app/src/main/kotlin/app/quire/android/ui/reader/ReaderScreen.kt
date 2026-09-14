@@ -36,7 +36,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -120,9 +119,15 @@ fun ReaderScreen(
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
 
-    // Where every drawn word is, rebuilt for each page. Keyed on the page so a stale
-    // entry can never resolve a touch to a character that has moved.
-    val textMap = remember(state.chapterIndex, state.pageIndex) { PageTextMap() }
+    // Where every drawn word is, rebuilt for each page. Keyed on the page *itself*,
+    // not on its number: a typography change re-pages and lands the reader on the
+    // same index more often than not — always on a chapter's first page. Keyed on the
+    // index alone the map was reused, and blocks that had fallen off the page kept
+    // their old rows. A press low on the page could then resolve into a block that
+    // was no longer on screen, light up, and save a highlight against text the reader
+    // never touched.
+    val page = state.currentPage
+    val textMap = remember(state.chapterIndex, state.pageIndex, page) { PageTextMap() }
     val selecting = state.hasSelection
     val handleRadiusPx = with(density) { HANDLE_RADIUS.toPx() }
 
@@ -146,18 +151,35 @@ fun ReaderScreen(
     // it is: a handle drag is not a new selection, and starting one would throw away
     // the passage the reader is in the middle of adjusting.
     val holding = remember { mutableStateOf<SelectionEdge?>(null) }
-    // Set while a long press is sweeping out a passage. The drag loop stands down
-    // then: a sweep that starts on the right edge and runs down the page is a
-    // selection, and without this it would extend the passage *and* dim the screen at
-    // the same time — the two gestures are only told apart by movement, and this one
-    // has already declared itself by being held.
+    // The two halves of telling a long press apart from a drag, one for each order
+    // the two can happen in.
+    //
+    // [sweeping]: the press got there first, by being held past its timeout. The drag
+    // loop stands down — a sweep that starts on the right edge and runs down the page
+    // is a selection, and without this it would extend the passage *and* dim the
+    // screen at once.
+    //
+    // [dragging]: the drag got there first, by moving past touch slop. The long press
+    // stands down. It has to be told: `awaitLongPressOrCancellation` has **no slop
+    // check** — disassembling foundation 1.12.1 shows it watching only consumption,
+    // out-of-bounds and pointer-up — so its timer runs out under a moving finger like
+    // any other. A slow page-turn swipe held past 500ms would otherwise pop a
+    // selection under the thumb mid-swipe and swallow the page turn.
     val sweeping = remember { mutableStateOf(false) }
+    val dragging = remember { mutableStateOf(false) }
 
-    // Session brightness, and the level bar that shows it. Saveable so a rotation
-    // does not snap the screen back; deliberately *not* stored, because a brightness
-    // chosen in a dark room is the wrong one to restore in daylight and the reader
-    // cannot see the gesture that would fix it. See ScreenBrightness.
-    var brightness by rememberSaveable { mutableFloatStateOf(ScreenBrightness.FOLLOW_SYSTEM) }
+    // Session brightness, and the level bar that shows it. Deliberately *not* stored,
+    // because a brightness chosen in a dark room is the wrong one to restore in
+    // daylight and the reader cannot see the gesture that would fix it — see
+    // ScreenBrightness.
+    //
+    // Plain `remember`, and `rememberSaveable` would be actively wrong. A rotation
+    // destroys this activity, `QuireRoot` holds the open book in a plain `remember`,
+    // so the reader comes back to the Library and this composable never runs to
+    // consume the saved value. An unconsumed entry is re-saved on every save after
+    // that, and the *next* book they open would inherit a level set in another room
+    // hours earlier: exactly the failure this design exists to avoid.
+    var brightness by remember { mutableFloatStateOf(ScreenBrightness.FOLLOW_SYSTEM) }
     var brightnessShown by remember { mutableStateOf(false) }
     var brightnessHeld by remember { mutableStateOf(false) }
     var pageSize by remember { mutableStateOf(IntSize.Zero) }
@@ -183,22 +205,32 @@ fun ReaderScreen(
             // *root*. Left unreconciled, a long press selected a word a status bar
             // higher than the finger. See PageTextMap.origin.
             .onGloballyPositioned { textMap.origin = it.positionInRoot() }
-            // Outermost, so it sees a touch last. The long press needs no
-            // disambiguating of its own: Compose's detector cancels itself the moment
-            // the pointer travels past touch slop, which is exactly what stops a
-            // page-turn or brightness drag from also starting a selection.
-            .pointerInput(state.chapterIndex, state.pageIndex) {
+            // Outermost, so it sees a touch last — and last is where it has to be,
+            // because it is the one detector that cannot judge for itself. Its timer
+            // is wall-clock: it will fire under a finger that has been sweeping across
+            // the page for half a second. The drag loop below consumes once it has
+            // classified, which cancels this, and [dragging] says the same thing a
+            // second way in case an ordering surprise gets past the consumption.
+            .pointerInput(state.chapterIndex, state.pageIndex, page) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { offset ->
-                        if (holding.value != null) return@detectDragGesturesAfterLongPress
+                        if (holding.value != null || dragging.value) {
+                            return@detectDragGesturesAfterLongPress
+                        }
                         sweeping.value = true
                         textMap.anchorAt(offset)?.let {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             onSelectionStart(it)
                         }
                     },
+                    // Gated on `sweeping` rather than on the guards above: when the
+                    // press was refused there is no passage this drag may touch, and
+                    // extending on it would grow whatever selection happened to be
+                    // left over from before.
                     onDrag = { change, _ ->
-                        if (holding.value != null) return@detectDragGesturesAfterLongPress
+                        if (!sweeping.value || holding.value != null) {
+                            return@detectDragGesturesAfterLongPress
+                        }
                         textMap.anchorAt(change.position)?.let(onSelectionExtend)
                     },
                     onDragEnd = { sweeping.value = false },
@@ -208,7 +240,7 @@ fun ReaderScreen(
             // Tap, page turn and brightness in one loop, because they are one
             // decision. Three detectors each guessing on their own is how a reader
             // ends up two pages further on when they meant to dim the screen.
-            .pointerInput(state.chapterIndex, state.pageIndex) {
+            .pointerInput(state.chapterIndex, state.pageIndex, page) {
                 val slop = viewConfiguration.touchSlop
                 val longPress = viewConfiguration.longPressTimeoutMillis
                 awaitEachGesture {
@@ -219,54 +251,72 @@ fun ReaderScreen(
                     // Null until the finger has travelled far enough to mean
                     // something. Decided once and then held: re-deciding every frame
                     // makes a diagonal drag flicker between turning and dimming.
+                    // DragIntent.NONE is a decision too — "this drag means nothing" —
+                    // and is not the same as not having decided yet.
                     var intent: DragIntent? = null
                     var lifted = down
 
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        // A handle took this gesture. It is innermost and consumes,
-                        // so this is how the page hears about it.
-                        if (change.isConsumed) return@awaitEachGesture
-                        lifted = change
-                        if (!change.pressed) break
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                                ?: break
+                            // A handle took this gesture. It is innermost and
+                            // consumes, so this is how the page hears about it.
+                            if (change.isConsumed) return@awaitEachGesture
+                            lifted = change
+                            if (!change.pressed) break
 
-                        dx += change.positionChange().x
-                        dy += change.positionChange().y
+                            dx += change.positionChange().x
+                            dy += change.positionChange().y
 
-                        if (intent == null && max(abs(dx), abs(dy)) >= slop) {
-                            // The long press got there first, which it can only have
-                            // done by being held past its timeout. This finger is
-                            // choosing words, not turning a page or dimming a screen.
-                            if (sweeping.value) return@awaitEachGesture
-                            intent = ReaderGestures.intentOf(
-                                down.position.x, size.width.toFloat(), dx, dy, slop,
-                            )
-                            if (intent == DragIntent.BRIGHTNESS) {
-                                // Seeded from the system on the very first drag, so
-                                // the screen moves from where it already is instead
-                                // of jumping to an invented starting point.
-                                if (brightness == ScreenBrightness.FOLLOW_SYSTEM) {
-                                    brightness = context.systemBrightnessSeed()
+                            if (intent == null && max(abs(dx), abs(dy)) >= slop) {
+                                // The long press got there first, which it can only
+                                // have done by being held past its timeout. This
+                                // finger is choosing words, not turning a page.
+                                if (sweeping.value) return@awaitEachGesture
+                                intent = ReaderGestures.intentOf(
+                                    down.position.x, size.width.toFloat(), dx, dy, slop,
+                                )
+                                dragging.value = true
+                                if (intent == DragIntent.BRIGHTNESS) {
+                                    // Seeded from the system on the very first drag,
+                                    // so the screen moves from where it already is
+                                    // instead of from an invented starting point.
+                                    if (brightness == ScreenBrightness.FOLLOW_SYSTEM) {
+                                        brightness = context.systemBrightnessSeed()
+                                    }
+                                    brightnessHeld = true
+                                    brightnessShown = true
+                                    lastY = change.position.y
                                 }
-                                brightnessHeld = true
-                                brightnessShown = true
+                            }
+
+                            if (intent == DragIntent.BRIGHTNESS) {
+                                brightness = ScreenBrightness.dragged(
+                                    current = brightness,
+                                    dragPx = change.position.y - lastY,
+                                    trackPx = size.height.toFloat(),
+                                )
                                 lastY = change.position.y
                             }
-                        }
 
-                        if (intent == DragIntent.BRIGHTNESS) {
-                            brightness = ScreenBrightness.dragged(
-                                current = brightness,
-                                dragPx = change.position.y - lastY,
-                                trackPx = size.height.toFloat(),
-                            )
-                            lastY = change.position.y
-                            change.consume()
+                            // Once this gesture is a drag it is not also a long press,
+                            // and consuming is the only way to say so — the long-press
+                            // detector has no slop check and would otherwise fire
+                            // under a finger that has been swiping for half a second.
+                            // Every classification consumes, DragIntent.NONE included:
+                            // a drag that means nothing still is not a long press.
+                            if (intent != null) change.consume()
                         }
+                    } finally {
+                        // Not the last statements of the block: a repagination while
+                        // the finger is down changes this pointer input's keys, which
+                        // resets it by throwing through here. Left unhandled that
+                        // pinned the level bar on screen for the rest of the session.
+                        dragging.value = false
+                        if (intent == DragIntent.BRIGHTNESS) brightnessHeld = false
                     }
-
-                    if (intent == DragIntent.BRIGHTNESS) brightnessHeld = false
 
                     when {
                         // A page turn while a passage is chosen would take the page
@@ -305,9 +355,12 @@ fun ReaderScreen(
             // before anything above can read it as a tap or a page turn. This is the
             // whole of the disambiguation between grabbing a handle and everything
             // else — it is not a question of thresholds.
-            .pointerInput(state.chapterIndex, state.pageIndex) {
+            .pointerInput(state.chapterIndex, state.pageIndex, page) {
                 awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
+                    // Unconsumed only: the action bar is a child and so is deeper
+                    // still, and it consumes its own press. Where it overlaps a
+                    // handle's grab area, the button the reader can see wins.
+                    val down = awaitFirstDown(requireUnconsumed = true)
                     val found = liveCarets ?: return@awaitEachGesture
                     val edge = SelectionHandles.grabbed(
                         down.position, found.start, found.end, handleRadiusPx,
@@ -327,25 +380,33 @@ fun ReaderScreen(
                     )
 
                     var last: TextAnchor? = null
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        change.consume()
-                        if (!change.pressed) break
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                                ?: break
+                            change.consume()
+                            if (!change.pressed) break
 
-                        val at = textMap.anchorAt(change.position - grip) ?: continue
-                        if (at == last) continue
-                        last = at
-                        // The only "which character am I on" signal there is without
-                        // a magnifier, and the one Android itself gives. A tick per
-                        // character is what makes a handle feel attached to the text
-                        // rather than to the finger.
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onHandleMove(at)
+                            val at = textMap.anchorAt(change.position - grip) ?: continue
+                            if (at == last) continue
+                            last = at
+                            // The only "which character am I on" signal there is
+                            // without a magnifier, and the one Android itself gives.
+                            // A tick per character is what makes a handle feel
+                            // attached to the text rather than to the finger.
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onHandleMove(at)
+                        }
+                    } finally {
+                        // Must be a finally. This pointer input is reset when its keys
+                        // change — a repagination while a handle is held does it — and
+                        // that throws straight through the loop. Leaving `holding` set
+                        // would disable long-press selection for the rest of the
+                        // session, silently and with nothing to point at.
+                        holding.value = null
+                        onHandleRelease()
                     }
-
-                    holding.value = null
-                    onHandleRelease()
                 }
             },
     ) {

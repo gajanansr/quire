@@ -84,14 +84,6 @@ class PageTextMap {
         revision++
     }
 
-    fun clear() {
-        if (entries.isEmpty()) return
-        entries.clear()
-        revision++
-    }
-
-    val isEmpty: Boolean get() = entries.isEmpty()
-
     /**
      * The character under [point], in the root's coordinate space.
      *

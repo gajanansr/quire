@@ -28,10 +28,12 @@ enum class TapZone { PREVIOUS, CHROME, NEXT }
  * are classified once, here, and the classification is then held for the rest of the
  * gesture.
  *
- * The long press is not in this decision because it does not need to be: Compose's
- * long-press detector cancels itself the instant the pointer travels past touch slop,
- * so a drag of any kind has already ruled out a selection by the time [intentOf] has
- * anything to say. That is a mechanism, not a timing accident.
+ * The long press is not in this decision, but it does have to be *told* about it.
+ * `awaitLongPressOrCancellation` has no slop check of its own — it watches only
+ * consumption, out-of-bounds and pointer-up — so its timer expires under a finger
+ * that has been sweeping across the page for half a second, and a slow page-turn
+ * swipe would pop a selection under the thumb. The drag loop therefore consumes as
+ * soon as [intentOf] has answered anything at all, which is what cancels it.
  */
 object ReaderGestures {
 
