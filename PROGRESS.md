@@ -1897,3 +1897,72 @@ gate rather than by a confusing afternoon. `FIXTURE_VERSION` is 6.
 **793 tests, 0 failures.** Site live at https://gajanansr.github.io/quire/, repository
 at https://github.com/gajanansr/quire (GitHub redirects the old URLs). Verified on the
 device: installs as a fresh package, onboards from scratch, icon and label correct.
+
+## 2026-09-15 — Selection you can actually grab, and brightness on the right edge
+
+Two complaints from the phone, both in the Reader's gesture layer: *"the text
+selection doesnt work well like it works on other apps"* and *"scroll down on right
+side should adjust the brightness"*.
+
+**The largest cause of the first was not selection at all — it was arithmetic.** A
+drawn block registers `positionInRoot()`. A touch arrives in the coordinates of the
+composable that caught it. Those are not the same space: `QuireRoot` wraps the whole
+app in a `statusBarsPadding()`, so the Reader's surface begins a status bar below the
+root, and every touch was compared against text positions 70–140px taller than
+itself. A long press took a word one to three lines **above** the finger. No amount
+of handles rescues a hit test aiming at the wrong line, so this went first.
+`PageTextMap` now holds the page's own origin and states every answer in the page's
+coordinates.
+
+**What selection does now.** Two teardrop handles with a caret bar at each end, drawn
+in an overlay so they change no text metric — `MeasureMatchesRenderTest` stays true
+with a selection open. Either handle can be grabbed after the finger lifts and
+dragged character by character; dragging one past the other swaps which end is held
+rather than stopping dead; a drag onto the anchor is refused, because an empty span
+makes `hasSelection` false and would take the handles off screen mid-gesture. The
+press-and-drag sweep works in whole words in the direction of travel, and keeps the
+pressed word — it used to anchor on that word's *start*, so sweeping backwards
+dropped the word under the finger out of its own selection. A tap on the chosen words
+keeps them; only a tap elsewhere clears. The action bar moves to the top of the page
+when the passage is low on it, instead of sitting on the words it offers to copy. A
+haptic tick per character is the "which character am I on" signal, chosen over a
+magnifier: `Modifier.magnifier` is API 28+ and its failure mode is a lens in the
+wrong place, which reads as more broken than none at all.
+
+**Four gestures, disambiguated by mechanism rather than by luck.** Tap, page-turn
+drag and brightness drag were three pointer-input modifiers each guessing on its own;
+they are one `awaitEachGesture` loop that classifies the drag once, from the first
+movement past touch slop, and then holds that classification — re-deciding every
+frame makes a diagonal drag flicker between turning and dimming. Ties go to the page
+turn, which is the commoner intent and the recoverable one. The long press needs no
+threshold of its own: Compose's detector cancels itself when the pointer passes slop.
+Handle drags are innermost and consume, which is the whole of their disambiguation.
+
+**Two conflicts a detector could not have found on its own.** A long press on the
+right edge swept down the page *and* dimmed the screen, because the two look
+identical to anything watching only movement; a sweep in progress now stands the drag
+loop down, since a long press has already declared itself by being held. And a press
+held past the long-press timeout is no longer also a tap, so a long press that starts
+a selection cannot immediately clear it.
+
+**Brightness.** A vertical drag on the right fifth moves the Reader window's own
+`screenBrightness`. The system setting is never written — that would need
+`WRITE_SETTINGS` and would follow the reader into every other app on the device.
+**Floor at 5%**, because a screen dragged to black hides the gesture that would undo
+it along with the back button and everything else. Seeded from the system reading on
+the first drag so it does not jump, held for the session, and restored to
+`BRIGHTNESS_OVERRIDE_NONE` on dispose — by any route out, including a system Back
+press, because tying the restore to the exit handlers makes every new way out a new
+way to leave the screen dimmed.
+
+**Not persisted, on purpose.** Brightness is environmental, not preferential: the
+value that is right in bed at midnight is wrong on a train at noon, so a restored
+value is wrong most of the times it would be restored, and its failure mode is the
+worst one available — opening a book in daylight onto a screen dimmed for a dark
+room, with the cure a gesture the reader cannot see to make. No settings column, so
+no Room migration, which also keeps out of the way of the schema work running in
+parallel.
+
+**860 JVM tests, 0 failures** — 67 new: 11 in `:core` for the selection model, and 56
+in `:app` across handle geometry, reader transitions, the brightness ramp and gesture
+classification. No new dependencies, no version bumps, no manifest change.
