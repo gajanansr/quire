@@ -92,6 +92,56 @@ class ReminderScheduleTest {
         }
     }
 
+    // ------------------------------------------------------- the clock face
+
+    @Test
+    fun `every minute of the day survives the trip to a clock and back`() {
+        // The picker works in hours and minutes; storage is one number. This is the
+        // only conversion between them, and an off-by-one here would move a reader's
+        // reminder by an hour without anything on screen looking wrong.
+        (0 until day).forEach { minute ->
+            val hour = Reminders.hourOf(minute)
+            val within = Reminders.minuteOf(minute)
+            assertTrue("hour $hour out of range at minute $minute", hour in 0..23)
+            assertTrue("minute $within out of range at minute $minute", within in 0..59)
+            assertEquals(
+                "minute $minute did not survive the round trip",
+                minute,
+                Reminders.minuteOfDay(hour, within),
+            )
+        }
+    }
+
+    @Test
+    fun `a clock reading outside the day is clamped rather than stored`() {
+        // The dial cannot produce an hour of 24, but this is the one door between it
+        // and `reminderMinuteOfDay`, and a value outside the day would be written
+        // happily and then fail `setReminderTime`'s require inside a coroutine
+        // launched from a composable — a crash on tapping Set.
+        assertEquals(0, Reminders.minuteOfDay(-1, -1))
+        assertEquals(day - 1, Reminders.minuteOfDay(99, 99))
+        assertTrue(
+            "a clamped reading is not a time of day",
+            Reminders.minuteOfDay(99, 99) in 0 until day,
+        )
+        assertEquals(0, Reminders.hourOf(-5))
+        assertEquals(23, Reminders.hourOf(day + 500))
+    }
+
+    @Test
+    fun `the preset chips are all real times the clock could also reach`() {
+        // The chips are now a shortcut rather than the only route, so they have to
+        // agree with the dial: a preset the picker could not produce would be a
+        // setting the reader could select and never get back to.
+        Reminders.TIME_OPTIONS.forEach { minute ->
+            assertEquals(
+                "the preset $minute is not a time the clock can reach",
+                minute,
+                Reminders.minuteOfDay(Reminders.hourOf(minute), Reminders.minuteOf(minute)),
+            )
+        }
+    }
+
     // ------------------------------------------------ the times on offer
 
     @Test

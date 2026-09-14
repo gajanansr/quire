@@ -14,25 +14,39 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import app.quire.android.notify.Reminders
 import app.quire.android.ui.QuireStrings
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import app.quire.android.data.AppSettingsEntity
-import app.quire.android.data.HabitRepository
+import app.quire.core.habit.Goals
 import app.quire.android.share.QuireLinks
 import app.quire.android.share.QuireRelease
 import app.quire.android.share.SupportLink
 import app.quire.android.ui.theme.Quire
+import app.quire.android.ui.theme.QuireColors
 import app.quire.android.ui.theme.QuireIcon
 import app.quire.android.ui.theme.QuireIcons
 import app.quire.android.ui.theme.QuireShapes
@@ -80,16 +94,7 @@ fun SettingsScreen(
 
         GroupLabel("Reading")
         Group {
-            ValueRow(
-                label = "Daily goal",
-                value = "${settings.dailyGoalMinutes} min",
-                onClick = {
-                    val options = HabitRepository.GOAL_OPTIONS
-                    val next = options[(options.indexOf(settings.dailyGoalMinutes) + 1)
-                        .mod(options.size)]
-                    onGoalChange(next)
-                },
-            )
+            GoalRow(selected = settings.dailyGoalMinutes, onSelect = onGoalChange)
             Divider()
             ValueRow(
                 label = "Default theme",
@@ -352,21 +357,145 @@ private fun ToggleRow(
 }
 
 /**
- * The eight times on offer, as chips.
+ * The daily goal: the four presets, and a stepper for every other number.
  *
- * Wrapped rather than scrolled: eight things the reader can see at once beats eight
- * they have to go looking for, and a horizontal scroller inside a vertical one is a
- * gesture conflict for no gain.
+ * Tapping this row used to cycle 5 → 10 → 20 → 30 → 5, which meant a reader who
+ * wanted fifteen minutes had no way to say so and a reader who wanted five had to
+ * tap past three wrong answers to get back to it. The chips are now direct and the
+ * stepper covers everything in between.
+ *
+ * Minus and plus rather than a slider: a slider is Material's, would need painting,
+ * and cannot be aimed at a particular minute with a thumb on a phone. The step is
+ * [Goals.step] — fine where a minute matters, coarse where it does not.
+ */
+@Composable
+private fun GoalRow(selected: Int, onSelect: (Int) -> Unit) {
+    val colors = Quire.colors
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                QuireStrings.DAILY_GOAL,
+                color = colors.ink,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StepButton(
+                    label = "−",
+                    description = QuireStrings.GOAL_LESS,
+                    enabled = selected > Goals.MIN,
+                    onClick = { onSelect(Goals.decrease(selected)) },
+                )
+                Text(
+                    "$selected min",
+                    color = colors.accent,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier
+                        // Wide enough that the row does not jump between "5 min"
+                        // and "120 min" as the reader steps through it.
+                        .widthIn(min = 72.dp)
+                        .padding(horizontal = 4.dp),
+                    textAlign = TextAlign.Center,
+                )
+                StepButton(
+                    label = "+",
+                    description = QuireStrings.GOAL_MORE,
+                    enabled = selected < Goals.MAX,
+                    onClick = { onSelect(Goals.increase(selected)) },
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Goals.PRESETS.forEach { minutes ->
+                val active = minutes == selected
+                Box(
+                    Modifier
+                        .clip(QuireShapes.chip)
+                        .background(if (active) colors.accentSoft else colors.bgAlt)
+                        .then(
+                            if (active) Modifier.border(1.5.dp, colors.accent, QuireShapes.chip)
+                            else Modifier
+                        )
+                        .clickable { onSelect(minutes) }
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                ) {
+                    Text(
+                        "$minutes min",
+                        color = if (active) colors.accent else colors.muted,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** A minus or a plus, drawn from the palette and dimmed rather than hidden at a limit. */
+@Composable
+private fun StepButton(
+    label: String,
+    description: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = Quire.colors
+    Box(
+        Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(colors.bgAlt)
+            // Dimmed and inert rather than removed: a control that disappears at the
+            // end of a range moves everything beside it, and the reader loses the
+            // button they were aiming at.
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (enabled) colors.ink else colors.border,
+            style = MaterialTheme.typography.titleLarge,
+        )
+    }
+}
+
+/**
+ * The reminder time: eight one-tap chips, and a clock for every other minute.
+ *
+ * The chips were the only way to set this and are now a shortcut — they cover a
+ * commute, a lunch break, an evening and a bedtime. "Choose a time" opens a real
+ * dial, because the reader who wants 21:40 was previously told they could not
+ * have it.
  */
 @Composable
 private fun TimeRow(selected: Int, use24Hour: Boolean, onSelect: (Int) -> Unit) {
     val colors = Quire.colors
+    var picking by remember { mutableStateOf(false) }
+
     Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-        Text(
-            QuireStrings.REMINDER_TIME,
-            color = colors.ink,
-            style = MaterialTheme.typography.bodyLarge,
-        )
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                QuireStrings.REMINDER_TIME,
+                color = colors.ink,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                Reminders.formatTime(selected, use24Hour),
+                color = colors.accent,
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
         Spacer(Modifier.height(12.dp))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -391,6 +520,186 @@ private fun TimeRow(selected: Int, use24Hour: Boolean, onSelect: (Int) -> Unit) 
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
+            }
+            // Last in the same wrap, so it reads as one more way to answer the same
+            // question rather than as a separate setting.
+            Box(
+                Modifier
+                    .clip(QuireShapes.chip)
+                    .border(1.dp, colors.border, QuireShapes.chip)
+                    .clickable { picking = true }
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+            ) {
+                Text(
+                    QuireStrings.REMINDER_TIME_CHOOSE,
+                    color = colors.ink,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+    }
+
+    if (picking) {
+        QuireTimePicker(
+            minuteOfDay = selected,
+            use24Hour = use24Hour,
+            onDismiss = { picking = false },
+            onConfirm = { picking = false; onSelect(it) },
+        )
+    }
+}
+
+/**
+ * The fourteen colours Material's clock is painted with.
+ *
+ * A plain data class rather than Material's own `TimePickerColors` because that one
+ * can only be built inside a composition, and the rule it carries — that not one of
+ * these fourteen comes from Material's default scheme — is only checkable as an
+ * assertion. `ClockColorsTest` holds it against all five palettes.
+ */
+data class QuireClockColors(
+    val clockDial: Color,
+    val selector: Color,
+    val container: Color,
+    val periodSelectorBorder: Color,
+    val clockDialSelectedContent: Color,
+    val clockDialUnselectedContent: Color,
+    val periodSelectorSelectedContainer: Color,
+    val periodSelectorUnselectedContainer: Color,
+    val periodSelectorSelectedContent: Color,
+    val periodSelectorUnselectedContent: Color,
+    val timeSelectorSelectedContainer: Color,
+    val timeSelectorUnselectedContainer: Color,
+    val timeSelectorSelectedContent: Color,
+    val timeSelectorUnselectedContent: Color,
+) {
+    /** Every colour, for a test that wants to walk them without naming each one. */
+    fun all(): List<Color> = listOf(
+        clockDial, selector, container, periodSelectorBorder,
+        clockDialSelectedContent, clockDialUnselectedContent,
+        periodSelectorSelectedContainer, periodSelectorUnselectedContainer,
+        periodSelectorSelectedContent, periodSelectorUnselectedContent,
+        timeSelectorSelectedContainer, timeSelectorUnselectedContainer,
+        timeSelectorSelectedContent, timeSelectorUnselectedContent,
+    )
+}
+
+/**
+ * Quire's palette, mapped onto the clock.
+ *
+ * Every value is a token from [QuireColors]. Left to itself Material paints this
+ * control from its own scheme — the exit dialog arrived in lavender for exactly that
+ * reason — and a clock in Material purple on the E-ink page would be the one surface
+ * in Quire that ignores the theme the reader picked.
+ *
+ * The selected number sits on the accent and the unselected on the dial, which is
+ * what the contrast test measures: on E-ink and Sepia these pairs are the ones that
+ * get close, and a dial nobody can read is not a picker.
+ */
+fun quireClockColors(colors: QuireColors) = QuireClockColors(
+    clockDial = colors.bgAlt,
+    selector = colors.accent,
+    container = colors.bg,
+    periodSelectorBorder = colors.border,
+    clockDialSelectedContent = colors.buttonText,
+    clockDialUnselectedContent = colors.ink,
+    periodSelectorSelectedContainer = colors.accentSoft,
+    periodSelectorUnselectedContainer = colors.bg,
+    periodSelectorSelectedContent = colors.accent,
+    periodSelectorUnselectedContent = colors.muted,
+    timeSelectorSelectedContainer = colors.accentSoft,
+    timeSelectorUnselectedContainer = colors.bgAlt,
+    timeSelectorSelectedContent = colors.accent,
+    timeSelectorUnselectedContent = colors.ink,
+)
+
+/**
+ * A clock face for picking the reminder time.
+ *
+ * Material3's own `TimePickerDialog` was the obvious choice and is not used: it
+ * draws its own title, its own mode toggle and its own buttons from `MaterialTheme`,
+ * so the frame around the dial would arrive in the platform's colours even with the
+ * dial itself corrected. A plain `Dialog` with Quire's own surface and Quire's own
+ * two words is less code and is the app's.
+ *
+ * [use24Hour] comes from the system setting rather than a locale guess, so a phone
+ * that shows 20:00 is handed a twenty-four hour dial with no am/pm toggle.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun QuireTimePicker(
+    minuteOfDay: Int,
+    use24Hour: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit,
+) {
+    val colors = Quire.colors
+    val state = rememberTimePickerState(
+        initialHour = Reminders.hourOf(minuteOfDay),
+        initialMinute = Reminders.minuteOf(minuteOfDay),
+        is24Hour = use24Hour,
+    )
+    val clock = quireClockColors(colors)
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .clip(QuireShapes.card)
+                .background(colors.bgAlt)
+                .padding(horizontal = 20.dp, vertical = 22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                QuireStrings.REMINDER_TIME,
+                color = colors.ink,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Spacer(Modifier.height(18.dp))
+            TimePicker(
+                state = state,
+                colors = TimePickerDefaults.colors(
+                    clockDialColor = clock.clockDial,
+                    selectorColor = clock.selector,
+                    containerColor = clock.container,
+                    periodSelectorBorderColor = clock.periodSelectorBorder,
+                    clockDialSelectedContentColor = clock.clockDialSelectedContent,
+                    clockDialUnselectedContentColor = clock.clockDialUnselectedContent,
+                    periodSelectorSelectedContainerColor = clock.periodSelectorSelectedContainer,
+                    periodSelectorUnselectedContainerColor = clock.periodSelectorUnselectedContainer,
+                    periodSelectorSelectedContentColor = clock.periodSelectorSelectedContent,
+                    periodSelectorUnselectedContentColor = clock.periodSelectorUnselectedContent,
+                    timeSelectorSelectedContainerColor = clock.timeSelectorSelectedContainer,
+                    timeSelectorUnselectedContainerColor = clock.timeSelectorUnselectedContainer,
+                    timeSelectorSelectedContentColor = clock.timeSelectorSelectedContent,
+                    timeSelectorUnselectedContentColor = clock.timeSelectorUnselectedContent,
+                ),
+            )
+            Spacer(Modifier.height(14.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                Text(
+                    QuireStrings.CANCEL,
+                    color = colors.muted,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier
+                        .clip(QuireShapes.chip)
+                        .clickable(onClick = onDismiss)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    QuireStrings.SET,
+                    color = colors.accent,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier
+                        .clip(QuireShapes.chip)
+                        .clickable {
+                            onConfirm(Reminders.minuteOfDay(state.hour, state.minute))
+                        }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                )
             }
         }
     }

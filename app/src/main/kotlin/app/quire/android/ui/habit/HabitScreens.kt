@@ -26,7 +26,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import app.quire.android.data.HabitRepository
 import app.quire.android.data.HabitSummary
 import app.quire.android.notify.ReadingQuotes
 import app.quire.android.ui.common.PrimaryButton
@@ -35,6 +34,7 @@ import app.quire.android.ui.theme.Quire
 import app.quire.android.ui.theme.QuireIcon
 import app.quire.android.ui.theme.QuireIcons
 import app.quire.android.ui.theme.QuireShapes
+import app.quire.core.habit.Goals
 import app.quire.core.habit.Levels
 import app.quire.core.habit.Milestone
 import app.quire.core.habit.ReadingDay
@@ -472,7 +472,10 @@ fun GoalScreen(
         )
         Spacer(Modifier.height(28.dp))
 
-        HabitRepository.GOAL_OPTIONS.forEach { minutes ->
+        // The presets keep their full-width rows: on first run this is the reader's
+        // first decision and four clear answers beat a control they have to work out.
+        // A number of their own is one row further down, where it does not compete.
+        Goals.PRESETS.forEach { minutes ->
             val active = minutes == selected
             Row(
                 modifier = Modifier
@@ -494,7 +497,7 @@ fun GoalScreen(
                     style = MaterialTheme.typography.titleLarge,
                 )
                 Spacer(Modifier.weight(1f))
-                if (minutes == HabitRepository.RECOMMENDED_GOAL) {
+                if (minutes == Goals.RECOMMENDED) {
                     Text(
                         "Recommended",
                         color = colors.muted,
@@ -502,6 +505,41 @@ fun GoalScreen(
                     )
                 }
             }
+        }
+
+        // The row that exists so "one of these four" is not the whole answer. It
+        // shows the current number whatever it is, so a reader on seventeen minutes
+        // sees seventeen rather than nothing selected.
+        val custom = selected !in Goals.PRESETS
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(QuireShapes.button)
+                .background(if (custom) colors.accentSoft else colors.bgAlt)
+                .then(
+                    if (custom) Modifier.border(1.5.dp, colors.accent, QuireShapes.button)
+                    else Modifier
+                )
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GoalStep(
+                "−",
+                enabled = selected > Goals.MIN,
+                onClick = { onSelect(Goals.decrease(selected)) },
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                "$selected min",
+                color = if (custom) colors.accent else colors.ink,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Spacer(Modifier.weight(1f))
+            GoalStep(
+                "+",
+                enabled = selected < Goals.MAX,
+                onClick = { onSelect(Goals.increase(selected)) },
+            )
         }
 
         Spacer(Modifier.weight(1f))
@@ -635,6 +673,26 @@ fun OnboardingScreen(onGetStarted: () -> Unit, modifier: Modifier = Modifier) {
         Spacer(Modifier.weight(1f))
         PrimaryButton("Get Started", onGetStarted)
         Spacer(Modifier.navigationBarsPadding())
+    }
+}
+
+/** A minus or a plus on the goal picker, dimmed rather than removed at a limit. */
+@Composable
+private fun GoalStep(label: String, enabled: Boolean, onClick: () -> Unit) {
+    val colors = Quire.colors
+    Box(
+        Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(colors.bg)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (enabled) colors.ink else colors.border,
+            style = MaterialTheme.typography.titleLarge,
+        )
     }
 }
 

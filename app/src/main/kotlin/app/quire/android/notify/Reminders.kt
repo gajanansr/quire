@@ -123,16 +123,34 @@ object Reminders {
     const val MINUTES_PER_DAY = 24 * 60
 
     /**
-     * The times a reader can pick from, as chips.
+     * The times offered as one-tap chips, beside the clock rather than instead of it.
      *
-     * Eight presets rather than a free time picker: the goal picker and the theme
-     * row in Settings already work this way, a chip is one tap against a picker's
-     * four, and nobody's reading habit needs 7:23 pm. They cover a commute, a lunch
-     * break, an evening and a bedtime — the four occasions people actually read.
+     * These were the *only* way to set a reminder and are now a shortcut: they cover
+     * a commute, a lunch break, an evening and a bedtime, which is where most
+     * reading actually happens, and a chip is one tap against a dial's several. The
+     * reader who wants 21:40 opens the clock.
      */
     val TIME_OPTIONS = listOf(
         6 * 60, 7 * 60, 8 * 60, 12 * 60, 18 * 60, 20 * 60, 21 * 60, 22 * 60,
     )
+
+    /**
+     * A clock reading, as the one number Quire stores.
+     *
+     * Coerced rather than trusted. The picker cannot produce an hour of 24, but this
+     * is the only door between it and `reminderMinuteOfDay`, and a value outside the
+     * day would be accepted by the database and then fail `setReminderTime`'s
+     * `require` inside a coroutine launched from a composable — a crash on tapping
+     * Set.
+     */
+    fun minuteOfDay(hour: Int, minute: Int): Int =
+        hour.coerceIn(0, 23) * 60 + minute.coerceIn(0, 59)
+
+    /** The hour a stored minute-of-day falls in, for seeding the dial. */
+    fun hourOf(minuteOfDay: Int): Int = minuteOfDay.coerceIn(0, MINUTES_PER_DAY - 1) / 60
+
+    /** The minute within that hour. */
+    fun minuteOf(minuteOfDay: Int): Int = minuteOfDay.coerceIn(0, MINUTES_PER_DAY - 1) % 60
 
     /**
      * Whether Quire says anything right now, and in which register.
