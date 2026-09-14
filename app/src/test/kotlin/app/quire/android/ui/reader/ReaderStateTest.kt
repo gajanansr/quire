@@ -183,6 +183,50 @@ class ReaderStateTest {
         assertEquals(0.0, ReaderState().progress, 1e-9)
     }
 
+    /** One chapter of many blocks — the shape a book with no outline imports as. */
+    private fun manyBlockState(blocks: Int = 400): ReaderState {
+        val each = lorem.repeat(3)
+        val chapter = Chapter(
+            index = 0, title = null,
+            blocks = (0 until blocks).map { ContentBlock.Paragraph(listOf(InlineSpan(each))) },
+            startCharOffset = 0, charCount = blocks * each.length,
+        )
+        val prefs = ReaderPreferences()
+        return ReaderState(
+            loading = false, bookId = "b", chapterCount = 1, chapterIndex = 0,
+            chapter = chapter,
+            pages = paginator.paginate(chapter, viewport, prefs.toSettings(pixelsPerSp = 1f)),
+            preferences = prefs, bookTotalChars = chapter.charCount,
+        )
+    }
+
+    @Test
+    fun `progress reaches the end of a chapter that is the whole book`() {
+        // The bug this pins. Progress added `slice.startChar` — the offset inside the
+        // reader's *own block* — to the chapter's start offset. On a book of many
+        // small chapters that is nearly right, because the chapter offsets carry it.
+        // On a book with no outline, which is one chapter of 8,621 blocks, the number
+        // never exceeds the length of one paragraph: a reader three hundred screens
+        // into The Love Hypothesis still read 0%.
+        val s = manyBlockState()
+        val last = s.copy(pageIndex = s.pages.lastIndex)
+        assertTrue(
+            "a reader on the last page of the book read ${"%.1f".format(last.progress * 100)}%",
+            last.progress > 0.95,
+        )
+    }
+
+    @Test
+    fun `progress rises page by page within one long chapter`() {
+        val s = manyBlockState()
+        var previous = -1.0
+        s.pages.indices.forEach { page ->
+            val at = s.copy(pageIndex = page).progress
+            assertTrue("progress went backwards at page $page: $previous -> $at", at > previous)
+            previous = at
+        }
+    }
+
     // ------------------------------------------------------------ repagination
 
     @Test

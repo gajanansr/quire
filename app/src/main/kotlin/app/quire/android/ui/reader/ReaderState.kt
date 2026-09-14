@@ -144,12 +144,22 @@ data class ReaderState(
      *
      * Built from the chapter's own offset plus how far into it the current page
      * starts, so it stays meaningful across chapters rather than resetting.
+     *
+     * "How far into it" is the offset into the **chapter**, not into the block the
+     * page happens to open on. It used to be `slice.startChar`, which is measured
+     * from the start of that one block: on a book of many small chapters the chapter
+     * offsets carried the number and it looked right, and on a book with no outline —
+     * one chapter of 8,621 blocks — it never exceeded the length of a single
+     * paragraph. A reader three hundred screens into a 566,000-character novel was
+     * shown 0%, and the widget and Book Details were shown the same 0%.
      */
     val progress: Double
         get() {
             val ch = chapter ?: return 0.0
             if (bookTotalChars <= 0) return 0.0
-            val within = currentPage?.slices?.firstOrNull()?.startChar ?: 0
+            val first = currentPage?.slices?.firstOrNull()
+            val within =
+                if (first == null) 0 else ch.offsetOf(first.blockIndex, first.startChar)
             val consumed = ch.startCharOffset + within.coerceAtMost(ch.charCount)
             return (consumed.toDouble() / bookTotalChars).coerceIn(0.0, 1.0)
         }
