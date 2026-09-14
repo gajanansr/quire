@@ -78,7 +78,6 @@ import app.quire.core.paginate.Indentation
 import app.quire.core.paginate.trailingSpacingPx
 import app.quire.core.paginate.spacingAbovePx
 import app.quire.core.model.ContentBlock
-import kotlin.math.roundToInt
 
 /**
  * The Reader.
