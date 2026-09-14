@@ -1897,3 +1897,68 @@ gate rather than by a confusing afternoon. `FIXTURE_VERSION` is 6.
 **793 tests, 0 failures.** Site live at https://gajanansr.github.io/quire/, repository
 at https://github.com/gajanansr/quire (GitHub redirects the old URLs). Verified on the
 device: installs as a fresh package, onboards from scratch, icon and label correct.
+
+## 2026-09-15 — The picture that was sending text
+
+Reported from a real phone: *"on sharing the image is not being shared, the text is
+being shared. that image being formed is too much zoomed and not at all responsive.
+font size should be less and same font that is selected while reading."* Three separate
+faults behind one sentence, one plan
+(`2026-09-15-quire-share-card.md`), five tasks.
+
+**The image share was an image and a piece of text, and the receiver chose.** The
+intent carried `EXTRA_STREAM` *and* `EXTRA_TEXT` whenever there was a caption. An
+`ACTION_SEND` holding both is ambiguous by construction: the system Sharesheet builds
+its preview from `EXTRA_TEXT` before it ever looks at the stream, and an app that
+registers one `ACTION_SEND` handler for text and for images commonly reads `EXTRA_TEXT`
+and never opens the stream at all. The picture was in the envelope the whole time.
+
+**The rule now, and `SharingTest` states it: an image intent never carries
+`EXTRA_TEXT`.** The uri travels in `EXTRA_STREAM` *and* in an explicit `ClipData`,
+because receivers read one or the other and the sender does not get to know which; the
+caption rides on that clip's item and nowhere else. Building the clip ourselves is also
+what holds the rule — `Intent.migrateExtraStreamToClipData` synthesises one from
+`EXTRA_STREAM` and `EXTRA_TEXT` on the way out of the process, and it bails the moment a
+clip is already set. The authority is now pinned to the literal
+`app.quire.android.shares` as well as to the manifest, since code and manifest both
+derive from `applicationId` and would agree with each other even if the id were wrong.
+
+**"Too zoomed" was a unit problem, not a taste problem.** Every measurement on the card
+was absolute dp or sp, picked by eye against the sheet's ~230dp preview. The export is
+604px and is looked at full-bleed — about 1.8x what it was tuned at — and nothing in the
+card knew that. `CardMetrics` now holds the card as fractions of its own width, so the
+preview is a true scale model of the export rather than a smaller, different card.
+
+The old tiers were wrong on their own terms too, and the new tests say so with numbers:
+23sp on a 230dp card is **17.3 characters to a line**, and a 231-character passage
+**needed 12 lines and was given 11** — silent truncation arriving by the back door,
+past the cap that exists to make truncation visible. A `QuoteFit` tier now names a
+*measure* (22/26/32/40/46 characters to a line) and both the size and the line budget
+fall out of the card's real width. Every length from 1 to the 700-character cap is swept
+for both invariants. Sizes at the preview: 18.1 / 15.3 / 12.4 / 9.9 / 8.7sp, every one
+smaller than the 23 / 19 / 16 / 13 it replaces.
+
+**Both ends of the range now look composed.** The passage sits in a weighted box,
+optically centred between the header and the footer: a six-word quote is centred in its
+own field with air either side, a six-hundred-character one fills it. `SpaceBetween`
+alone hung the short passage under the title with all the emptiness below it. Type
+sizes are pinned against the system font scale — a card is a picture with fixed
+proportions and no way to re-flow once it is a PNG.
+
+**The card is set in the reader's own face.** `ShareCard.Quote` carries the
+`ReaderFont`; `ReaderHost` fills it from `state.preferences.font` and `QuireRoot` did
+not have to change. The wordmark stays Source Serif on purpose — that is Quire's mark,
+and a brand line that changes typeface with a preference is not a brand line. The slant
+follows the face: Source Serif and the platform family ship real italics, Lora and Work
+Sans do not, and Compose fakes one by shearing the upright, which at card sizes reads as
+a rendering fault rather than a quotation.
+
+**One found while checking Save.** `saveToPictures` inserted the `MediaStore` row before
+writing a byte and never took it back out on failure — a zero-byte picture that opens as
+a grey square, *and* a fallback to the chooser, so the reader ends up with the card saved
+twice and one of the two broken. The write can also throw rather than return null (a
+full volume, an unmounted card), which was an uncaught crash on the tap of a button.
+
+**807 tests, 0 failures.** No new dependency, no Compose UI test, `INTERNET` still
+absent. What a receiving app does with a well-formed intent is not something the JVM can
+assert — that part is verified on the device.

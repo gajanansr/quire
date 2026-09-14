@@ -380,7 +380,7 @@ private fun Destination(@DrawableRes icon: Int, label: String, onClick: () -> Un
  * to re-flow once it is a PNG; if an accessibility font scale grew the passage but not
  * the card, the quote would run off the bottom of an export nobody can fix.
  */
-private data class Frame(
+private data class CardFrame(
     val metrics: CardMetrics.Frame,
     val margin: Dp,
     val gap: Dp,
@@ -390,11 +390,11 @@ private data class Frame(
 )
 
 @Composable
-private fun frameOf(widthDp: Float): Frame {
+private fun cardFrameOf(widthDp: Float): CardFrame {
     val metrics = CardMetrics.of(widthDp)
     val density = LocalDensity.current
     return with(density) {
-        Frame(
+        CardFrame(
             metrics = metrics,
             margin = metrics.marginDp.dp,
             gap = metrics.gapDp.dp,
@@ -411,7 +411,7 @@ private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
     // width. Everything below is a fraction of that, which is what makes the preview
     // and the exported PNG the same design at two scales — see [CardMetrics].
     BoxWithConstraints(Modifier.fillMaxSize().background(palette.brush)) {
-        val frame = frameOf(maxWidth.value)
+        val frame = cardFrameOf(maxWidth.value)
         val density = LocalDensity.current
         Column(
             Modifier.fillMaxSize().padding(frame.margin),
@@ -498,7 +498,7 @@ private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
 @Composable
 private fun StreakCard(card: ShareCard.Streak, palette: CardPalette) {
     BoxWithConstraints(Modifier.fillMaxSize().background(palette.brush)) {
-        val frame = frameOf(maxWidth.value)
+        val frame = cardFrameOf(maxWidth.value)
         Column(
             Modifier.fillMaxSize().padding(frame.margin),
             verticalArrangement = Arrangement.SpaceBetween,
@@ -569,7 +569,7 @@ private const val LABEL_LEADING = 1.3f
  * day there is one to point at, in a single edit.
  */
 @Composable
-private fun Wordmark(palette: CardPalette, frame: Frame) {
+private fun Wordmark(palette: CardPalette, frame: CardFrame) {
     Column {
         Text(
             QuireStrings.APP_NAME,
