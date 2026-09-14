@@ -30,6 +30,7 @@ class CardMetricsTest {
         assertEquals(small.gapDp * 2, large.gapDp, TOLERANCE)
         assertEquals(small.labelSp * 2, large.labelSp, TOLERANCE)
         assertEquals(small.wordmarkSp * 2, large.wordmarkSp, TOLERANCE)
+        assertEquals(small.displaySp * 2, large.displaySp, TOLERANCE)
         assertEquals(small.contentWidthDp * 2, large.contentWidthDp, TOLERANCE)
         assertEquals(small.quoteHeightDp * 2, large.quoteHeightDp, TOLERANCE)
     }

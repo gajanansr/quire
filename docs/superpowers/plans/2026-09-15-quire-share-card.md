@@ -117,13 +117,13 @@ read as composed at both ends.
 
 **Files:** `ui/share/ShareSheet.kt`
 
-- [ ] The card measures itself with `BoxWithConstraints` and takes its margins, label
+- [x] The card measures itself with `BoxWithConstraints` and takes its margins, label
       sizes and quote size from `CardMetrics`/`QuoteFit` at that width.
-- [ ] The passage sits in a weighted box that is **optically centred** between the
+- [x] The passage sits in a weighted box that is **optically centred** between the
       header and the footer. A short quote is then centred in its own field with air
       on both sides; a long one fills the field. Both are deliberate; neither is
       hanging.
-- [ ] The streak card takes the same proportional frame, so the two cards cannot drift
+- [x] The streak card takes the same proportional frame, so the two cards cannot drift
       apart.
 
 ### Task 4: The passage is set in the reader's own face

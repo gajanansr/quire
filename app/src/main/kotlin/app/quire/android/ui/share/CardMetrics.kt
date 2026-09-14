@@ -34,6 +34,9 @@ internal object CardMetrics {
     /** The wordmark, which is the one piece of chrome that is meant to be seen. */
     private const val WORDMARK = 0.068f
 
+    /** The streak card's numeral — the one thing on that card anybody reads. */
+    private const val DISPLAY = 0.15f
+
     /** The gap between the chapter label and the wordmark beneath it. */
     private const val GAP = 0.034f
 
@@ -55,6 +58,7 @@ internal object CardMetrics {
         val gapDp: Float,
         val labelSp: Float,
         val wordmarkSp: Float,
+        val displaySp: Float,
         val contentWidthDp: Float,
         val quoteHeightDp: Float,
     )
@@ -69,6 +73,7 @@ internal object CardMetrics {
             gapDp = widthDp * GAP,
             labelSp = widthDp * LABEL,
             wordmarkSp = widthDp * WORDMARK,
+            displaySp = widthDp * DISPLAY,
             contentWidthDp = widthDp - margin * 2,
             quoteHeightDp = height * QUOTE_HEIGHT,
         )
