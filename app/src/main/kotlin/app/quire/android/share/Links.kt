@@ -6,7 +6,7 @@ package app.quire.android.share
  * One object, because these strings are the app's whole surface to the outside
  * world and they are otherwise the easiest thing in a codebase to scatter: a URL in
  * a composable here, one in a string resource there, and the day the domain changes
- * three of the four get updated. [SupportLink] already made this argument for the
+ * three of the four get updated. [Author] already made this argument for the
  * donation link; this is the rest of it.
  *
  * **Most of these are deliberately blank.** Quire has no website and no hosted
@@ -46,12 +46,12 @@ object QuireLinks {
     val CONTACT_EMAIL: String = ""
 
     /**
-     * Where "Show your support" goes. Real, and unchanged.
+     * The author's own site. Real, and the only external address Quire ships.
      *
-     * Declared here so this object is the complete list, and delegated to
-     * [SupportLink] so there is still exactly one literal.
+     * Declared here so this object is the complete list, and delegated to [Author] so
+     * there is still exactly one literal.
      */
-    val SUPPORT: String = SupportLink.URL
+    val AUTHOR_SITE: String = Author.SITE
 
     /** The fill-ins, by the name `docs/release.md` calls each of them. */
     val fillIns: Map<String, String>

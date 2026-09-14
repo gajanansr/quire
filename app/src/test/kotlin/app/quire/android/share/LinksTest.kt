@@ -45,12 +45,11 @@ class LinksTest {
     }
 
     @Test
-    fun `the support link is the author's page and nothing else`() {
-        // Duplicated from SharingTest on purpose. A mistyped donation link sends a
-        // reader's money to whoever owns the handle they actually reached, and this
-        // object is now a second place that string can be edited.
-        assertEquals("https://razorpay.me/@gajanansr", QuireLinks.SUPPORT)
-        assertEquals(SupportLink.URL, QuireLinks.SUPPORT)
+    fun `the author link is the author's site and nothing else`() {
+        // Duplicated from SharingTest on purpose: this object is a second place the
+        // string can be edited, and it is the only external address Quire ships.
+        assertEquals("https://gajananrathod.in", QuireLinks.AUTHOR_SITE)
+        assertEquals(Author.SITE, QuireLinks.AUTHOR_SITE)
     }
 
     @Test
@@ -78,7 +77,7 @@ class LinksTest {
 
     @Test
     fun `a settings row shows the host, not the whole address`() {
-        assertEquals("razorpay.me", QuireLinks.displayHost(QuireLinks.SUPPORT))
+        assertEquals("gajananrathod.in", QuireLinks.displayHost(QuireLinks.AUTHOR_SITE))
         assertEquals("quire.app", QuireLinks.displayHost("https://quire.app/privacy"))
         assertEquals("quire.app", QuireLinks.displayHost("https://www.quire.app/"))
         assertEquals("github.com", QuireLinks.displayHost("https://github.com/x/y?tab=z"))

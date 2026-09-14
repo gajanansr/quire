@@ -44,7 +44,7 @@ import app.quire.android.data.AppSettingsEntity
 import app.quire.core.habit.Goals
 import app.quire.android.share.QuireLinks
 import app.quire.android.share.QuireRelease
-import app.quire.android.share.SupportLink
+import app.quire.android.share.Author
 import app.quire.android.ui.theme.Quire
 import app.quire.android.ui.theme.QuireColors
 import app.quire.android.ui.theme.QuireIcon
@@ -68,7 +68,7 @@ fun SettingsScreen(
     onCycleTheme: () -> Unit,
     onGoalChange: (Int) -> Unit,
     onOpenLicences: () -> Unit,
-    onShowSupport: () -> Unit,
+    onShowAuthor: () -> Unit,
     onOpenLink: (String) -> Unit,
     modifier: Modifier = Modifier,
     /** Whether Android will actually deliver anything Quire posts. */
@@ -251,27 +251,25 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(22.dp))
-        GroupLabel("Support")
-        Group {
-            ValueRow(
-                label = "Show your support",
-                // Opened in the reader's browser. Quire holds no payment details and
-                // declares no INTERNET permission — handing the URL to the system is
-                // the whole of what happens here.
-                value = "razorpay.me",
-                onClick = onShowSupport,
+        Spacer(Modifier.height(28.dp))
+        // One line, and it is the link. The Support group that used to sit above it
+        // pointed at a payment page; a whole titled section asking a reader for money
+        // was also the loudest thing in Settings, which is not what this app is for.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(QuireShapes.button)
+                .clickable(onClick = onShowAuthor)
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "Made with love by ${Author.NAME}.",
+                color = colors.accent,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelSmall,
             )
         }
-
-        Spacer(Modifier.height(28.dp))
-        Text(
-            "Made with love by ${SupportLink.AUTHOR}.",
-            color = colors.muted,
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 

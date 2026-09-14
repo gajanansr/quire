@@ -48,7 +48,7 @@ import app.quire.android.notify.Reminders
 import android.text.format.DateFormat
 import app.quire.android.share.ShareIntents
 import app.quire.android.share.Sharing
-import app.quire.android.share.SupportLink
+import app.quire.android.share.Author
 import app.quire.android.ui.share.ShareCard
 import app.quire.android.ui.share.ShareSheet
 import app.quire.android.data.AppSettingsEntity
@@ -450,8 +450,8 @@ fun QuireRoot(
                     },
                     onOpenNotificationSettings = onOpenNotificationSettings,
                     onOpenLicences = { /* the licence text ships in res/raw */ },
-                    onShowSupport = {
-                        Sharing.start(context, ShareIntents.view(SupportLink.URL))
+                    onShowAuthor = {
+                        Sharing.start(context, ShareIntents.view(Author.SITE))
                     },
                     // Every external address goes out the same door: an ACTION_VIEW
                     // handed to whatever the reader uses. Quire has no INTERNET

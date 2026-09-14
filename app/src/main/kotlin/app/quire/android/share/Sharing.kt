@@ -14,15 +14,17 @@ import java.io.File
 import java.io.IOException
 
 /**
- * Where "Show your support" goes.
+ * Who made this, and where to find them.
  *
- * A constant rather than a literal at the call site, because it is the one string in
- * this app whose being wrong is silent and expensive: a mistyped donation link sends
- * a reader's money to whoever owns the handle they actually reached.
+ * This was a donation page, and it is not any more. Google Play's Payments policy is
+ * the one most often applied to an app that sends readers to an external payment page,
+ * and the link earned Quire that risk in exchange for nothing the app needed. A
+ * portfolio makes the same point — someone made this, they are a real person — and
+ * asks the reader for nothing.
  */
-object SupportLink {
-    const val URL = "https://razorpay.me/@gajanansr"
-    const val AUTHOR = "Gajanan"
+object Author {
+    const val NAME = "Gajanan"
+    const val SITE = "https://gajananrathod.in"
 }
 
 /**

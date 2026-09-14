@@ -106,11 +106,11 @@ where it is yours like any other photo.
 **Copy** puts the passage on your clipboard. Android may show a notification that an
 app copied something; that is the system, not Quire.
 
-**2. The support link.** *Settings → Show your support* opens
-`https://razorpay.me/@gajanansr` in your browser. From that moment you are on
-Razorpay's site and their privacy policy applies, not this one. Quire holds no
-payment details, sees no transaction, and — having no network permission — could not
-send anything there even if it wanted to. It only asks Android to open a web address.
+**2. The author's site.** The line at the foot of Settings opens
+`https://gajananrathod.in` in your browser. From that moment you are on that site and
+its privacy policy applies, not this one. Quire — having no network permission — could
+not send anything there even if it wanted to. It only asks Android to open a web
+address.
 
 If a website, source-code or contact link is shown in Settings in a future version,
 it works the same way: Quire asks your browser or mail app to open an address.

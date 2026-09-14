@@ -454,7 +454,12 @@ Read this before submitting. None of it is hypothetical.
 
 ### The donation link **[verify]** — the highest risk on the list
 
-*Settings → Show your support* opens `https://razorpay.me/@gajanansr` in the browser.
+*Settings* shows one line — "Made with love by Gajanan." — which opens
+`https://gajananrathod.in`, the author's own site. **The donation link that used
+to sit here has been removed.** An external payment page is what Play's Payments
+policy is most often applied to, and it bought Quire that risk for nothing the app
+needed. There is now no payment route of any kind, which makes this section a note
+rather than a decision.
 
 Google Play's Payments policy governs how money is collected in and around an app,
 and external payment links have been a recurring cause of enforcement and rejection.

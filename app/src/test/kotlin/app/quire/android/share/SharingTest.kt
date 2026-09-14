@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -124,12 +125,22 @@ class SharingTest {
     }
 
     @Test
-    fun `the support link is exactly the author's page`() {
-        // A donation link typed wrong sends money to a stranger, and nothing in the
-        // app would ever look wrong. This is the only place the string is checked.
-        val intent = ShareIntents.view(SupportLink.URL)
+    fun `the author link is exactly the author's site`() {
+        // The one external address Quire ships. Typed wrong it sends every reader who
+        // taps it to whoever owns the domain they actually reached, and nothing in the
+        // app would ever look wrong.
+        val intent = ShareIntents.view(Author.SITE)
         assertEquals(Intent.ACTION_VIEW, intent.action)
-        assertEquals("https://razorpay.me/@gajanansr", intent.data.toString())
+        assertEquals("https://gajananrathod.in", intent.data.toString())
+    }
+
+    @Test
+    fun `Quire ships no payment link`() {
+        // Removed deliberately: an external payment page is what Google Play's
+        // Payments policy is most often applied to, and it bought Quire that risk in
+        // exchange for nothing the app needed.
+        assertFalse(Author.SITE.contains("razorpay"))
+        assertFalse(QuireLinks.fillIns.values.any { it.contains("razorpay") })
     }
 
     @Test
