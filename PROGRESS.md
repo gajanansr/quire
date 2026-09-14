@@ -2301,3 +2301,146 @@ text the reader never touched**. Keyed on the page itself now.
 **860 JVM tests, 0 failures** — 67 new: 11 in `:core` for the selection model, and 56
 in `:app` across handle geometry, reader transitions, the brightness ramp and gesture
 classification. No new dependencies, no version bumps, no manifest change.
+
+## 2026-09-15 — A chapter is not a chunk
+
+`agent/chunked-pagination`, plan at
+`docs/superpowers/plans/2026-09-15-quire-chunked-pagination.md`, eight tasks, all
+ticked. **1,066 JVM tests (418 `:core` + 648 `:app`), 0 failures**, 59 added.
+
+*The Love Hypothesis*, a 315-page PDF, imports as **one chapter: 8,621 blocks,
+565,896 characters**. Its outline is unusable, so `ChapterDetector` correctly falls
+back to `single` — and pagination then laid the whole chapter out, on open and again
+on every tap of A+. The 2026-09-12 and 2026-09-15 fixes made that work *linear*; they
+could not make it *small*, because the unit was the chapter.
+
+So the unit is no longer the chapter. **A chapter is semantic** — what a reader picks
+from Contents, from the book's own outline or not at all; `ChapterDetector` is not
+touched and no heuristic returns. **A chunk is mechanical** — how much text is laid
+out at once, and the reader must never be able to tell one exists.
+
+**What it costs now.** `ChunkedPaginationCostTest` counts measured characters rather
+than milliseconds, as `PaginationCostTest` does, on a chapter of the real book's shape:
+
+| type | whole chapter | a window | |
+|---|---:|---:|---:|
+| 15sp | 560,365 | 20,812 | **27x** |
+| 19sp | 607,035 | 16,877 | **36x** |
+| 24sp | 609,427 | 9,182 | **66x** |
+
+Reading on costs **10,140** characters at 19sp — an extension is a third of an
+opening, and it is prefetched three pages before the reader arrives, so it is never on
+a page turn. A window is cheaper at large type because a page holds less of the book
+and a window is a fixed number of pages; the whole chapter cost the same whatever the
+reader had chosen, which was the shape of the problem.
+
+**Where a chunk is cut, and why not at a paragraph.** At a page boundary the paginator
+itself just produced — which is already a line boundary, because `Paginator` only ever
+splits where the measurer reported a line end. Three things follow. A single enormous
+block needs no special case, which matters because the one-block chapter (a TXT with
+no blank lines, a PDF whose reflow merged everything) is exactly the shape that causes
+this and has no paragraph boundary to cut at. The first page of a chunk starts
+mid-paragraph and already draws as a continuation, because `Indentation.shouldIndent`
+and `ChapterOpening.opensChapter` both refuse a block resumed part-way through. And no
+page is ever short: the only page a chunk may end on is one `flush()` produced inside
+the layout loop, which is a page that ran out of height.
+
+**How I know a seam is invisible, rather than merely small.** The claim is an equality:
+
+> Laying a chapter out as a sequence of chunks, each starting where the last one
+> stopped, produces **exactly** the pages that laying the whole chapter out produces.
+
+It holds because a fresh lay-out at a page boundary is in the state whole-chapter
+pagination is in when it reaches one — `used` zero, the page empty, spacing above the
+first block on a page zero by definition, indent and raised initial already
+suppressed. The only thing reset is the learned characters-per-line, which decides how
+much text one `measure` call asks for and never where a line breaks.
+`ChunkedPaginationTest` chunks four chapter shapes at budgets of 1, 2, 3, 5, 8, 13 and
+40 pages and compares the concatenated page list to `paginate(whole)` **slice for
+slice**. Deliberately breaking the heading rule was checked to break it.
+
+Two edges needed work to make that an equality. Orphan control moves a heading that
+ended a page onto the next one, and a chunk that cannot see the next page cannot — so
+**a chunk never stops on a page whose last block is a heading**; it runs on by a page,
+which is where that heading was going. And the carry is read off the last page's *end*
+rather than tracked alongside it, because orphan control adds slices to the front of
+that page and a separately tracked cursor would then describe a page that no longer
+exists.
+
+**The one case that is not an equality, and three things the plan got wrong.**
+
+Forward extension is a pure append and front-trimming is a pure drop, so neither can
+be seen. Backward extension re-tiles and *cannot not*: pages tile the text, so the
+pages before a place must end exactly at it, and pagination only runs forwards. The
+only exact prepend available would leave a deliberately short page at the seam, which
+is the most visible thing a reader could be shown.
+
+*The plan said to show the page ending at or before where the reader was.* Measured on
+the fixture, that page ends up to **680 characters short** — a single backward turn
+skipped most of a page, text on neither the page they left nor the page they were
+given. It shows the page holding the character immediately *before* their old start
+instead: it begins before them, so the turn really moves back, and it runs to at least
+where they were, so **nothing is skipped**. The cost is an overlap of at most a page —
+the top of what they were reading appearing at the foot of what they are given, which
+is text they were looking at a second ago. Once per eight pages of *backward* travel,
+never on a forward turn, never on a type-size change, and never speculatively, because
+moving a page under a reader who did not ask is the one thing a prefetch must not do.
+
+*The window anchor had to be snapped to a grid, or the book walks backwards.* Caught
+by `ResumeLoopTest`, not by reading. Where a window starts decides where its pages
+break, and the Reader saves the top of the page it was on — so a start taken as
+"exactly `charsBehind` before the reader" is a different start every session, landing
+the saved place mid-page and saving a slightly earlier one. A book left at `(219, 480)`
+came back at `(218, 640)`, and every open would have taken it back another fraction of
+a page. `ReaderWindow.anchorOffset` snaps to a grid of half `charsBehind`, so every
+place in a band gives the same start, the tiling is the same, and a saved page top is
+still a page top. Three opens and closes, and the second and third are identical.
+
+*A chapter that opens with a `PageBreak` did not start at `TextAnchor(0, 0)`.*
+`Chapter.cursorAt` steps over blocks with no characters — correctly, since a cursor
+inside one is ambiguous with the start of the next — so asking it for offset zero on a
+reflowed PDF answers `TextAnchor(1, 0)`. Three things then went wrong at once and all
+of them silently: the page break's own slice dropped out of the window, the chapter
+header was not drawn because the window did not look like it began at the beginning,
+and turning back out of the chapter re-anchored for ever instead of opening the
+previous one. The chapter's beginning is `TextAnchor(0, 0)` and nothing else.
+
+**The page count, and a progress bar that never moved.** `state.pages` is a window, so
+`"38% · page 12 of 719"` could not survive — the denominator would have been the
+window's. It reads `"38% · about page 190 of 314"` now, counted in printed pages from
+the book's characters, which is the unit Book Details already states a length in and
+the only one a reader can check against a spine. For this book it says **314 against
+the PDF's real 315**. "about" is not decoration; and it has the compensation of no
+longer changing every time the reader changes the type size.
+
+Underneath it, a real bug. `ReaderState.progress` added `slice.startChar` — the offset
+inside the reader's *own block* — to the chapter's start offset. On a book of many
+small chapters the chapter offsets carried the number and it looked right; on a book
+with no outline, which is one chapter of 8,621 blocks, it never exceeded the length of
+one paragraph. **A reader three hundred screens into this novel was shown 0%**, and so
+were the widget and Book Details. `Chapter.blockStarts` is a lazy prefix sum, and the
+same array is what lets a window be anchored *n* characters behind the reader without
+walking 8,621 blocks on every page turn.
+
+**Nothing is stored, nothing is migrated, nothing is re-extracted.** A chunk is a
+cursor into a `Chapter` that is already on disk, worked out in memory at lay-out time.
+Every book already on the device works untouched — no Room migration, no schema
+change, no `FIXTURE_VERSION` bump — and a test serializes a `Chapter` and fails if a
+chunk boundary ever reaches the JSON. Chunking at import was considered and rejected
+for that reason and one more: a stored boundary would have been chosen for one viewport
+and one type size, and wrong for every other.
+
+Contents still lists the book's own chapters or nothing. It never sees a chunk.
+
+**What a device still has to answer.** Every number above is measured characters on a
+JVM; none of it is a stopwatch, because there is no phone here.
+
+- Whether a type-size change on the 315-page novel now *feels* immediate.
+- Whether a forward seam can be seen. Read about twenty pages without stopping and
+  watch for a page that is shorter than the others, a stutter on one particular turn,
+  or a paragraph that breaks oddly — the prefetch fires three pages before the edge,
+  so the tell would be a hitch on one turn in twelve.
+- Whether a backward seam can be seen. Turn back eight or more pages in one go: at the
+  seam the page will overlap the one before it by up to a page. Nothing should ever be
+  *missing*.
+- That the chapter header appears on the book's first page and on no other.

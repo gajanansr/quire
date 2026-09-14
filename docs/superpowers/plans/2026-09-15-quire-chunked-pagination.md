@@ -1,7 +1,13 @@
 # Chunked Pagination — Implementation Plan
 
-> **For agentic workers:** steps use checkbox (`- [ ]`) syntax. Gate on
+> **For agentic workers:** steps use checkbox (`- [x]`) syntax. Gate on
 > `./scripts/check.sh` before every commit. Never commit red.
+>
+> **Complete.** 418 `:core` + 648 `:app` tests, 0 failures. Three things the plan got
+> wrong are corrected in place, each marked and each caught by a test rather than by
+> reading: where a backward seam puts the reader, that the window anchor has to be
+> snapped to a grid or the book walks backwards, and that a chapter opening with a
+> page break does not start at `TextAnchor(0, 0)` unless it is made to.
 
 **Goal:** *The Love Hypothesis* — a 315-page PDF with no usable outline, imported as
 **one chapter of 8,621 blocks and 565,896 characters** — must open at once and must
@@ -150,12 +156,31 @@ carry to the next page after it.
 
 | constant | value | why this number |
 |---|---|---|
-| `PAGES_AHEAD` | 12 | One lay-out run. 12 pages is 5,064–12,468 characters — under a fiftieth of the chapter — and about ten minutes of reading at 220 wpm, so a forward extension is rare as well as cheap. |
+| `PAGES_AHEAD` | 12 | One lay-out run. 12 pages is 5,064–12,468 characters — under a fortieth of the chapter — and about ten minutes of reading at 220 wpm, so a forward extension is rare as well as cheap. Measured afterwards: an extension costs **10,140** characters at 19sp. |
 | `PAGES_BEHIND` | 8 | Backward room. 8 pages is as far back as a reader goes to pick up a lost thread; beyond it the re-tile above applies. Held rather than laid out, so it costs nothing until a repagination. |
-| `PREFETCH_MARGIN` | 3 | Extend when this close to an edge. Three page turns of warning at a page a second is ample for a run that measures ~12k characters. |
+| `PREFETCH_MARGIN` | 3 | Extend when this close to an edge. Three page turns of warning at a page a second is ample for a run that measures ~10k characters. |
+| `ANCHOR_BANDS` | 2 | **Added during Task 4.** Where a window starts is snapped to a grid of `charsBehind / 2`, and the window starts two bands before the reader. See below. |
 
-Steady-state window: **≤ 23 pages** — 8 behind, up to 12 + 3 ahead. That is what a
-type-size change re-lays out, and its cost is in Task 6's table.
+Steady-state window: **20 pages** — 8 behind, 12 ahead. That is what a type-size change
+re-lays out, and its cost is in Task 6's table.
+
+### The anchor has to be snapped to a grid, or the book walks backwards
+
+**Found by `ResumeLoopTest` during Task 7, not by reading.** A window started
+"`charsBehind` before the reader" is a *different* start every time the reader is in a
+different place, and where the window starts decides where every page in it breaks.
+The Reader saves the top of the page it was on — so the next open lands that saved
+place in the middle of a page of a slightly different tiling, and saves the top of
+*that* page, which is earlier. A reader who opened and closed a book without reading
+would have been walked back through it a fraction of a page at a time: measured, a book
+left at `(219, 480)` came back at `(218, 640)`.
+
+`ReaderWindow.anchorOffset` snaps the start to a grid of `charsBehind / 2`, so every
+place inside a band gives the same start, the tiling is the same, and a saved page top
+is still a page top — the reader does not move at all. At a band edge it takes one step
+of less than a page into a band it is then well inside, so it settles rather than
+drifts. `ResumeLoopTest` opens and closes three times and asserts the second and third
+are identical.
 
 ## Already-imported books
 
@@ -221,13 +246,13 @@ one-chapter book the reader's progress bar never leaves zero.
 - Create: `core/src/test/kotlin/app/quire/core/model/ChapterOffsetsTest.kt`
 
 **Steps:**
-- [ ] Test first: `offsetOf` and `cursorAt` round-trip for every block boundary, for
+- [x] Test first: `offsetOf` and `cursorAt` round-trip for every block boundary, for
       a chapter with empty blocks in it, and for an offset past the end.
-- [ ] `Chapter.blockStarts`: lazy prefix sums over `blockTexts`, derived like
+- [x] `Chapter.blockStarts`: lazy prefix sums over `blockTexts`, derived like
       `blockTexts` so it stays out of equality and out of the JSON.
-- [ ] `Chapter.textLength`, `Chapter.offsetOf(TextAnchor)`,
+- [x] `Chapter.textLength`, `Chapter.offsetOf(TextAnchor)`,
       `Chapter.cursorAt(offset)` — binary search, so it is O(log blocks).
-- [ ] Gate, commit.
+- [x] Gate, commit.
 
 ## Task 2: the paginator lays out a window, not only a chapter
 
@@ -236,22 +261,22 @@ one-chapter book the reader's progress bar never leaves zero.
 - Create: `core/src/test/kotlin/app/quire/core/paginate/ChunkedPaginationTest.kt`
 
 **Steps:**
-- [ ] Test first — **the theorem**: for a chapter of paragraphs, a chapter that is
+- [x] Test first — **the theorem**: for a chapter of paragraphs, a chapter that is
       one 400k-character block, a chapter of headings and paragraphs, and a chapter
       with empty blocks: chunking by carry at budgets 1, 2, 3, 5, 8, 13, 40 pages
       produces a page list equal, slice for slice, to `paginate(whole)`.
-- [ ] Test: conservation — every character of the chapter appears exactly once across
+- [x] Test: conservation — every character of the chapter appears exactly once across
       the chunk sequence, in order.
-- [ ] Test: no page except the chapter's last is short — every chunk's pages are full
+- [x] Test: no page except the chapter's last is short — every chunk's pages are full
       pages.
-- [ ] Test: a chunk that starts mid-block draws no indent and no raised initial.
-- [ ] Test: heading orphan control across a seam — a heading that ends a chunk's last
+- [x] Test: a chunk that starts mid-block draws no indent and no raised initial.
+- [x] Test: heading orphan control across a seam — a heading that ends a chunk's last
       page is carried into the next chunk, not stranded.
-- [ ] `PageWindow(start, pages, next)`; `Paginator.paginateWindow(...)` with
+- [x] `PageWindow(start, pages, next)`; `Paginator.paginateWindow(...)` with
       `from: TextAnchor` and `maxPages: Int`.
-- [ ] `paginate(...)` becomes `paginateWindow(from = TextAnchor(0, 0), maxPages =
+- [x] `paginate(...)` becomes `paginateWindow(from = TextAnchor(0, 0), maxPages =
       Int.MAX_VALUE).pages`, so every existing test and caller is unchanged.
-- [ ] Gate, commit.
+- [x] Gate, commit.
 
 ## Task 3: progress is the offset into the chapter
 
@@ -260,10 +285,10 @@ one-chapter book the reader's progress bar never leaves zero.
 - Modify: `app/src/test/kotlin/app/quire/android/ui/reader/ReaderStateTest.kt`
 
 **Steps:**
-- [ ] Test first: on a chapter of many blocks, progress at the last page is near 1.0
+- [x] Test first: on a chapter of many blocks, progress at the last page is near 1.0
       and strictly increases page by page. Confirmed to fail before the fix.
-- [ ] `progress` uses `chapter.offsetOf(position)`.
-- [ ] Gate, commit.
+- [x] `progress` uses `chapter.offsetOf(position)`.
+- [x] Gate, commit.
 
 ## Task 4: the Reader holds a window
 
@@ -274,18 +299,18 @@ one-chapter book the reader's progress bar never leaves zero.
 - Create: `app/src/test/kotlin/app/quire/android/ui/reader/ReaderWindowTest.kt`
 
 **Steps:**
-- [ ] Test first: `ReaderWindow.openAt` anchors `PAGES_BEHIND` pages before the
+- [x] Test first: `ReaderWindow.openAt` anchors `PAGES_BEHIND` pages before the
       reader and places them on the page holding their character.
-- [ ] Test: a forward extension leaves every existing page and the page index alone.
-- [ ] Test: trimming the front moves the page index by exactly the number dropped and
+- [x] Test: a forward extension leaves every existing page and the page index alone.
+- [x] Test: trimming the front moves the page index by exactly the number dropped and
       leaves the reader on the same page.
-- [ ] Test: a backward re-anchor shows the page immediately before the reader's
+- [x] Test: a backward re-anchor shows the page immediately before the reader's
       position — no character skipped, no short page.
-- [ ] Test: the window start is sticky across a type-size change, so stepping up and
+- [x] Test: the window start is sticky across a type-size change, so stepping up and
       back down returns the same tiling.
-- [ ] `ReaderState.windowStart`, `windowNext`; `atChapterEnd`, `atChapterStart`.
-- [ ] `PaginationRequest` and `PageCache.Key` carry the window start and the budget.
-- [ ] Gate, commit.
+- [x] `ReaderState.windowStart`, `windowNext`; `atChapterEnd`, `atChapterStart`.
+- [x] `PaginationRequest` and `PageCache.Key` carry the window start and the budget.
+- [x] Gate, commit.
 
 ## Task 5: the Reader turns pages across seams
 
@@ -294,17 +319,17 @@ one-chapter book the reader's progress bar never leaves zero.
 - Modify: `app/src/main/kotlin/app/quire/android/ui/reader/ReaderScreen.kt` (footer)
 
 **Steps:**
-- [ ] Forward past the window's last page extends the window; only a window with no
+- [x] Forward past the window's last page extends the window; only a window with no
       carry crosses into the next chapter.
-- [ ] Backward before the window's first page re-anchors; only a window starting at
+- [x] Backward before the window's first page re-anchors; only a window starting at
       the chapter's first character crosses into the previous chapter.
-- [ ] Prefetch within `PREFETCH_MARGIN` pages of the forward edge, in the keyed
+- [x] Prefetch within `PREFETCH_MARGIN` pages of the forward edge, in the keyed
       effect so it is cancelled with everything else. **Forward only** — a
       speculative backward re-anchor would move the page under a reader who did not
       ask for it.
-- [ ] Entering a chapter backwards opens its window at its last character.
-- [ ] Footer: `about page N of M`, book-wide, from `ReadingEstimates`.
-- [ ] Gate, commit.
+- [x] Entering a chapter backwards opens its window at its last character.
+- [x] Footer: `about page N of M`, book-wide, from `ReadingEstimates`.
+- [x] Gate, commit.
 
 ## Task 6: the cost, as a number in the repository
 
@@ -313,14 +338,14 @@ one-chapter book the reader's progress bar never leaves zero.
 - Delete: `core/src/test/kotlin/app/quire/core/paginate/ChunkProbe.kt`
 
 **Steps:**
-- [ ] A chapter of the real book's shape — 8,621 blocks, 565,896 characters — laid
+- [x] A chapter of the real book's shape — 8,621 blocks, 565,896 characters — laid
       out whole and laid out as a 23-page window, counting measured characters as
       `PaginationCostTest` does.
-- [ ] Assert the window costs less than a fortieth of the whole chapter at 19sp, and
+- [x] Assert the window costs less than a fortieth of the whole chapter at 19sp, and
       that the ratio does not fall as the chapter grows (a window's cost must be
       independent of the book's length — that is the property, not the constant).
-- [ ] Assert a forward extension costs no more than one chunk.
-- [ ] Gate, commit.
+- [x] Assert a forward extension costs no more than one chunk.
+- [x] Gate, commit.
 
 ## Task 7: the loop still closes
 
@@ -328,15 +353,15 @@ one-chapter book the reader's progress bar never leaves zero.
 - Modify: `app/src/test/kotlin/app/quire/android/ResumeLoopTest.kt`
 
 **Steps:**
-- [ ] A book resumed deep in a long single chapter lands on the same sentence, with a
+- [x] A book resumed deep in a long single chapter lands on the same sentence, with a
       window that does not start at the chapter's first character.
-- [ ] The same across a type-size change, which is `ResumeLoopTest`'s hard case with
+- [x] The same across a type-size change, which is `ResumeLoopTest`'s hard case with
       the window in the way.
-- [ ] Gate, commit.
+- [x] Gate, commit.
 
 ## Task 8: record it
 
-- [ ] `PROGRESS.md` entry: the design, the numbers, what a device still has to
+- [x] `PROGRESS.md` entry: the design, the numbers, what a device still has to
       answer.
-- [ ] Tick every box above.
-- [ ] Gate, commit.
+- [x] Tick every box above.
+- [x] Gate, commit.
