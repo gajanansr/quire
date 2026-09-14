@@ -479,16 +479,12 @@ private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
             }
 
             Column {
-                card.chapterLabel.takeIf { it.isNotBlank() }?.let {
-                    Text(
-                        it,
-                        color = palette.muted,
-                        fontSize = frame.label,
-                        lineHeight = frame.label * LABEL_LEADING,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                    Spacer(Modifier.height(frame.gap))
-                }
+                // No chapter line. "Chapter 1" tells a stranger scrolling past
+                // nothing about the passage, and on a book whose chapters are bare
+                // numbers it is a stray digit under someone's words. The card names
+                // the book and its author, which is the attribution that matters;
+                // the chapter still travels on the text share, where a reader is
+                // looking something up rather than looking at it.
                 Wordmark(palette, frame)
             }
         }
