@@ -2301,3 +2301,164 @@ text the reader never touched**. Keyed on the page itself now.
 **860 JVM tests, 0 failures** — 67 new: 11 in `:core` for the selection model, and 56
 in `:app` across handle geometry, reader transitions, the brightness ramp and gesture
 classification. No new dependencies, no version bumps, no manifest change.
+
+## 2026-09-15 — The highlighter: five colours, a wash instead of a stain, and a mark you can change your mind about
+
+`agent/highlight-colours`, plan at
+`docs/superpowers/plans/2026-09-15-quire-highlight-colours.md`, six tasks, all ticked.
+**1052 JVM tests, 0 failures**, 47 of them new. No new dependencies, no version bumps,
+no manifest change.
+
+Asked for on a real phone: *"the highlighter should have options and less opacity and
+colour options too."* One fixed colour per theme, at full strength, with no way to
+change or remove a mark once it was made.
+
+**Five colours, and what each is for.** People colour-code, and a set that cannot hold
+"this is a fact" apart from "this is nonsense" is one colour with extra taps:
+
+| | | for |
+|---|---|---|
+| **Keep** | gold | worth remembering — the plain highlighter, and the default |
+| **Fact** | green | something to be able to cite: a number, a date, a claim with evidence |
+| **Doubt** | rose | a disagreement, or a claim to go and check |
+| **Look up** | sky | a word, a name or a reference to follow later |
+| **Lovely** | lavender | a phrase loved for its own sake rather than for what it says |
+
+**A colour is a hue; everything else belongs to the theme.** `QuireHighlights` gives
+each theme a *wash* — a lightness, a chroma and an alpha — and each colour a hue. All
+five therefore sit at one weight on a given page, so no choice is quietly louder than
+another, and proving one legible proves all five. It is also what keeps a colour tuned
+for cream paper off a black one: on Night the wash is 26% of a *brighter* pigment,
+which reads backwards until you remember what alpha does — there, the wash is adding
+light to a near-black page rather than taking it away from a white one.
+
+The reader's **choice** is stored, never a colour. The row holds `KEEP`; the theme in
+force when the page is drawn decides what that looks like today.
+
+**Less opacity, and the thing that was actually broken.** 42% on the light themes, 26%
+on the dark, 55% on E-ink. Paper's gold goes from `#E8CD62` to `#EBDAB3` on a `#FDF5EF`
+page — a tint the words sit on rather than a block of colour with words on top.
+
+But the real failure was underneath. A blockquote is drawn in `muted`, and `muted`
+already sits at the 4.5:1 floor against the bare page, so **a highlighted quotation
+measured 2.30:1 on Night** — the one place in the app where the reader had *chosen*
+the text they most wanted to read. A gentler wash does not fix that. A mark now carries
+a **text colour** as well as a background, and a marked run is always set in the theme's
+full ink whatever the block around it is set in. That collapses the proof to one number
+per theme instead of one per block style.
+
+**Contrast, per theme, against that theme's own page** — the `ShareCardStyleTest`
+method, the one that caught the share card at 4.24:1:
+
+| | Keep | Fact | Doubt | Look up | Lovely |
+|---|---:|---:|---:|---:|---:|
+| Paper | 12.5:1 | 12.7:1 | 12.3:1 | 12.5:1 | 12.4:1 |
+| Sepia | 9.1:1 | 9.1:1 | 8.8:1 | 9.0:1 | 8.9:1 |
+| E-ink | 11.9:1 | 9.9:1 | 8.0:1 | 6.4:1 | 5.0:1 |
+| Night | 6.8:1 | 6.6:1 | 6.9:1 | 6.8:1 | 6.8:1 |
+| Black | 8.2:1 | 8.0:1 | 8.3:1 | 8.1:1 | 8.3:1 |
+
+Floor 4.5:1, worst 4.99:1 — E-ink's darkest tone, which is exactly where the band ends
+and why there are five and not eight. Two more properties hold alongside it, and they
+are what keep the first one honest: every wash is at least 0.09 per channel from its
+own page (an alpha of 0.02 would clear 4.5:1 on every theme by painting nothing), and
+no two colours on one theme are within 0.06 of each other.
+
+**On E-ink, a colour becomes a tone.** Every token of that palette has chroma exactly
+zero because an electrophoretic panel is greyscale hardware; `QuireThemeTest`'s
+`e-ink has no colour at all` is untouched, and `QuireHighlightsTest` extends the same
+rule over twenty-five values that test does not reach — both the wash and the composite,
+since only a neutral wash over a neutral page stays neutral. So the five vary along the
+only axis the panel has: `#D0D0D0`, `#BEBEBE`, `#AAAAAA`, `#989898`, `#858585`, lightest
+first, in declaration order — a test pins the order, because a tone that jumped its
+place in the row would silently swap two of the reader's own categories over.
+
+The band is arithmetic rather than taste. Its light end is as light as a mark can be
+while still reading as a mark and not as the page; its dark end is as dark as it can be
+while the ink on it still clears AA. Five is what fits between them with a step the eye
+can resolve. **The trade, stated rather than hidden:** on a colour page the five marks
+weigh the same and differ in hue; on E-ink they cannot, so they differ in weight and the
+reader learns the ramp instead. `QuireColors.highlight` is gone — it had one use site,
+and a token nothing reads is how a comment ends up lying.
+
+**A mark you can change your mind about.** Tapping a highlight in the page opens a pill
+of five swatches and a Remove, off the mark's own end so it never sits on the words it
+is about. A second tap on the same mark closes it; a tap on another moves to it; a tap
+anywhere else dismisses. The selection action bar stays at three buttons — it appears
+over the text the reader is trying to look at, and five swatches there would more than
+double its width for a decision most marks never need.
+
+So colour is chosen *after* the mark and inherited *before* it: picking a swatch also
+sets the colour the next highlight is made in, which is how a reader who colour-codes
+sets it once without a sixth control. Tapping Highlight stays one tap.
+
+Two details that are the whole of making the gesture work. A tap is asked about the
+marks *before* it is asked about the page-turn zones — those are the outer quarters, so
+a highlight sitting in one of them could otherwise never be opened. And when highlights
+nest, **the shortest wins**: mark a paragraph, then mark one sentence inside it, and
+taking the first match would make the inner one permanently unreachable — no gesture
+could ever select it, so its colour could never be changed and it could never be
+removed. `Highlights.at` is pure and has ten tests, including the one that says blocks
+outweigh characters: offset 40 of block 3 and offset 40 of block 9 are different
+distances into a chapter, and comparing them directly calls a four-paragraph mark
+"shorter" than a phrase.
+
+**The line-break invariant, re-proved rather than assumed.** The paginator measures a
+chapter without knowing which parts of it a reader has marked, which is safe only while
+a mark changes no metric. That used to be an argument about one property; it is now an
+argument about two. `MeasureMatchesRenderTest` asserts a paragraph and a blockquote
+break on identical characters with a background, with a colour on its own, and with
+both — the blockquote because it is the narrowest measure on the page and the reason
+the colour is there at all.
+
+**Migration 7 → 8** adds `bookmarks.highlightColour`, `'KEEP'` for every existing row.
+Not a fallback: gold is the only colour a highlight has ever been drawn in, so nobody
+opens Quire after the update to find their marks reassigned to meanings they never
+chose. Plain bookmarks take the column and ignore it — a bookmark is a highlight of no
+width, they share a table, and a nullable column whose null case means "this row is the
+other kind" is a condition every later reader of the table has to remember. Tested
+against raw SQLite the way `SettingsMigrationTest` already works, including the check
+that the migrated table is the one Room builds from `BookmarkEntity`: Room validates
+after migrating, and an unexpected column is an `IllegalStateException` at launch on
+every upgrading device.
+
+**One row, not two.** The six-coordinate dedupe stays, and highlighting an
+already-highlighted passage in another colour now *recolours* it. Two rows would put
+the same words in the Bookmarks list twice and stack two washes on one run, where only
+the last one drawn can be seen — the list would claim two marks and the page would show
+one, and the copy underneath would be unreachable. It is an `UPDATE`, so the row keeps
+its id and its `createdAt`: the id is what a tap resolves to, and `createdAt` is what
+orders the list, so a delete-and-reinsert would jump the mark to the top of Bookmarks
+the moment its colour changed.
+
+**The Bookmarks list agrees with the page.** Each highlight's row carries a ringed
+swatch resolved through the same `QuireHighlights.over` the page uses, so the two cannot
+be changed apart — `bookmarkSwatch` is pure and asserted across all five themes and all
+five colours. Ringed, not bare: E-ink's lightest tone is 0.04 per channel from the card
+it sits on, and an unringed dot there is a mark nobody can see. A plain bookmark gets
+none; it marks a place and has no words to colour.
+
+**The contested file.** `ReaderHost.kt` is being restructured for chunked pagination in
+another branch. The edit here is eighteen lines and entirely additive: `onHighlight`
+takes a colour, the highlights collector takes `SavedHighlight`s instead of bare spans,
+and three lambdas are added. Nothing in that file is reorganised.
+
+**What only a device can answer**, and none of it has been seen on one:
+
+- **Whether five greys are four greys on a real E-ink panel.** The numbers say the
+  adjacent tones are 0.07 apart and Carta renders 16 levels, so each step is about one
+  and a half of them. That is the single riskiest claim here, and a reflective panel in
+  daylight is the only thing that can settle it.
+- **Whether Lovely is visible on Sepia.** Lavender on tan is the faintest pair in the
+  set at 0.10 from the page — it passes the floor and it passes by the least.
+- Whether 42% is the right wash on Paper in bright sun, where a page is washed out
+  before the highlight gets to it.
+- The options pill at 360dp: five 40dp targets, a rule and a Remove come to about
+  269dp, so it should clear a narrow phone, but the arithmetic is mine and not a
+  screen's.
+- That a tap on a highlight is reliably told from a tap that turns the page. The
+  ordering is right in the code and the hit test has tests; a thumb is a different
+  instrument from an `IntRange`.
+- Back does not dismiss the options pill — it leaves the Reader, exactly as it already
+  does with a live selection and the typography sheet. Consistent, and possibly still
+  wrong; worth a verdict from someone holding the phone.

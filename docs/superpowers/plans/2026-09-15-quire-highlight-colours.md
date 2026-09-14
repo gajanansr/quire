@@ -205,6 +205,6 @@ colour-codes sets it once. Tapping Highlight stays one tap.
 
 **Files:** `PROGRESS.md`
 
-- [ ] The colours and what each is for, the contrast table for all five themes, what
+- [x] The colours and what each is for, the contrast table for all five themes, what
       a colour becomes on E-ink and why, the migration and what existing highlights
       became, and what only a device can judge.
