@@ -60,4 +60,4 @@ FREE, AND HONEST ABOUT ITS INGREDIENTS
 
 Quire is free and has no paid tier. It sets your books in Source Serif, Lora and Work Sans under the SIL Open Font License, and uses Lucide icons under the ISC licence; both notices ship inside the app. The source is public.
 
-If it becomes part of your day, there is a support link in Settings. It opens your browser. Quire never sees a payment.
+Quire is made by one person. There is nothing to buy, nothing to unlock and no paid tier — the only link in Settings goes to the author's site.

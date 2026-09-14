@@ -46,7 +46,10 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    environment: play
+    # Repository secrets, not an Environment: one place for them, and this workflow is
+    # workflow_dispatch only, so it can already only be started by someone with write
+    # access. Add `environment: play` here if you ever want a required-reviewer gate
+    # before a production upload.
 
     steps:
       - uses: actions/checkout@v4

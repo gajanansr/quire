@@ -552,7 +552,8 @@ release manually, then this owns the pipe.
 
 ### What you supply, once
 
-Four secrets for signing, one for Play. Settings → Secrets and variables → Actions.
+Four secrets for signing, one for Play. Settings → Secrets and variables → Actions →
+**New repository secret**. Repository secrets, not Environment secrets.
 
 | Secret | What it is |
 |---|---|
