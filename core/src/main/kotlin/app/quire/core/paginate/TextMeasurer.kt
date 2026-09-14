@@ -313,4 +313,26 @@ object Measure {
         val maxPx = MAX_CHARACTERS * AVERAGE_CHAR_EM * settings.fontSizeSp * settings.pixelsPerSp
         return minOf(availablePx, maxPx)
     }
+
+    /**
+     * Roughly how many characters a page of this size holds.
+     *
+     * An **estimate**, and used for exactly one thing: deciding how far back in a
+     * chapter a pagination window should start, so the reader has pages to turn back
+     * to. It never places a reader — that is always `pageContaining`, resolved
+     * against real page breaks — so being out by a third costs a few pages of room
+     * either way and nothing else.
+     *
+     * Estimated rather than measured because the alternative is circular: knowing
+     * exactly how many characters a page holds means having laid the page out, and
+     * this is the number that decides where laying out should begin.
+     */
+    fun charsPerPage(viewport: Viewport, settings: TypographySettings): Int {
+        if (viewport.widthPx <= 0f || viewport.heightPx <= 0f) return 1
+        val lines = (viewport.heightPx / settings.bodyLineHeightPx).toInt().coerceAtLeast(1)
+        val emPx = AVERAGE_CHAR_EM * settings.fontSizeSp * settings.pixelsPerSp
+        val perLine = if (emPx <= 0f) MAX_CHARACTERS
+        else (viewport.widthPx / emPx).toInt().coerceIn(1, MAX_CHARACTERS)
+        return lines * perLine
+    }
 }

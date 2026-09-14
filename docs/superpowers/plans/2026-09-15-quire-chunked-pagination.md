@@ -129,11 +129,20 @@ carry to the next page after it.
   extending backward re-lays the window out from an earlier cursor and places the
   reader by character offset.
 
-  Everything a reader could notice is bounded: the reader is shown
-  `pageContaining(P) - 1`, whose text ends at or before *P*, so **nothing is skipped
-  and nothing is repeated on screen.** The tell is that tapping forward again returns
-  a page starting up to one line before *P* rather than at it — a line re-read, in
-  the one direction a reader is already re-reading. It happens once per
+  Everything a reader could notice is bounded. **Corrected during Task 4, because
+  the first answer was wrong and a test caught it.** The plan said to show
+  `pageContaining(P) - 1` — the page *ending* at or before *P* — on the grounds that
+  nothing would then be repeated. Measured, that page ends up to 680 characters short
+  of *P* on the fixture, so a single backward turn **skipped most of a page**: text on
+  neither the page they left nor the page they were given, findable only by turning
+  forward again.
+
+  So the page shown is `pageContaining(P - 1)` — the page holding the character
+  immediately before their old start. It begins before them, so the turn really moves
+  backwards, and it runs to *at least* *P*, so **nothing is skipped**. The cost is an
+  overlap of at most one page: the top of what they were reading appears at the foot
+  of what they are given. Repeating text a reader was looking at a second ago is a far
+  milder artifact than hiding text they have not seen. It happens once per
   `PAGES_BEHIND` pages of *backward* travel, and never on a forward turn, never on a
   type-size change, and never speculatively.
 
