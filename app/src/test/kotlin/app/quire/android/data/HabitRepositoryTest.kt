@@ -3,6 +3,7 @@ package app.quire.android.data
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import app.quire.core.habit.DayMinutes
+import app.quire.core.habit.Goals
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -130,10 +131,82 @@ class HabitRepositoryTest {
     }
 
     @Test
-    fun `only the handoff's four goals are accepted`() = runBlocking {
-        HabitRepository.GOAL_OPTIONS.forEach { habits.setDailyGoal(it) }
-        val rejected = runCatching { habits.setDailyGoal(17) }
-        assertTrue("an unsupported goal was accepted", rejected.isFailure)
+    fun `any goal a reader can name is stored exactly`() = runBlocking {
+        // Replaces `only the handoff's four goals are accepted`, which asserted the
+        // behaviour this change exists to remove: the goal was a four-value cycle
+        // and `setDailyGoal` threw on anything else, so a reader who wanted fifteen
+        // minutes simply could not have it.
+        listOf(1, 7, 15, 17, 45, 90, 120).forEach { minutes ->
+            habits.setDailyGoal(minutes)
+            assertEquals(
+                "the goal $minutes did not survive being set",
+                minutes,
+                habits.settings().dailyGoalMinutes,
+            )
+        }
+        HabitRepository.GOAL_OPTIONS.forEach { minutes ->
+            habits.setDailyGoal(minutes)
+            assertEquals(minutes, habits.settings().dailyGoalMinutes)
+        }
+    }
+
+    @Test
+    fun `a goal outside the range is clamped rather than thrown`() = runBlocking {
+        // A throw here used to be safe because only four buttons could reach it.
+        // With a stepper behind it, a throw is an uncaught exception inside a
+        // coroutine launched from a composable — a crash on a tap.
+        habits.setDailyGoal(0)
+        assertEquals(Goals.MIN, habits.settings().dailyGoalMinutes)
+        habits.setDailyGoal(10_000)
+        assertEquals(Goals.MAX, habits.settings().dailyGoalMinutes)
+    }
+
+    @Test
+    fun `a goal set to the new extremes still cannot rewrite history`() = runBlocking {
+        // The existing test above proves a goal change does not rewrite a past day.
+        // This one proves it at the ends of the range the reader can now reach: with
+        // a free choice, the cheapest way to manufacture a streak would be to drop
+        // the goal to one minute and watch months of history light up, and the
+        // cheapest way to destroy one would be to raise it to two hours.
+        habits.setDailyGoal(20)
+        habits.record(listOf(DayMinutes(today() - 1, minutes = 4)))
+        habits.record(listOf(DayMinutes(today() - 2, minutes = 25)))
+
+        habits.setDailyGoal(Goals.MIN)
+        val cheap = habits.observeSummary().first()
+        assertFalse(
+            "a day that fell short was retroactively made into a streak day",
+            cheap.days.first { it.epochDay == today() - 1 }.metGoal,
+        )
+
+        habits.setDailyGoal(Goals.MAX)
+        val harsh = habits.observeSummary().first()
+        assertTrue(
+            "a day that met its goal stopped counting when the goal was raised",
+            harsh.days.first { it.epochDay == today() - 2 }.metGoal,
+        )
+    }
+
+    @Test
+    fun `a missed day does not end the run, and is reported rather than hidden`() = runBlocking {
+        // The forgiving streak, through the whole stack rather than only in :core.
+        // The reader read on four of the last five days; the figure is four, not
+        // five, and the day they did not read comes back as a rest day so the
+        // heatmap and the sentence under the number can both say so.
+        habits.setDailyGoal(10)
+        listOf(0L, 1L, 3L, 4L).forEach {
+            habits.record(listOf(DayMinutes(today() - it, minutes = 12)))
+        }
+
+        val summary = habits.observeSummary().first()
+        assertEquals("the run did not survive one missed day", 4, summary.currentStreak)
+        assertEquals(listOf(today() - 2), summary.restDays)
+        assertEquals(today() - 4, summary.streakStart)
+        assertEquals(
+            "the run counted a day the reader did not read",
+            summary.days.count { it.metGoal },
+            summary.currentStreak,
+        )
     }
 
     @Test

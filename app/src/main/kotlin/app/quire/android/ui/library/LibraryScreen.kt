@@ -219,8 +219,12 @@ private fun HabitCard(habits: HabitSummary, onClick: () -> Unit) {
     }
 }
 
+// A run may now span one quiet day a week, so the handoff's "7-day habit streak" /
+// "Read every day this week" pair is only true of a run that carried none. Claimed
+// where it holds and stated plainly where it does not, rather than dropped — the
+// reader who really did read all seven should still be told so.
 private fun habitTitle(habits: HabitSummary): String = when {
-    habits.currentStreak >= 7 -> QuireStrings.HABIT_STREAK
+    habits.currentStreak >= 7 && habits.restDays.isEmpty() -> QuireStrings.HABIT_STREAK
     habits.currentStreak > 0 -> "${habits.currentStreak}-day streak"
     else -> "Start a reading habit"
 }
@@ -229,7 +233,8 @@ private fun habitSubtitle(habits: HabitSummary): String = when {
     habits.goalMet -> "Today's goal is done."
     habits.minutesToday > 0 ->
         "${habits.minutesToday} of ${habits.goalMinutes} minutes today"
-    habits.currentStreak >= 7 -> QuireStrings.HABIT_SUBTITLE
+    habits.currentStreak >= 7 && habits.restDays.isEmpty() -> QuireStrings.HABIT_SUBTITLE
+    habits.currentStreak >= 7 -> "${habits.currentStreak} days of reading in this run"
     else -> "${habits.goalMinutes} minutes a day"
 }
 

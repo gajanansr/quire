@@ -1,6 +1,7 @@
 package app.quire.android.data
 
 import app.quire.core.habit.DayMinutes
+import app.quire.core.habit.Goals
 import app.quire.core.habit.HabitStats
 import app.quire.core.habit.Level
 import app.quire.core.habit.Levels
@@ -22,6 +23,26 @@ data class HabitSummary(
     val minutesToday: Int = 0,
     val currentStreak: Int = 0,
     val longestStreak: Int = 0,
+    /**
+     * Days the current run spanned without reading, newest first.
+     *
+     * Carried into the summary rather than recomputed by the screens so that the
+     * number, the sentence under it and the heatmap are all describing the same
+     * run. Two screens deriving forgiveness separately would eventually disagree
+     * about which day was rested, which is a small lie in a feature whose whole
+     * claim is that it does not tell them.
+     */
+    val restDays: List<Long> = emptyList(),
+    /** The first day of the current run, or null when there is no run. */
+    val streakStart: Long? = null,
+    /**
+     * Every day the reader has ever read, in total.
+     *
+     * The number that never resets, and the honest one. A run can end; this cannot,
+     * and it is what the streak screen shows a reader whose run has just gone to
+     * zero — the reading is still there even when the chain is not.
+     */
+    val daysRead: Int = 0,
     val xp: Int = 0,
     val level: Level = Levels.all.first(),
     val levelProgress: Double = 0.0,
@@ -82,12 +103,15 @@ class HabitRepository(
             val booksFinished = settings?.booksFinished ?: 0
 
             val xp = Levels.xpFor(totalMinutes, booksFinished)
+            // The forgiving run, not the strict one. `Streaks.current` is still
+            // there and still strict; nothing the reader sees uses it any more.
+            val run = Streaks.run(history, today)
             val stats = HabitStats(
                 booksFinished = booksFinished,
                 chaptersFinished = settings?.chaptersFinished ?: 0,
                 totalMinutes = totalMinutes,
-                currentStreak = Streaks.current(history, today),
-                longestStreak = Streaks.longest(history),
+                currentStreak = run.daysRead,
+                longestStreak = Streaks.longestRun(history),
                 daysRead = history.count { it.minutes > 0 },
             )
 
@@ -98,6 +122,9 @@ class HabitRepository(
                 minutesToday = minutesToday,
                 currentStreak = stats.currentStreak,
                 longestStreak = stats.longestStreak,
+                restDays = run.restDays,
+                streakStart = run.startDay,
+                daysRead = stats.daysRead,
                 xp = xp,
                 level = Levels.levelFor(xp),
                 levelProgress = Levels.progressWithinLevel(xp),
@@ -139,9 +166,19 @@ class HabitRepository(
     fun observeSettings(): Flow<AppSettingsEntity> =
         db.settings().observe().map { it ?: AppSettingsEntity() }
 
+    /**
+     * The daily goal, now any minute count rather than one of four.
+     *
+     * Clamped rather than rejected. The old `require` threw on anything outside the
+     * four presets, and with a stepper and a free choice behind it a throw would be
+     * an uncaught exception in a coroutine launched from a composable — a crash on a
+     * tap. [Goals.clamp] is the last line of defence behind a UI that already cannot
+     * produce a value outside the range.
+     */
     suspend fun setDailyGoal(minutes: Int) {
-        require(minutes in GOAL_OPTIONS) { "unsupported goal: $minutes" }
-        db.settings().put(settings().copy(dailyGoalMinutes = minutes, onboarded = true))
+        db.settings().put(
+            settings().copy(dailyGoalMinutes = Goals.clamp(minutes), onboarded = true)
+        )
         // The habit widget prints the goal. A goal changed in Settings and left
         // stale on the home screen is two answers to one question on one phone.
         onDataChanged()
@@ -231,9 +268,9 @@ class HabitRepository(
     }
 
     companion object {
-        /** The handoff's four options. */
-        val GOAL_OPTIONS = listOf(5, 10, 20, 30)
-        const val RECOMMENDED_GOAL = 5
+        /** The handoff's four, kept as quick options beside the free choice. */
+        val GOAL_OPTIONS = Goals.PRESETS
+        const val RECOMMENDED_GOAL = Goals.RECOMMENDED
         const val DEFAULT_GOAL = 10
         const val MINUTES_PER_DAY = 24 * 60
     }

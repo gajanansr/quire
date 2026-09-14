@@ -124,6 +124,58 @@ class ReminderCopyTest {
     }
 
     @Test
+    fun `no line claims the days were consecutive`() {
+        // A run now keeps going through one quiet day a week, so "three days
+        // running" and "you've read every day this week" are false for any run that
+        // carried one. That is warm, specific, confident and wrong — the exact
+        // failure the honesty rules exist to prevent, and the harder one to notice
+        // because the *number* is right.
+        //
+        // What is true of every run is the count of days the reader actually read,
+        // so that is all a streak line is allowed to say.
+        val consecutive = listOf(
+            "in a row", "running", "one after another", "consecutive",
+            "straight", "every day", "unbroken", "without missing", "day after day",
+        )
+        everyLine().forEach { (kind, copy) ->
+            val text = "${copy.title} ${copy.body}".lowercase()
+            consecutive.forEach { claim ->
+                assertFalse(
+                    "$kind claims consecutive days with \"$claim\": ${copy.title} / ${copy.body}",
+                    claim in text,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `no line mentions a rest day, spent or available`() {
+        // The research behind the forgiving streak is unambiguous: pointing at a
+        // break accelerates people leaving. "You used your rest day", "one rest day
+        // left", "your streak is safe" are all the same notification — a phone
+        // buzzing to talk about a number rather than about a book — and this app
+        // does not send it. The right count of streak-anxiety notifications is zero.
+        val forbidden = listOf(
+            "rest day", "quiet day", "freeze", "frozen", "streak is safe",
+            "streak saved", "protected", "expires", "keep your streak", "at stake",
+        )
+        listOf(
+            everyLine(),
+            everyLine(book = null),
+            everyLine(currentStreak = 3),
+            everyLine(currentStreak = 90),
+        ).flatten().forEach { (kind, copy) ->
+            val text = "${copy.title} ${copy.body}".lowercase()
+            forbidden.forEach { phrase ->
+                assertFalse(
+                    "$kind talks about the streak mechanic: ${copy.title} / ${copy.body}",
+                    phrase in text,
+                )
+            }
+        }
+    }
+
+    @Test
     fun `a streak line can never read one days`() {
         // STREAK_MIN is 3, so the plural is always right — but only as long as the
         // threshold and the copy agree, and a lowered threshold has to fail here

@@ -101,28 +101,35 @@ object ReminderWords {
     // A run of days, stated as a fact about what happened. Never as something at
     // risk, never as something to protect: the streak screen already tells the
     // reader that a reset costs them nothing but the number.
+    //
+    // Not one of these claims the days were *consecutive*, and that is a rule with a
+    // test behind it. A run now keeps going through one quiet day a week, so "three
+    // days running" and "every day this week" are false for any run that carried
+    // one — warm, specific, confident and wrong, which is the exact failure the
+    // honesty rules exist to prevent. What is true of every run is the count of days
+    // the reader read, so that is all these lines say.
     private val streakWithBook = listOf(
         Line(namesChapter = true) {
             ReminderCopy(
-                "${it.streak} days running",
+                "${it.streak} days of reading",
                 "${it.chapter} is next in ${it.book}.",
             )
         },
         Line(namesChapter = false) {
             ReminderCopy(
-                "${it.streak} days, one after another",
+                "A run of ${it.streak} days",
                 "No rush — ${it.book} will keep.",
             )
         },
         Line(namesChapter = true) {
             ReminderCopy(
-                "You've read ${it.streak} days in a row",
+                "You've read on ${it.streak} days",
                 "${it.book} is open at ${it.chapter} whenever you are.",
             )
         },
         Line(namesChapter = false) {
             ReminderCopy(
-                "${it.streak} days of reading",
+                "${it.streak} days so far",
                 "You're ${it.percent}% through ${it.book}.",
             )
         },
@@ -131,13 +138,13 @@ object ReminderWords {
     private val streakWithoutBook = listOf(
         Line(namesChapter = false) {
             ReminderCopy(
-                "${it.streak} days running",
+                "${it.streak} days of reading",
                 "${it.goal} minutes whenever you'd like.",
             )
         },
         Line(namesChapter = false) {
             ReminderCopy(
-                "${it.streak} days, one after another",
+                "A run of ${it.streak} days",
                 "Quire is here when you are.",
             )
         },
