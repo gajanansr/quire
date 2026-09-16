@@ -27,6 +27,43 @@
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+      What Quire is allowed to see of the reader's other apps, and why it has to ask.
+
+      Translate and Dictionary are not features Quire implements — it has no INTERNET
+      permission and could not. They hand the chosen passage to an app the reader
+      already has, exactly the way Share does, and Quire's part ends there.
+
+      From Android 11 an app cannot see a package it has not declared an interest in.
+      queryIntentActivities does not fail in that case; it returns an *empty list*,
+      so without this element Quire would conclude — wrongly, silently, and only on
+      API 30 and above — that the reader has no translation app at all, hide the
+      action, and give nobody anything to debug. That is why these three are here and
+      why HandoffIntentsTest reads this file back: an action probed in
+      HandoffIntents.candidates and missing below fails the build rather than the
+      phone.
+
+      Three named actions, and not QUERY_ALL_PACKAGES. Asking to see every app on
+      someone's phone to find out whether one of them speaks French is a permission
+      Play treats as sensitive and a trade this app has no business making.
+
+      The shapes match the intents Quire actually starts. PROCESS_TEXT carries
+      text/plain because its handlers declare a mime type; TRANSLATE and DEFINE carry
+      none because theirs do not, and a <data> element here would match nothing.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TRANSLATE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DEFINE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".QuireApp"
         android:label="Quire"
