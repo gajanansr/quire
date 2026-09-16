@@ -134,6 +134,18 @@ interface BookmarkDao {
     @Query("UPDATE bookmarks SET highlightColour = :colour WHERE id = :id")
     suspend fun recolour(id: Long, colour: String)
 
+    /**
+     * Writes the reader's own words against a mark.
+     *
+     * One column, by id, for the same reason [recolour] is: the row is the anchor a
+     * tap on the page resolves to and the entry the Bookmarks list is keyed on, and
+     * a note is not a reason to rebuild either. It is also the only write in this
+     * table that can destroy something Quire cannot recreate, so it touches exactly
+     * the column it is named after and nothing beside it.
+     */
+    @Query("UPDATE bookmarks SET note = :note WHERE id = :id")
+    suspend fun setNote(id: Long, note: String)
+
     @Query("DELETE FROM bookmarks WHERE id = :id")
     suspend fun remove(id: Long)
 
@@ -176,7 +188,7 @@ interface SettingsDao {
         BookEntity::class, ReadingProgressEntity::class, BookmarkEntity::class,
         ReadingDayEntity::class, AppSettingsEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class QuireDatabase : RoomDatabase() {
@@ -187,6 +199,31 @@ abstract class QuireDatabase : RoomDatabase() {
     abstract fun settings(): SettingsDao
 
     companion object {
+        /**
+         * Gives a mark somewhere to put the reader's own words.
+         *
+         * `''` for every existing row, and — unlike [MIGRATION_7_8], which had to
+         * choose a colour that meant what the old one meant — there is nothing to
+         * infer here. Nobody has ever written a note in Quire, so every passage
+         * already saved is one nobody has written about, and the empty string is
+         * literally true rather than a default standing in for an unknown.
+         *
+         * `NOT NULL DEFAULT ''` rather than a nullable column: "no note" is a real
+         * state a reader can get back to by clearing one, not a missing value, and a
+         * nullable column would put a null check in front of every later read — the
+         * first one forgotten being a crash in the Bookmarks list.
+         *
+         * One column added, nothing rewritten. The six coordinates that decide which
+         * characters a mark covers, the colour the reader chose, the snippet and
+         * `createdAt` are all untouched, which is what keeps this update invisible to
+         * anyone who never writes a note.
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE bookmarks ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         /**
          * Gives a highlight a colour.
          *

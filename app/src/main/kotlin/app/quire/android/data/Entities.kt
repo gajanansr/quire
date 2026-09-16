@@ -76,10 +76,29 @@ data class BookmarkEntity(
      * A plain bookmark carries one too and ignores it. It has no words to colour.
      */
     val highlightColour: String = "KEEP",
+    /**
+     * The reader's own words about this passage, or `""` when there are none.
+     *
+     * Empty string rather than null, for the reason the colour column is not
+     * nullable either: a null whose meaning is "this row is the other kind" is a
+     * condition every later reader of the table has to remember, and the first one
+     * who forgets it crashes the Bookmarks list.
+     *
+     * The only value in this database Quire cannot reconstruct. A colour can be
+     * chosen again, a span is arithmetic and a snippet is copied out of the book —
+     * nobody can retype a thought they had three chapters ago. Everything that
+     * touches this table is written so that a note is never collateral damage: the
+     * highlight and bookmark paths leave this column alone entirely, and the one that
+     * writes it never repaints a mark in return.
+     */
+    val note: String = "",
     /** Snapshot of the text, so a bookmark survives reprocessing. */
     val snippet: String,
     val createdAt: Long,
 ) {
+    /** True when the reader has written something of their own about this passage. */
+    val hasNote: Boolean get() = note.isNotBlank()
+
     /** True when the reader chose words, rather than marking a place. */
     val isHighlight: Boolean
         get() = endBlockIndex > blockIndex ||

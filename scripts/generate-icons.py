@@ -46,10 +46,14 @@ ICONS = [
     "copy",             # copy a passage to the clipboard
     "trash-2",          # remove a bookmark
     "highlighter",      # highlight a selected passage
+    "square-pen",       # write a note against a passage
+    "languages",        # hand a passage to a translation app
+    "book-a",           # hand a word to a dictionary app
 ]
 
 # Icons that point along the reading direction and must flip when the layout does.
-MIRRORED = {"chevron-right", "chevron-left", "share-2", "send", "list"}
+MIRRORED = {"chevron-right", "chevron-left", "share-2", "send", "list",
+            "square-pen"}
 
 NS = "{http://www.w3.org/2000/svg}"
 

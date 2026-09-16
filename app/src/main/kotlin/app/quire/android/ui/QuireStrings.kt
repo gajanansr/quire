@@ -136,6 +136,42 @@ object QuireStrings {
     const val HIGHLIGHT = "Highlight"
     const val REMOVE = "Remove"
 
+    // ------------------------------------------- what a chosen passage offers
+
+    const val MORE = "More"
+    const val NOTE = "Note"
+    const val EDIT_NOTE = "Edit note"
+    const val TRANSLATE = "Translate"
+    const val DICTIONARY = "Dictionary"
+
+    /**
+     * What a tap on an action nothing can answer says.
+     *
+     * Quire cannot translate or define anything. It has no network permission, which
+     * is the point of it, so these actions hand the reader's chosen words to an app
+     * the reader already has and stop there. When there is no such app the honest
+     * sentence says both halves: what Quire does, and what is missing.
+     *
+     * No product is named and nobody is sent shopping. Quire ships no brand marks and
+     * recommends nothing — the same rule the share destinations follow — and "install
+     * X" would be an advert in a reading app.
+     */
+    const val NO_TRANSLATOR =
+        "Quire hands the words to a translation app on your phone, and can't find " +
+            "one. It has no connection of its own to use instead."
+    const val NO_DICTIONARY =
+        "Quire hands the words to a dictionary app on your phone, and can't find " +
+            "one. It has no connection of its own to use instead."
+    const val NO_HANDLER = "No app on your phone offers to do this."
+
+    // The note sheet.
+    const val NOTE_TITLE = "Your note"
+    const val NOTE_HINT = "What do you want to remember about this?"
+    const val NOTE_SAVE = "Save"
+    const val NOTE_CANCEL = "Cancel"
+    const val NOTE_DELETE = "Delete note"
+    const val NOTE_SAVED = "Note saved"
+
     // Removing a book. The second line is the one that matters: Quire keeps its own
     // copy, so a reader deleting a book here is not deleting the file they imported,
     // and nothing else on this screen tells them that.

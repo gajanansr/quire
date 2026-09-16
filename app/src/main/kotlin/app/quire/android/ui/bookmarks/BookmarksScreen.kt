@@ -26,6 +26,12 @@ import app.quire.android.data.BookmarkEntity
 import app.quire.android.data.BookmarkWithBook
 import app.quire.android.ui.QuireStrings
 import app.quire.android.ui.common.EmptyState
+import app.quire.android.ui.note.NoteDraft
+import app.quire.core.reading.TextAnchor
+import app.quire.core.reading.TextSpan
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import app.quire.android.ui.theme.Quire
 import app.quire.android.ui.theme.QuireHighlights
 import app.quire.android.ui.theme.QuireThemeName
@@ -56,6 +62,7 @@ fun BookmarksScreen(
     bookmarks: List<BookmarkWithBook>,
     onOpen: (bookId: String, chapterIndex: Int) -> Unit,
     onShare: (BookmarkWithBook) -> Unit,
+    onNote: (BookmarkWithBook) -> Unit,
     onRemove: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -118,6 +125,44 @@ fun BookmarksScreen(
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyLarge,
                 )
+
+                // The reader's own words, under the book's. Set apart by a rule in
+                // the accent rather than by quotation marks or italics, because the
+                // thing above it is already a quotation and the two must not look
+                // alike: one is what the book says and the other is what the reader
+                // thinks about it.
+                //
+                // Shown in full up to six lines. This list is the only place a note
+                // can be found once the page it was written on is behind the reader,
+                // and a note truncated to one line is a note nobody can read.
+                if (entry.bookmark.hasNote) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        // Intrinsic height so the rule is as tall as the note beside
+                        // it. A fixed height would leave a two-millimetre tick next to
+                        // six lines of the reader's own writing, which reads as a
+                        // rendering fault rather than as a margin.
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    ) {
+                        Box(
+                            Modifier
+                                .width(2.dp)
+                                .fillMaxHeight()
+                                .clip(QuireShapes.chip)
+                                .background(colors.accent),
+                        )
+                        Spacer(Modifier.size(10.dp))
+                        Text(
+                            entry.bookmark.note,
+                            color = colors.ink,
+                            maxLines = 6,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     bookmarkSwatch(entry.bookmark, theme)?.let { swatch ->
@@ -138,6 +183,19 @@ fun BookmarksScreen(
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.weight(1f),
                     )
+                    // Tinted in the accent when there is something written, so a row
+                    // that carries a note says so twice — in the block above and in
+                    // the control that opens it.
+                    RowAction(
+                        icon = QuireIcons.Note,
+                        description = if (entry.bookmark.hasNote) {
+                            QuireStrings.EDIT_NOTE
+                        } else {
+                            QuireStrings.NOTE
+                        },
+                        tint = if (entry.bookmark.hasNote) colors.accent else colors.muted,
+                    ) { onNote(entry) }
+                    Spacer(Modifier.size(4.dp))
                     RowAction(QuireIcons.Share, QuireStrings.SHARE) { onShare(entry) }
                     Spacer(Modifier.size(4.dp))
                     RowAction(QuireIcons.Remove, QuireStrings.REMOVE) {
@@ -165,8 +223,36 @@ fun bookmarkSwatch(bookmark: BookmarkEntity, theme: QuireThemeName): Color? =
     if (!bookmark.isHighlight) null
     else QuireHighlights.over(theme, highlightColourNamed(bookmark.highlightColour))
 
+/**
+ * Builds the note sheet's draft from a saved mark.
+ *
+ * Here rather than inline in the row so that the one thing worth being sure of can be
+ * asserted: that the draft carries all six coordinates of the mark and the id of its
+ * row. Saving goes back through both, which is what keeps an edited note on the mark
+ * it came from instead of creating a second one beside it.
+ *
+ * `saved` and `text` open equal, so reading a note is not editing it — [NoteEdit]
+ * keeps Save dark until something actually changes.
+ */
+fun noteDraftOf(entry: BookmarkWithBook): NoteDraft = NoteDraft(
+    span = TextSpan(
+        TextAnchor(entry.bookmark.blockIndex, entry.bookmark.charOffset),
+        TextAnchor(entry.bookmark.endBlockIndex, entry.bookmark.endCharOffset),
+    ),
+    // The list has no page on screen to look at, so the stored snippet is the only
+    // thing that can say what the note is about.
+    snippet = entry.bookmark.snippet,
+    saved = entry.bookmark.note,
+    bookmarkId = entry.bookmark.id,
+)
+
 @Composable
-private fun RowAction(@DrawableRes icon: Int, description: String, onClick: () -> Unit) {
+private fun RowAction(
+    @DrawableRes icon: Int,
+    description: String,
+    tint: Color? = null,
+    onClick: () -> Unit,
+) {
     val colors = Quire.colors
     Box(
         modifier = Modifier
@@ -178,7 +264,7 @@ private fun RowAction(@DrawableRes icon: Int, description: String, onClick: () -
         QuireIcon(
             icon,
             contentDescription = description,
-            tint = colors.muted,
+            tint = tint ?: colors.muted,
             size = QuireIcons.Size.Small,
         )
     }

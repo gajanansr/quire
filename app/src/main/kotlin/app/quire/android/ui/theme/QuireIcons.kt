@@ -56,6 +56,16 @@ object QuireIcons {
     @DrawableRes val Highlight = R.drawable.ic_highlighter
     @DrawableRes val Remove = R.drawable.ic_trash_2
 
+    /** Writing something of your own against a passage. */
+    @DrawableRes val Note = R.drawable.ic_square_pen
+
+    // Handing a passage to another app. Named for the job rather than for the app
+    // that does it, because Quire never does either itself — it has no network
+    // permission and cannot. The drawing says what the reader is asking for; which
+    // app answers is theirs to choose.
+    @DrawableRes val Translate = R.drawable.ic_languages
+    @DrawableRes val Dictionary = R.drawable.ic_book_a
+
     // Things the app talks about.
     @DrawableRes val Book = R.drawable.ic_book
     @DrawableRes val Streak = R.drawable.ic_flame

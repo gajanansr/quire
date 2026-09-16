@@ -112,8 +112,18 @@ fun ReaderScreen(
     onHandleRelease: () -> Unit = {},
     /** Marks the chosen passage, in the colour the reader last used. */
     onHighlight: (HighlightColour) -> Unit = {},
-    onShareSelection: () -> Unit = {},
     onCopySelection: () -> Unit = {},
+    /** Write something of your own about the chosen passage. */
+    onNoteSelection: () -> Unit = {},
+    /**
+     * Everything that hands the passage to another app — Share, Translate, Dictionary.
+     *
+     * Behind one control because only these three can be missing, which is what keeps
+     * the bar exactly three buttons wide on every phone. See [SelectionMenu].
+     */
+    onMoreSelection: () -> Unit = {},
+    /** Read or write the note on a mark the reader has already made. */
+    onHighlightNote: (Long) -> Unit = {},
     /**
      * A tap that landed on a saved highlight, or null for one that did not.
      *
@@ -470,8 +480,9 @@ fun ReaderScreen(
             )
             SelectionActions(
                 onHighlight = { onHighlight(state.highlightColour) },
-                onShare = onShareSelection,
+                onNote = onNoteSelection,
                 onCopy = onCopySelection,
+                onMore = onMoreSelection,
                 atTop = top,
                 modifier = Modifier.align(
                     if (top) Alignment.TopCenter else Alignment.BottomCenter,
@@ -497,6 +508,8 @@ fun ReaderScreen(
             )
             HighlightOptions(
                 current = editing.colour,
+                hasNote = editing.hasNote,
+                onNote = { onHighlightNote(editing.id) },
                 onChoose = { onHighlightRecolour(editing.id, it) },
                 onRemove = { onHighlightRemove(editing.id) },
                 atTop = top,
@@ -881,12 +894,24 @@ private fun marksFor(
  *
  * Sits where the bottom chrome would, and replaces it: both at once would cover the
  * page, and the reader is looking at the words, not at the controls.
+ *
+ * Three actions and a More, and the rule behind that division is [SelectionMenu]'s:
+ * what stays in Quire is on the bar, what leaves it is behind More. Six buttons here
+ * would be a bar wider than the text it sits over, on the one screen in the app whose
+ * whole design is that it disappears.
+ *
+ * **The width, because it cannot be tested here.** Horizontal padding is 12dp rather
+ * than the 16dp it was, which is what buys room for the fourth control. At 14sp the
+ * three labelled actions come to roughly 104, 75 and 79dp, the divider and its
+ * spacing to 13, More to 40 and the container's own padding to 12 — about 329dp on a
+ * 360dp phone. That arithmetic is mine and not a screen's.
  */
 @Composable
 private fun SelectionActions(
     onHighlight: () -> Unit,
-    onShare: () -> Unit,
+    onNote: () -> Unit,
     onCopy: () -> Unit,
+    onMore: () -> Unit,
     atTop: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -904,9 +929,38 @@ private fun SelectionActions(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SelectionAction(QuireIcons.Highlight, QuireStrings.HIGHLIGHT, onHighlight)
-        SelectionAction(QuireIcons.Share, QuireStrings.SHARE, onShare)
-        SelectionAction(QuireIcons.Copy, QuireStrings.COPY, onCopy)
+        SelectionMenu.PRIMARY.forEach { action ->
+            SelectionAction(
+                icon = when (action) {
+                    SelectionAction.HIGHLIGHT -> QuireIcons.Highlight
+                    SelectionAction.NOTE -> QuireIcons.Note
+                    else -> QuireIcons.Copy
+                },
+                label = SelectionMenu.label(action),
+                onClick = when (action) {
+                    SelectionAction.HIGHLIGHT -> onHighlight
+                    SelectionAction.NOTE -> onNote
+                    else -> onCopy
+                },
+            )
+        }
+        Spacer(
+            Modifier
+                .padding(horizontal = 6.dp)
+                .width(1.dp)
+                .height(22.dp)
+                .background(colors.border),
+        )
+        Box(
+            modifier = Modifier
+                .size(SWATCH_TARGET)
+                .clip(QuireShapes.pill)
+                .clickable(onClick = onMore)
+                .semantics { contentDescription = QuireStrings.MORE },
+            contentAlignment = Alignment.Center,
+        ) {
+            QuireIcon(QuireIcons.More, contentDescription = null, tint = colors.ink)
+        }
     }
 }
 
@@ -921,7 +975,7 @@ private fun SelectionAction(
         modifier = Modifier
             .clip(QuireShapes.pill)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 11.dp)
+            .padding(horizontal = 12.dp, vertical = 11.dp)
             .semantics { contentDescription = label },
         horizontalArrangement = Arrangement.spacedBy(7.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -946,6 +1000,8 @@ private fun SelectionAction(
 @Composable
 private fun HighlightOptions(
     current: HighlightColour,
+    hasNote: Boolean,
+    onNote: () -> Unit,
     onChoose: (HighlightColour) -> Unit,
     onRemove: () -> Unit,
     atTop: Boolean,
@@ -981,6 +1037,32 @@ private fun HighlightOptions(
                 .height(22.dp)
                 .background(colors.border),
         )
+        // The other half of "a note is written against a selection *or* an existing
+        // highlight". A mark the reader has already made has no selection any more,
+        // so without this the only route to its note would be re-selecting the exact
+        // same characters — which is the one gesture in this app that is fiddly.
+        //
+        // Tinted in the accent when there is something written, so a mark carrying a
+        // note says so before it is opened. That is the only difference between the
+        // two states: the pill is drawn over the page and a second label in it would
+        // cost more width than the distinction is worth.
+        Box(
+            modifier = Modifier
+                .size(SWATCH_TARGET)
+                .clip(QuireShapes.pill)
+                .clickable(onClick = onNote)
+                .semantics {
+                    contentDescription =
+                        if (hasNote) QuireStrings.EDIT_NOTE else QuireStrings.NOTE
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            QuireIcon(
+                QuireIcons.Note,
+                contentDescription = null,
+                tint = if (hasNote) colors.accent else colors.ink,
+            )
+        }
         Box(
             modifier = Modifier
                 .size(SWATCH_TARGET)

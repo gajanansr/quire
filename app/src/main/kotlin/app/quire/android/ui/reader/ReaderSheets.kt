@@ -22,8 +22,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.annotation.DrawableRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import app.quire.android.share.TextHandoff
+import app.quire.android.ui.QuireStrings
+import app.quire.android.ui.theme.QuireIcon
+import app.quire.android.ui.theme.QuireIcons
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -361,6 +370,111 @@ private fun TextLine(color: Color, widthFraction: Float, height: Dp) {
 
 
 /**
+ * Everything that hands the chosen passage to another app.
+ *
+ * A list rather than three more buttons on the bar, because the bar is drawn over the
+ * words the reader is trying to read and because these are the only actions that can
+ * be missing: keeping them together is what lets the bar be the same three buttons on
+ * every phone. [SelectionMenu] holds the rule; this draws it.
+ *
+ * **Quire does none of these itself.** It has no `INTERNET` permission — the manifest
+ * removes it and `NoNetworkPermissionTest` fails the build the day one returns — so
+ * the passage goes to an app the reader already has, and that is the whole feature.
+ *
+ * An action nothing on the phone answers is shown greyed rather than hidden, and a
+ * tap on it replaces the footer with the reason. Hiding would be tidier and it would
+ * also be silent: the reader never learns the action exists, and the sheet is a
+ * different sheet on every phone, so nobody can be told where anything is. The
+ * explanation goes *in the sheet* rather than in a toast because a toast over a modal
+ * sheet is a stack, and because the sentence belongs next to the row that was tapped.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SelectionMoreSheet(
+    available: Set<TextHandoff>,
+    onShare: () -> Unit,
+    onHandoff: (TextHandoff) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = Quire.colors
+    var explaining by remember { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = colors.bgAlt,
+        shape = QuireShapes.sheet,
+        dragHandle = null,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(top = 22.dp, bottom = 26.dp),
+        ) {
+            SelectionMenu.overflow(available).forEach { item ->
+                HandoffRow(
+                    icon = when (item.action) {
+                        SelectionAction.TRANSLATE -> QuireIcons.Translate
+                        SelectionAction.DICTIONARY -> QuireIcons.Dictionary
+                        else -> QuireIcons.Share
+                    },
+                    label = SelectionMenu.label(item.action),
+                    enabled = item.enabled,
+                    onClick = {
+                        val handoff = SelectionMenu.handoff(item.action)
+                        when {
+                            // Never nothing. A tap that is swallowed reads as a broken
+                            // app, and this is the case a developer's own phone cannot
+                            // show them.
+                            !item.enabled -> explaining = SelectionMenu.unavailable(item.action)
+                            handoff == null -> onShare()
+                            else -> onHandoff(handoff)
+                        }
+                    },
+                )
+            }
+
+            explaining?.let { said ->
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    said,
+                    color = colors.muted,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HandoffRow(
+    @DrawableRes icon: Int,
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = Quire.colors
+    // Still clickable when it is not available, deliberately. A row that refuses the
+    // tap has nothing to say, and "nothing happened" is the failure this whole
+    // arrangement exists to avoid.
+    val tint = if (enabled) colors.ink else colors.muted
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(QuireShapes.button)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 15.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        QuireIcon(icon, contentDescription = null, tint = tint, size = QuireIcons.Size.Large)
+        Text(label, color = tint, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+/**
  * "Bookmark added", with a Done action.
  *
  * Dismisses itself after a moment. The handoff shows a small confirmation rather
@@ -368,7 +482,7 @@ private fun TextLine(color: Color, widthFraction: Float, height: Dp) {
  * meant to disappear, and a badge that stays would undo that.
  */
 @Composable
-fun BookmarkToast(onDone: () -> Unit) {
+fun BookmarkToast(onDone: () -> Unit, message: String = "Bookmark added") {
     val colors = Quire.colors
 
     LaunchedEffect(Unit) {
@@ -391,7 +505,7 @@ fun BookmarkToast(onDone: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Text("Bookmark added", color = colors.ink, style = MaterialTheme.typography.bodyLarge)
+            Text(message, color = colors.ink, style = MaterialTheme.typography.bodyLarge)
             Text(
                 "Done",
                 color = colors.accent,
