@@ -2701,3 +2701,183 @@ JVM; none of it is a stopwatch, because there is no phone here.
   three of them turned out to reach: rotate while reading, rotate at the window's
   first page, rotate immediately after tapping back, and check the text still fills
   each page to the bottom and that taps keep working afterwards.
+
+## 2026-09-17 — Three more things to do with a passage, and none of them can reach the internet
+
+`agent/selection-actions`. **1,201 JVM tests (420 `:core` + 781 `:app`), 0 failures**,
+63 added. No new dependencies, no version bumps. One manifest change, and it is the
+whole story of two of the three features.
+
+Asked for against a reference screenshot of another reader's selection menu — Note,
+Highlight, Copy, Translate, Dictionary, Share and a ChatGPT entry — with one
+instruction: *"except chatgpt can we have others also."* So: Note, Translate,
+Dictionary. No AI, and nothing that could become one.
+
+### Translate and Dictionary, in an app that cannot reach a dictionary
+
+Quire declares no `INTERNET` permission. The manifest removes it with
+`tools:node="remove"`, `NoNetworkPermissionTest` fails the build the day one returns,
+and the store listing is written against that. It is not a feature that can be traded
+for a feature.
+
+So Quire translates nothing and defines nothing. It hands the words the reader chose
+to an app the reader already has, exactly the way Share does, and stops. **There is no
+translation code in this branch because there is none to write** — that is the feature
+rather than a shortcoming of it, and it is why the testable surface is an `Intent`,
+which is a value, rather than a network client, which is not.
+
+**Two routes per job, most specific first.** `ACTION_TRANSLATE` and `ACTION_DEFINE`
+name the job exactly and go straight to an app that does it; `ACTION_PROCESS_TEXT` is
+what the platform's own selection toolbar uses and what these apps reliably register
+for, but it is answered by every text-processing app installed, so the chooser it
+opens is wider than the button that opened it. Hence the order. `ACTION_TRANSLATE` is
+guarded at API 29. `ACTION_DEFINE` is API 23, below Quire's floor of 26, and
+deliberately has **no** guard — a version check copied across from the translate case
+would delete the specific route on every phone that has one, and the symptom would be
+a feature that silently never appears.
+
+**The `<queries>` element is the part that can only fail on a real phone.** From
+Android 11 a package is invisible unless the manifest says it is being looked for, and
+`queryIntentActivities` does not fail in that case: it returns an *empty list*.
+Without those three declarations Quire would conclude — wrongly, silently, and only on
+API 30 and above — that the reader has no translation app, hide the action, and leave
+nothing in any log. `HandoffIntentsTest` reads the manifest back and derives what must
+be declared **from the intents the code actually builds**, so a fourth action added
+without a matching entry fails the build instead of somebody's phone.
+
+Three named actions, and not `QUERY_ALL_PACKAGES`. Asking to see every app on
+someone's phone to find out whether one of them speaks French is a permission Play
+treats as sensitive and a trade a reading app has no business making.
+
+**What happens on a phone with nothing installed.** Availability is resolved once per
+book and the action is drawn greyed, not hidden. Hiding is tidier and it is also
+silent: the reader never learns the action exists, and the sheet becomes a different
+sheet on every phone, so nobody can be told where anything is. A tap on the greyed row
+replaces the sheet's footer with the reason — in the sheet rather than in a toast,
+because a toast over a modal sheet is a stack and because the sentence belongs beside
+the row that was tapped. It says both true things: that Quire hands the words to an
+app on your phone, and that it has no connection of its own to use instead. It names
+no product. "Install X" is an advert in a reading app, and it would also be a lie
+about what Quire could do if you did.
+
+`HandoffIntents.start` re-resolves and returns false rather than throwing, because
+what is installed can change between the moment a sheet is drawn and the moment it is
+tapped, and an unresolvable intent is an `ActivityNotFoundException` rather than a
+no-op. A tap never does nothing.
+
+### The split, decided on Quire's own terms
+
+Six actions over the words someone is reading is a bar wider than the column it
+covers, on the one screen in this app whose entire design is that it disappears. The
+reference puts three on a top row and the rest in a list; the rule here happens to
+land in the same shape, but it is a rule rather than a copy:
+
+> **What stays in Quire is on the bar. What leaves it is behind More.**
+
+Highlight, Note and Copy finish inside the app or inside the reader's own clipboard.
+Share, Translate and Dictionary all end with another app opening and Quire's part
+being over. The second property is what makes the line load-bearing rather than
+aesthetic: **only a hand-off can be missing**, so grouping them keeps the bar exactly
+three buttons wide on every phone, and the one list whose contents depend on what is
+installed is a list the reader deliberately opened. A bar that is four buttons on one
+device and six on another is a different obstruction on each.
+
+`SelectionMenuTest` asserts the rule rather than the layout — that nothing on the bar
+needs another app, that every action is in exactly one of the two places, that the
+overflow never opens empty, and that its order does not change with what is installed.
+
+Width: horizontal padding drops from 16dp to 12dp, which is what buys room for the
+fourth control. My arithmetic said about 329dp of a 360dp phone; measured on the
+emulator it is about 284dp, because the labels are narrower than I assumed.
+
+### A note is the only thing in this database Quire cannot reconstruct
+
+**Migration 8 → 9** adds `bookmarks.note`, `TEXT NOT NULL DEFAULT ''`. Nothing is
+inferred and nothing is rewritten — unlike 7 → 8, which had to choose a colour that
+meant what the old one meant, there is nothing to infer here: nobody has ever written
+a note in Quire, so every row already saved is a passage nobody has written about, and
+the empty string is literally true rather than a default standing in for an unknown.
+
+Empty string, never null, for the reason the colour column is not nullable either: a
+null whose meaning is "this row is the other kind" is a condition every later reader
+of the table has to remember, and the first one who forgets it is a crash in the
+Bookmarks list.
+
+**A note lives on a mark, so writing one on a bare selection highlights it.** That is
+deliberate. A note needs an anchor — something the Bookmarks list can show, something
+a tap on the page resolves to, something that carries the words back to the exact
+characters they were about — and a note the reader cannot see on the page is a thought
+they will never find again. The rule that keeps it from being a trap is in `NoteEdit`:
+an empty sheet backed out of writes nothing and leaves no mark behind.
+
+Everything else about notes is survival, because a colour can be chosen again, a span
+is arithmetic and a snippet is copied out of the book, and nobody can retype a thought
+they had three chapters ago. **Two real bugs, both the same shape:**
+
+*Writing a note on a passage that was already marked recoloured it.* `saveNote` went
+through `addOnce`, which repaints what it finds. Mark a passage Doubt in April, write
+a note on it in June in a session whose current colour is Keep, and the category the
+reader chose moves to Keep with nothing on screen to say so. `saveNote` no longer goes
+that way: the colour it takes is the colour to use *if the mark has to be created*,
+and a note never repaints a mark. `addOnce` now leaves the note column alone entirely
+rather than guarding it, because with `saveNote` off that path the guard was dead code
+pretending to be a rule.
+
+*The sheet opened holding the note's text but not its row*, so Delete had nothing to
+act on and did nothing — the same class of failure as a dead button on the selection
+bar, arrived at from the other end. `markFor` returns the row.
+
+The chain test `the migrated bookmarks table is the one Room expects to find` caught
+`note` arriving in the entity on its first run, exactly as designed, and was extended
+to 9 rather than duplicated: Room validates once at the end, so the chain is the unit
+that has to match.
+
+One sheet serves all three routes in — a chosen passage, a mark tapped on the page,
+and a row in Bookmarks — because the rules about what saving does are where notes get
+lost, and one set of them is the only way three routes obey the same ones. Those rules
+live in `NoteEdit` rather than inside the composable: there is no Compose UI test
+dependency in this project, so a branch written inside a composable is a branch
+nothing checks.
+
+The Bookmarks list shows the note under the passage behind a rule in the accent — not
+italics and not quotation marks, because the thing above it is already a quotation and
+the two must not look alike: one is what the book says and the other is what the
+reader thinks about it. `BookmarkGroups.of` is untouched, and `BookmarkNoteTest`
+asserts a note changes neither the order of books nor the order of marks within one. A
+note is something a row *shows*, never something it is sorted by.
+
+### What was seen on a device, and what was not
+
+Emulator, API 36, against the existing library rather than a fresh install:
+
+- **Migration 8 → 9 on a real database.** Both books survived, and a lavender
+  highlight made before this branch is still lavender after it.
+- The bar renders as Highlight · Note · Copy · More and fits comfortably.
+- The overflow renders Share, Translate and Dictionary, all live — which is itself the
+  `<queries>` evidence, because without that element all three would have been greyed
+  on this API level.
+- **Translate handed off and another app opened on the chosen word.** Quire made no
+  request; the receiving app did, with its own permission.
+- The note sheet: `imePadding` lifts it over the keyboard, Save is dark until
+  something is typed and accent afterwards, Delete is absent when there is nothing to
+  delete.
+- Saving marked the passage in gold and the note appears in Bookmarks, grouped under
+  its book, with the accent rule and a tinted Note control.
+- **The note survived `am force-stop` and a cold relaunch.**
+
+Not seen, and the honest list:
+
+- **A phone with no translation app.** The emulator has one. The greyed rows and the
+  sentence behind them are asserted in `SelectionMenuTest` and have never been looked
+  at. This is the single riskiest claim in the branch and only a bare device can
+  settle it.
+- Opening the note editor **from a Bookmarks row**. The emulator's Google app was in
+  some kind of demo loop and repeatedly stole the foreground; four attempts landed
+  somewhere else. The route is covered by `BookmarkNoteTest` and uses the same
+  `NoteSheet` the Reader route does, but it has not been watched.
+- The Note control on the **highlight options pill**, which now has five swatches, a
+  Note and a Remove. The arithmetic says about 309dp against the pill's previous
+  269dp, so it should clear a narrow phone — mine, not a screen's.
+- Whether a note of several paragraphs is comfortable to write in a bottom sheet on a
+  small phone, and whether six lines is the right truncation in the list.
+- Everything on a **real** phone. All of the above is an emulator.
