@@ -33,6 +33,11 @@ import app.quire.android.ui.importing.AddBookSheet
 import app.quire.android.ui.importing.ImportProgressScreen
 import app.quire.android.ui.library.LibraryScreen
 import app.quire.android.ui.bookmarks.BookmarksScreen
+import app.quire.android.ui.bookmarks.noteDraftOf
+import app.quire.android.ui.note.NoteDraft
+import app.quire.android.ui.note.NoteEdit
+import app.quire.android.ui.note.NoteOutcome
+import app.quire.android.ui.note.NoteSheet
 import app.quire.android.ui.habit.LevelScreen
 import app.quire.android.ui.habit.MilestonesScreen
 import app.quire.android.ui.habit.BookCompleteScreen
@@ -142,6 +147,9 @@ fun QuireRoot(
     }
 
     var shareCard by remember { mutableStateOf<ShareCard?>(null) }
+
+    /** The note the reader has open from the Bookmarks list, or null. */
+    var editingNote by remember { mutableStateOf<NoteDraft?>(null) }
     var goalJustReached by remember { mutableStateOf(false) }
     var offerReminders by remember { mutableStateOf(false) }
     // Set the moment the reader leaves the guide, so the last tap does not leave it
@@ -414,6 +422,7 @@ fun QuireRoot(
                             chapterLabel = "Chapter ${entry.bookmark.chapterIndex + 1}",
                         )
                     },
+                    onNote = { entry -> editingNote = noteDraftOf(entry) },
                     onRemove = { id -> scope.launch { repository.removeBookmark(id) } },
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -481,6 +490,35 @@ fun QuireRoot(
 
             shareCard?.let { card ->
                 ShareSheet(card = card, onDismiss = { shareCard = null })
+            }
+
+            // The same sheet the Reader opens, reached from the list instead of from
+            // the page. Two routes into one sheet rather than two sheets: the rules
+            // about what saving does are where notes are lost, and one set of them is
+            // the only way both places obey the same ones.
+            editingNote?.let { draft ->
+                NoteSheet(
+                    draft = draft,
+                    onTextChange = { editingNote = draft.copy(text = it) },
+                    onDismiss = { editingNote = null },
+                    onDelete = {
+                        val id = draft.bookmarkId
+                        editingNote = null
+                        if (id != null) scope.launch { repository.setNote(id, "") }
+                    },
+                    onSave = {
+                        val id = draft.bookmarkId
+                        val outcome = NoteEdit.outcome(draft)
+                        val text = draft.text
+                        editingNote = null
+                        // Every row reached from this screen already exists, so both
+                        // outcomes are the same call — unlike the Reader, which may
+                        // have to create the mark the note hangs on.
+                        if (id != null && outcome != NoteOutcome.NOTHING) {
+                            scope.launch { repository.setNote(id, text) }
+                        }
+                    },
+                )
             }
 
             confirmRemoveBook?.let { removingId ->

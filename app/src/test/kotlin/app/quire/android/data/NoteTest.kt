@@ -117,6 +117,48 @@ class NoteTest {
     }
 
     @Test
+    fun `writing a note on a marked passage does not repaint it`() {
+        // The colour handed to saveNote is the colour to use *if the mark has to be
+        // created*, and nothing else. A reader who marked a passage Doubt in April
+        // and writes a note on it in June, in a session whose current colour is Keep,
+        // must not find their category quietly changed — that is a meaning they
+        // chose, and nothing on screen would have told them it had moved.
+        runBlocking {
+            books.addHighlight(
+                bookId = "b1", chapterIndex = 3, span = span,
+                snippet = "The words they kept.", colour = HighlightColour.DOUBT,
+            )
+            note("Still not convinced.", colour = HighlightColour.DEFAULT)
+
+            assertEquals(1, saved().size)
+            assertEquals("writing a note repainted the mark", "DOUBT", saved().first().highlightColour)
+            assertEquals("Still not convinced.", saved().first().note)
+        }
+    }
+
+    @Test
+    fun `a note on an unmarked passage is made in the colour it was given`() {
+        // The other half: the colour is not ignored, it is only deferred to the case
+        // where there is nothing there yet.
+        runBlocking {
+            note("A first thought.", colour = HighlightColour.LOOK_UP)
+            assertEquals("LOOK_UP", saved().first().highlightColour)
+        }
+    }
+
+    @Test
+    fun `the row a note belongs to can be found, not just its words`() {
+        // Clearing a note is done by id, so the sheet has to open holding one. Asking
+        // only for the text left the delete path with nothing to act on, and Delete
+        // did nothing at all.
+        runBlocking {
+            val id = note("A thought.")
+            assertEquals(id, books.markFor("b1", 3, span)?.id)
+            assertEquals(null, books.markFor("b1", 4, span))
+        }
+    }
+
+    @Test
     fun `editing a note replaces it rather than adding a second mark`() {
         runBlocking {
             val first = note("A first thought.")

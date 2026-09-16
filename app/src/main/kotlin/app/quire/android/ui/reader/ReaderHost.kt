@@ -24,8 +24,14 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import app.quire.android.data.BookRepository
 import app.quire.android.data.HabitRepository
 import app.quire.android.habit.SessionTracker
+import app.quire.android.share.HandoffIntents
 import app.quire.android.share.Sharing
+import app.quire.android.share.TextHandoff
 import app.quire.android.ui.QuireStrings
+import app.quire.android.ui.note.NoteDraft
+import app.quire.android.ui.note.NoteEdit
+import app.quire.android.ui.note.NoteOutcome
+import app.quire.android.ui.note.NoteSheet
 import app.quire.android.ui.share.ShareCard
 import app.quire.android.ui.theme.QuireThemeName
 import app.quire.android.ui.theme.ReaderFont
@@ -35,6 +41,7 @@ import app.quire.core.model.ReadingPosition
 import app.quire.core.paginate.PageWindow
 import app.quire.core.paginate.Paginator
 import app.quire.core.paginate.Viewport
+import app.quire.core.reading.Selection
 import app.quire.core.reading.TextAnchor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -84,6 +91,16 @@ fun ReaderHost(
     var viewport by remember { mutableStateOf(Viewport(0f, 0f)) }
     var contents by remember(bookId) { mutableStateOf<List<ChapterRef>>(emptyList()) }
     var bookmarked by remember(bookId) { mutableStateOf(false) }
+
+    /**
+     * A sentence to show once and then forget — "Note saved", or why a tap on a
+     * hand-off did nothing.
+     *
+     * Separate from [bookmarked] because the two can be true at once and the message
+     * is not the same message; folding them together would mean a saved note
+     * announcing itself as a bookmark.
+     */
+    var notice by remember(bookId) { mutableStateOf<String?>(null) }
 
     /**
      * Whether the reader's saved typography has arrived from the database.
@@ -492,6 +509,18 @@ fun ReaderHost(
 
     val context = LocalContext.current
 
+    // What this phone will do with a passage handed to it, asked once rather than on
+    // every recomposition: queryIntentActivities is a binder call across to the
+    // package manager and the answer does not change while a book is open.
+    //
+    // It can legitimately come back empty, and that is the case the developer's own
+    // phone will never show them — see HandoffIntents, and the <queries> element in
+    // the manifest without which it comes back empty on every phone running Android
+    // 11 or later.
+    LaunchedEffect(Unit) {
+        state = state.copy(handoffs = HandoffIntents.available(context))
+    }
+
     // Saved highlights for whichever chapter is open. Collected rather than loaded
     // once, so a passage the reader highlights appears under their finger instead of
     // on the next visit.
@@ -583,19 +612,132 @@ fun ReaderHost(
                     }
                 }
             },
-            onShareSelection = {
-                onShareQuote(quoteOf(state, state.selectedText))
-                state = ReaderTransitions.selectionCleared(state)
-            },
             onCopySelection = {
                 Sharing.copy(context, QuireStrings.SHARE, state.selectedText.trim())
                 state = ReaderTransitions.selectionCleared(state)
+            },
+            onMoreSelection = { state = ReaderTransitions.selectionMoreOpened(state) },
+            onNoteSelection = {
+                val snapshot = state
+                val span = snapshot.selection
+                if (span != null) {
+                    scope.launch {
+                        // Asked before the sheet opens, so a passage that is already
+                        // noted opens on what is written rather than on a blank field
+                        // the reader would then overwrite. The whole row, not just its
+                        // words: clearing a note is done by id, and a sheet opened
+                        // without one has a Delete that does nothing.
+                        val already = repository.markFor(bookId, snapshot.chapterIndex, span)
+                        state = ReaderTransitions.noteOpened(
+                            state,
+                            NoteDraft(
+                                span = span,
+                                snippet = snapshot.selectedText.trim(),
+                                saved = already?.note.orEmpty(),
+                                bookmarkId = already?.id,
+                            ),
+                        )
+                    }
+                }
+            },
+            onHighlightNote = { id ->
+                val mark = state.highlights.firstOrNull { it.id == id }
+                if (mark != null) {
+                    state = ReaderTransitions.noteOpened(
+                        // The options close: the sheet is now the thing about this
+                        // mark, and a swatch row waiting underneath it is a second
+                        // dismissal the reader did not ask for.
+                        ReaderTransitions.highlightOptionsClosed(state),
+                        NoteDraft(
+                            span = mark.span,
+                            snippet = state.chapter
+                                ?.let { Selection.textOf(it.blockTexts, mark.span) }
+                                .orEmpty()
+                                .trim(),
+                            saved = mark.note,
+                            bookmarkId = mark.id,
+                        ),
+                    )
+                }
             },
         )
 
         // A brief confirmation, as the handoff shows, rather than a permanent badge.
         if (bookmarked) {
             BookmarkToast(onDone = { bookmarked = false })
+        }
+        notice?.let { said ->
+            BookmarkToast(onDone = { notice = null }, message = said)
+        }
+
+        // Everything that hands the passage to another app. Quire does none of it
+        // itself — no INTERNET permission, by design — so what this offers depends
+        // on what the reader has installed, which is why `handoffs` is resolved
+        // rather than assumed.
+        if (state.selectionMore) {
+            SelectionMoreSheet(
+                available = state.handoffs,
+                onShare = {
+                    onShareQuote(quoteOf(state, state.selectedText))
+                    state = ReaderTransitions.selectionCleared(state)
+                },
+                onHandoff = { handoff ->
+                    // The second line of defence behind `handoffs`: what is installed
+                    // can change between the moment this sheet was drawn and the
+                    // moment it was tapped, and an unresolvable intent throws rather
+                    // than doing nothing.
+                    val went = HandoffIntents.start(context, handoff, state.selectedText.trim())
+                    state = ReaderTransitions.selectionCleared(state)
+                    if (!went) {
+                        notice = SelectionMenu.unavailable(
+                            if (handoff == TextHandoff.TRANSLATE) SelectionAction.TRANSLATE
+                            else SelectionAction.DICTIONARY
+                        )
+                    }
+                },
+                onDismiss = { state = ReaderTransitions.selectionMoreClosed(state) },
+            )
+        }
+
+        state.note?.let { draft ->
+            NoteSheet(
+                draft = draft,
+                onTextChange = { state = ReaderTransitions.noteTyped(state, it) },
+                onDismiss = { state = ReaderTransitions.noteClosed(state) },
+                onDelete = {
+                    val id = draft.bookmarkId
+                    state = ReaderTransitions.noteClosed(state)
+                    if (id != null) scope.launch { repository.setNote(id, "") }
+                },
+                onSave = {
+                    val snapshot = state
+                    state = ReaderTransitions.selectionCleared(
+                        ReaderTransitions.noteClosed(snapshot),
+                    )
+                    scope.launch {
+                        when (NoteEdit.outcome(draft)) {
+                            // CLEAR and WRITE are two different writes on purpose:
+                            // saveNote refuses to carry a blank note over a real one,
+                            // because that guard is what stops a later tap on
+                            // Highlight deleting what the reader wrote.
+                            NoteOutcome.CLEAR ->
+                                draft.bookmarkId?.let { repository.setNote(it, "") }
+                            NoteOutcome.WRITE -> {
+                                repository.saveNote(
+                                    bookId = bookId,
+                                    chapterIndex = snapshot.chapterIndex,
+                                    span = draft.span,
+                                    snippet = draft.snippet,
+                                    colour = snapshot.highlightColour,
+                                    note = draft.text,
+                                )
+                                notice = QuireStrings.NOTE_SAVED
+                            }
+                            NoteOutcome.NOTHING -> Unit
+                        }
+                    }
+                },
+            )
         }
 
         when (state.overlay) {

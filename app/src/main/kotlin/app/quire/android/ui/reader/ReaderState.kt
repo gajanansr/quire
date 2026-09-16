@@ -1,6 +1,8 @@
 package app.quire.android.ui.reader
 
 import app.quire.android.data.SavedHighlight
+import app.quire.android.share.TextHandoff
+import app.quire.android.ui.note.NoteDraft
 import app.quire.android.ui.theme.HighlightColour
 import app.quire.android.ui.theme.ReaderFont
 import app.quire.core.model.Chapter
@@ -180,6 +182,32 @@ data class ReaderState(
      * held here would keep ringing the colour the reader just moved away from.
      */
     val editingHighlightId: Long? = null,
+    /**
+     * Whether the overflow behind More is open.
+     *
+     * It is a longer version of the action bar and acts on the live selection, which
+     * is why [ReaderTransitions.selectionCleared] closes it: left open over nothing,
+     * Share would send an empty string and Translate would open another app on a
+     * blank screen.
+     */
+    val selectionMore: Boolean = false,
+    /**
+     * The note being read or written, or null when the sheet is closed.
+     *
+     * Carries its own span, and that is the difference between it and
+     * [selectionMore]. A note is written over seconds or minutes and the selection
+     * under it can be cleared by a stray tap; a note saved against "whatever is
+     * selected now" would attach itself to the wrong characters or to none.
+     */
+    val note: NoteDraft? = null,
+    /**
+     * What this phone will do with a passage that is handed to it.
+     *
+     * Resolved once, from the package manager, and kept here so the overflow can be
+     * drawn without asking again on every recomposition. Empty is a real answer and
+     * the one the developer's own phone will never give: see [SelectionMenu].
+     */
+    val handoffs: Set<TextHandoff> = emptySet(),
     /**
      * Page turns asked for before there were any pages to turn, net of direction.
      *
@@ -630,12 +658,71 @@ object ReaderTransitions {
 
     fun selectionCleared(state: ReaderState): ReaderState =
         if (state.selection == null && state.selectionOrigin == null &&
-            state.selectionEdge == null
+            state.selectionEdge == null && !state.selectionMore
         ) {
             state
         } else {
-            state.copy(selection = null, selectionOrigin = null, selectionEdge = null)
+            // The overflow goes with the passage. It is a longer version of the action
+            // bar and acts on the live selection, so left open over nothing Share
+            // would send an empty string and Translate would open another app on a
+            // blank screen. The note sheet deliberately does *not* go: it carries its
+            // own span and a reader may still be typing into it.
+            state.copy(
+                selection = null,
+                selectionOrigin = null,
+                selectionEdge = null,
+                selectionMore = false,
+            )
         }
+
+    // ------------------------------------------ what a chosen passage can open
+
+    /**
+     * More: the three actions that hand the passage to another app.
+     *
+     * Chrome goes down with it, the same way a live selection takes it down. The bars
+     * sit exactly where this sheet does, and both at once covers the page the reader
+     * is choosing words from.
+     */
+    fun selectionMoreOpened(state: ReaderState): ReaderState =
+        state.copy(selectionMore = true, chromeVisible = false)
+
+    fun selectionMoreClosed(state: ReaderState): ReaderState =
+        if (!state.selectionMore) state else state.copy(selectionMore = false)
+
+    /**
+     * Opens the note sheet on a passage.
+     *
+     * Closes the overflow on the way, because two modal sheets at once is a stack the
+     * reader has to dismiss twice — and the second dismissal reads as the first one
+     * having failed.
+     */
+    fun noteOpened(state: ReaderState, draft: NoteDraft): ReaderState =
+        state.copy(note = draft, selectionMore = false, chromeVisible = false)
+
+    /**
+     * A keystroke.
+     *
+     * Only [NoteDraft.text] moves; [NoteDraft.saved] is the comparison every decision
+     * in [app.quire.android.ui.note.NoteEdit] is made against, and if typing moved it
+     * too then nothing would ever count as a change and Save would never light up.
+     *
+     * A keystroke with no sheet open is dropped rather than crashing: the field stays
+     * composed for a frame while the sheet animates away.
+     */
+    fun noteTyped(state: ReaderState, text: String): ReaderState =
+        if (state.note == null) state else state.copy(note = state.note.copy(text = text))
+
+    /**
+     * Closes the note sheet, and decides nothing about the passage.
+     *
+     * Saving clears the selection — the mark is on the page now and a selection over
+     * it would only hide it — and cancelling leaves it, because the reader may well
+     * want a different action on the same words. Both routes come through here, so
+     * here does neither.
+     */
+    fun noteClosed(state: ReaderState): ReaderState =
+        if (state.note == null) state else state.copy(note = null)
 
     /**
      * A tap on a saved highlight: open its options, or close whatever was open.

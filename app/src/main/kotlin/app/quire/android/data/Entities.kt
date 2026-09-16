@@ -87,8 +87,9 @@ data class BookmarkEntity(
      * The only value in this database Quire cannot reconstruct. A colour can be
      * chosen again, a span is arithmetic and a snippet is copied out of the book —
      * nobody can retype a thought they had three chapters ago. Everything that
-     * touches this table is written so that a note is never collateral damage: see
-     * [BookRepository.addOnce], which refuses to carry a blank one over a real one.
+     * touches this table is written so that a note is never collateral damage: the
+     * highlight and bookmark paths leave this column alone entirely, and the one that
+     * writes it never repaints a mark in return.
      */
     val note: String = "",
     /** Snapshot of the text, so a bookmark survives reprocessing. */
