@@ -40,15 +40,18 @@ internal object CardMetrics {
     /** The gap between the chapter label and the wordmark beneath it. */
     private const val GAP = 0.034f
 
-    /**
-     * The share of the card's *height* the passage may occupy.
-     *
-     * What is left has to hold a two-line title, an author, a chapter label and the
-     * wordmark with its own second line. Claim more than this for the passage and the
-     * quote ends up touching the title above it — a failure this card has had before,
-     * found on a device, when `SpaceBetween` ran out of free space to distribute.
-     */
-    private const val QUOTE_HEIGHT = 0.58f
+    // There is no QUOTE_HEIGHT here any more.
+    //
+    // It used to say what share of the card's height the passage might occupy — 0.58
+    // — and [QuoteFit] sized the passage against it. But the passage does not live in
+    // a box of that height: it lives in a weighted box between the header and the
+    // footer, and Compose already knows exactly how tall that came out. The fraction
+    // was a *second* description of a height something else had measured, and the two
+    // could disagree by a line. When they did, the line went off the bottom of a PNG
+    // that cannot re-flow, and a reader's quotation stopped mid-sentence.
+    //
+    // The field now reports its own size (see `QuoteCard`), so the estimate has
+    // nothing left to be wrong about.
 
     /** One card's measurements, in dp (and sp at the default font scale). */
     data class Frame(
@@ -60,22 +63,19 @@ internal object CardMetrics {
         val wordmarkSp: Float,
         val displaySp: Float,
         val contentWidthDp: Float,
-        val quoteHeightDp: Float,
     )
 
     fun of(widthDp: Float): Frame {
         val margin = widthDp * MARGIN
-        val height = widthDp * ASPECT
         return Frame(
             widthDp = widthDp,
-            heightDp = height,
+            heightDp = widthDp * ASPECT,
             marginDp = margin,
             gapDp = widthDp * GAP,
             labelSp = widthDp * LABEL,
             wordmarkSp = widthDp * WORDMARK,
             displaySp = widthDp * DISPLAY,
             contentWidthDp = widthDp - margin * 2,
-            quoteHeightDp = height * QUOTE_HEIGHT,
         )
     }
 }

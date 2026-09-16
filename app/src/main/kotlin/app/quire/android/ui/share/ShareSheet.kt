@@ -41,6 +41,8 @@ import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 import app.quire.android.share.ShareIntents
 import app.quire.android.share.Sharing
 import app.quire.android.ui.QuireStrings
@@ -49,7 +51,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -386,7 +387,6 @@ private fun Destination(@DrawableRes icon: Int, label: String, onClick: () -> Un
  * the card, the quote would run off the bottom of an export nobody can fix.
  */
 private data class CardFrame(
-    val metrics: CardMetrics.Frame,
     val margin: Dp,
     val gap: Dp,
     val label: TextUnit,
@@ -400,7 +400,6 @@ private fun cardFrameOf(widthDp: Float): CardFrame {
     val density = LocalDensity.current
     return with(density) {
         CardFrame(
-            metrics = metrics,
             margin = metrics.marginDp.dp,
             gap = metrics.gapDp.dp,
             label = metrics.labelSp.dp.toSp(),
@@ -443,11 +442,6 @@ private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
                 }
             }
 
-            // Sized to the passage rather than cut to a fixed 180 characters. The
-            // old version closed the quotation mark after cutting, so a truncated
-            // passage looked complete — a reader who chose three paragraphs shared
-            // one sentence and had no way to tell.
-            val fit = QuoteFit.of(card.text, frame.metrics.widthDp)
             // Centred in its own field rather than hung under the title. A six-word
             // passage and a six-hundred-character one get the same field; the short
             // one sits in the middle of it with air either side, the long one fills
@@ -460,27 +454,55 @@ private fun QuoteCard(card: ShareCard.Quote, palette: CardPalette) {
                     .padding(vertical = frame.gap),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = "“${fit.text}”",
-                    color = palette.ink,
+                // The field asks how big it actually is, and the passage is fitted to
+                // that. `CardMetrics` used to carry a QUOTE_HEIGHT fraction saying how
+                // much of the card the passage might have — an estimate of a height
+                // this weighted box already knows exactly, and a second description of
+                // it. The two could disagree by a line, and when they did the line
+                // went off the bottom of a PNG that cannot re-flow.
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    val field = QuoteFit.Field(
+                        widthDp = this@BoxWithConstraints.maxWidth.value,
+                        heightDp = this@BoxWithConstraints.maxHeight.value,
+                    )
                     // The reader's own face, not the card's. A quote card is their
                     // passage; setting it in a face they did not choose makes it a
                     // picture of Quire's opinion instead. The wordmark below stays
                     // Source Serif — that is Quire's mark, and a brand line that
                     // changes typeface with a preference is not a brand line.
-                    fontFamily = card.font.family(),
-                    fontStyle = if (QuoteFit.isItalic(card.font)) {
-                        FontStyle.Italic
-                    } else {
-                        FontStyle.Normal
-                    },
-                    fontSize = with(density) { fit.fontSizeSp.dp.toSp() },
-                    lineHeight = with(density) {
-                        (fit.fontSizeSp * QuoteFit.LINE_HEIGHT).dp.toSp()
-                    },
-                    maxLines = fit.maxLines,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                    //
+                    // And the face is not only drawn in, it is *measured* in: the
+                    // fitter lays the passage out with exactly the style below, so
+                    // Lora's wider advance costs a size step and Work Sans's does not,
+                    // which a single average character width could never express.
+                    val measurer = rememberTextMeasurer()
+                    val fit = remember(card.text, card.font, field, density, measurer) {
+                        QuoteFit.of(card.text, field) { text, size ->
+                            val layout = measurer.measure(
+                                text = text,
+                                style = quoteTextStyle(card.font, size, density),
+                                constraints = Constraints(
+                                    maxWidth = with(density) { field.widthDp.dp.roundToPx() },
+                                ),
+                            )
+                            QuoteFit.Laid(
+                                heightDp = with(density) { layout.size.height.toDp().value },
+                                lines = layout.lineCount,
+                            )
+                        }
+                    }
+                    Text(
+                        text = fit.text,
+                        color = palette.ink,
+                        style = quoteTextStyle(card.font, fit.size, density),
+                        // The passage was measured to fit, so this never fires. It is
+                        // here so that if it ever did, the reader would see an ellipsis
+                        // rather than a sentence that stops.
+                        maxLines = fit.maxLines,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
             }
 
             Column {

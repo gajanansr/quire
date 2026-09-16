@@ -32,7 +32,6 @@ class CardMetricsTest {
         assertEquals(small.wordmarkSp * 2, large.wordmarkSp, TOLERANCE)
         assertEquals(small.displaySp * 2, large.displaySp, TOLERANCE)
         assertEquals(small.contentWidthDp * 2, large.contentWidthDp, TOLERANCE)
-        assertEquals(small.quoteHeightDp * 2, large.quoteHeightDp, TOLERANCE)
     }
 
     @Test
@@ -43,26 +42,31 @@ class CardMetricsTest {
 
     @Test
     fun `the card is 9 by 16`() {
-        // Story proportions. Every platform the card is posted to expects them, and
-        // the quote's line budget is derived from this height.
+        // Story proportions. Every platform the card is posted to expects them.
         val frame = CardMetrics.of(270f)
         assertEquals(480f, frame.heightDp, TOLERANCE)
     }
 
     @Test
-    fun `the passage leaves room for the header and the footer`() {
-        // The quote field is not allowed to claim the whole card. What is left after
-        // the margins has to hold a two-line title, an author, a chapter label and the
-        // wordmark with its own second line — six lines of chrome and a gap. Take too
-        // much for the passage and the quote sits on top of the title, which is a
-        // failure this card has had before.
+    fun `the chrome cannot claim the whole card`() {
+        // This replaces `the passage leaves room for the header and the footer`, which
+        // compared the chrome against a `quoteHeightDp` fraction that no longer
+        // exists — and was the problem. The passage's field is not a fraction of the
+        // card: it is the weighted box left over once the header and the footer have
+        // taken what they need, and `QuoteCard` fits the passage to the height that
+        // box actually reports. A fraction saying what that height *would* be was a
+        // second description of it, and when the two disagreed a line of the reader's
+        // quotation went off the bottom of the PNG.
+        //
+        // What is still worth stating is that there is a field left at all. Six lines
+        // of chrome and a gap, against the card inside its margins.
         val frame = CardMetrics.of(230f)
-        val leftOver = frame.heightDp - frame.marginDp * 2 - frame.quoteHeightDp
         val chrome = frame.labelSp * 1.3f * 5 + frame.wordmarkSp * 1.25f + frame.gapDp
+        val inside = frame.heightDp - frame.marginDp * 2
 
         assertTrue(
-            "only ${leftOver}dp left for ${chrome}dp of chrome",
-            leftOver >= chrome,
+            "${chrome}dp of chrome in a ${inside}dp card leaves nothing for the passage",
+            chrome < inside / 2,
         )
     }
 
