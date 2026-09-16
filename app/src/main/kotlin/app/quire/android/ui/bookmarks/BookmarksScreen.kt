@@ -29,7 +29,8 @@ import app.quire.android.ui.common.EmptyState
 import app.quire.android.ui.note.NoteDraft
 import app.quire.core.reading.TextAnchor
 import app.quire.core.reading.TextSpan
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import app.quire.android.ui.theme.Quire
 import app.quire.android.ui.theme.QuireHighlights
@@ -136,11 +137,17 @@ fun BookmarksScreen(
                 // and a note truncated to one line is a note nobody can read.
                 if (entry.bookmark.hasNote) {
                     Spacer(Modifier.height(10.dp))
-                    Row(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        // Intrinsic height so the rule is as tall as the note beside
+                        // it. A fixed height would leave a two-millimetre tick next to
+                        // six lines of the reader's own writing, which reads as a
+                        // rendering fault rather than as a margin.
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    ) {
                         Box(
                             Modifier
                                 .width(2.dp)
-                                .heightIn(min = 18.dp)
+                                .fillMaxHeight()
                                 .clip(QuireShapes.chip)
                                 .background(colors.accent),
                         )
