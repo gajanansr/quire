@@ -425,6 +425,11 @@ class SettingsMigrationTest {
         // against what Room builds from BookmarkEntity rather than against a literal
         // list, so a column added to the entity and forgotten here fails without
         // anyone having to remember this file exists.
+        //
+        // Run as the whole chain a version-7 install actually takes, not one step of
+        // it. Room validates once, at the end, so the chain is the unit that has to
+        // match — and every new migration lengthens it. This is the test that caught
+        // `note` arriving in the entity, and it is the one to extend next time.
         val room = androidx.room.Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(), QuireDatabase::class.java,
         ).allowMainThreadQueries().build()
@@ -433,6 +438,7 @@ class SettingsMigrationTest {
 
         val migrated = versionSevenBookmarks()
         QuireDatabase.MIGRATION_7_8.migrate(migrated)
+        QuireDatabase.MIGRATION_8_9.migrate(migrated)
         val actual = columnsOf(migrated, "bookmarks")
         migrated.close()
 
@@ -454,6 +460,80 @@ class SettingsMigrationTest {
             snippet = "", createdAt = 0,
         )
         assertEquals(HighlightColour.DEFAULT.name, fresh.highlightColour)
+    }
+
+    // ------------------------------------ the reader's own words (8 -> 9)
+
+    /** A version-8 bookmarks table: version seven plus the colour column. */
+    private fun versionEightBookmarks(): SupportSQLiteDatabase {
+        val db = versionSevenBookmarks()
+        QuireDatabase.MIGRATION_7_8.migrate(db)
+        return db
+    }
+
+    @Test
+    fun `every existing mark gains an empty note rather than a null one`() {
+        // Empty string, not null, and the default is what makes that safe: every row
+        // already in the table is a passage nobody has written about yet, and "no
+        // note" is a real state rather than a missing value. A nullable column would
+        // put a null check in front of every later read of it, and the first one
+        // forgotten is a crash in the Bookmarks list.
+        val db = versionEightBookmarks()
+        QuireDatabase.MIGRATION_8_9.migrate(db)
+        db.query("SELECT note FROM bookmarks ORDER BY createdAt").use {
+            it.moveToFirst()
+            assertEquals("a highlight came out of the migration with no note", "", it.getString(0))
+            it.moveToNext()
+            assertEquals("a plain bookmark came out with no note", "", it.getString(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun `a migrated mark still covers the same words, in the same colour`() {
+        // The same guard MIGRATION_7_8 has, for the same reason: six numbers decide
+        // which characters light up, and a column added beside them must disturb none
+        // of them. A shift here paints marks over the wrong words, which reads as a
+        // rendering bug and gets reported as one.
+        val db = versionEightBookmarks()
+        db.execSQL("UPDATE bookmarks SET highlightColour = 'DOUBT' WHERE createdAt = 500")
+        QuireDatabase.MIGRATION_8_9.migrate(db)
+        db.query(
+            "SELECT bookId, chapterIndex, blockIndex, charOffset, endBlockIndex, " +
+                "endCharOffset, snippet, highlightColour, createdAt FROM bookmarks " +
+                "ORDER BY createdAt"
+        ).use {
+            it.moveToFirst()
+            assertEquals("b1", it.getString(0))
+            assertEquals(3, it.getInt(1))
+            assertEquals(7, it.getInt(2))
+            assertEquals(120, it.getInt(3))
+            assertEquals(7, it.getInt(4))
+            assertEquals(186, it.getInt(5))
+            assertEquals("The words they kept.", it.getString(6))
+            assertEquals("a mark lost the colour the reader chose", "DOUBT", it.getString(7))
+            assertEquals(500, it.getInt(8))
+        }
+        db.close()
+    }
+
+    // The shape Room ends up with is checked once, over the whole chain, by
+    // `the migrated bookmarks table is the one Room expects to find` above. It is
+    // deliberately not repeated per version: Room validates once, at the end, so the
+    // chain is the unit that has to match — and that test failing is exactly how the
+    // `note` column announced itself here.
+
+    @Test
+    fun `a fresh row and a migrated one agree that there is no note`() {
+        // The Kotlin default reaches rows written from now on; the SQL default
+        // reaches every row already saved. They drift apart silently, and then a
+        // passage marked before the update and one marked after disagree about what
+        // "no note" is.
+        val fresh = BookmarkEntity(
+            bookId = "b1", chapterIndex = 0, blockIndex = 0, charOffset = 0,
+            snippet = "", createdAt = 0,
+        )
+        assertEquals("", fresh.note)
     }
 
     /**

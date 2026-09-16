@@ -24,7 +24,17 @@ data class SavedHighlight(
     val id: Long,
     val span: TextSpan,
     val colour: HighlightColour,
-)
+    /**
+     * The reader's own words about this passage, or `""`.
+     *
+     * Carried with the mark rather than looked up when a mark is tapped: it is what
+     * decides whether the options offer "Note" or "Edit note", and it fills the sheet
+     * the moment it opens instead of a frame later.
+     */
+    val note: String = "",
+) {
+    val hasNote: Boolean get() = note.isNotBlank()
+}
 
 /** A bookmark with the title of the book it belongs to. */
 data class BookmarkWithBook(
@@ -197,6 +207,15 @@ class BookRepository(
         if (already.highlightColour != mark.highlightColour) {
             db.bookmarks().recolour(already.id, mark.highlightColour)
         }
+        // A blank note never overwrites a real one. Every caller that is not
+        // [saveNote] builds its mark with the empty default — tapping Highlight over
+        // a passage the reader has already written about is the ordinary case — and
+        // carrying that blank through would silently delete the one thing in this
+        // database Quire cannot reconstruct. Clearing a note is [setNote]'s job, and
+        // it is reached by emptying the field, which is a thing the reader did.
+        if (mark.note.isNotBlank() && mark.note != already.note) {
+            db.bookmarks().setNote(already.id, mark.note)
+        }
         return already.id
     }
 
@@ -231,6 +250,78 @@ class BookRepository(
     suspend fun recolourHighlight(id: Long, colour: HighlightColour) =
         db.bookmarks().recolour(id, colour.name)
 
+    // ----------------------------------------------------------------- notes
+
+    /**
+     * Attaches the reader's own words to a passage, marking it if it is not marked.
+     *
+     * A note needs an anchor, and in Quire the anchor is the mark: it is what the
+     * Bookmarks list shows, what a tap on the page resolves to, and what carries the
+     * note back to the exact characters it was written about. So writing a note on a
+     * bare selection also highlights it — deliberately, because a note the reader
+     * cannot see on the page is a thought they will never find again.
+     *
+     * Routed through [addOnce], so noting a passage that is already marked edits that
+     * mark rather than stacking a second one over the same words.
+     *
+     * The [setNote] afterwards is not redundant. [addOnce] refuses to carry a blank
+     * note over a real one — that guard is what protects a noted passage from a later
+     * tap on Highlight — so *clearing* a note has to be said explicitly, and this is
+     * where the reader emptying the field is turned into an empty column.
+     */
+    suspend fun saveNote(
+        bookId: String,
+        chapterIndex: Int,
+        span: TextSpan,
+        snippet: String,
+        colour: HighlightColour,
+        note: String,
+    ): Long {
+        val written = note.trim()
+        val id = addOnce(
+            BookmarkEntity(
+                bookId = bookId,
+                chapterIndex = chapterIndex,
+                blockIndex = span.start.blockIndex,
+                charOffset = span.start.charOffset,
+                endBlockIndex = span.end.blockIndex,
+                endCharOffset = span.end.charOffset,
+                highlightColour = colour.name,
+                note = written,
+                snippet = snippet.take(MAX_SNIPPET).trim(),
+                createdAt = now(),
+            )
+        )
+        db.bookmarks().setNote(id, written)
+        return id
+    }
+
+    /**
+     * Rewrites the note on a mark that already exists.
+     *
+     * By id, because this is the route from the Bookmarks list and from a mark the
+     * reader tapped on the page — both of which already know which row they mean, and
+     * neither of which should have to rebuild a span to say so.
+     */
+    suspend fun setNote(id: Long, note: String) = db.bookmarks().setNote(id, note.trim())
+
+    /**
+     * What the reader has already written about exactly this passage, or `""`.
+     *
+     * All six coordinates, the way [BookmarkDao.existing] matches: a note belongs to
+     * the characters it was written about, and a mark that merely starts in the same
+     * place is a different mark.
+     */
+    suspend fun noteFor(bookId: String, chapterIndex: Int, span: TextSpan): String =
+        db.bookmarks().existing(
+            bookId = bookId,
+            chapterIndex = chapterIndex,
+            blockIndex = span.start.blockIndex,
+            charOffset = span.start.charOffset,
+            endBlockIndex = span.end.blockIndex,
+            endCharOffset = span.end.charOffset,
+        )?.note.orEmpty()
+
     /**
      * The highlights in one chapter, ready to paint and ready to tap.
      *
@@ -251,6 +342,7 @@ class BookRepository(
                             TextAnchor(it.endBlockIndex, it.endCharOffset),
                         ),
                         colour = highlightColourNamed(it.highlightColour),
+                        note = it.note,
                     )
                 }
         }
