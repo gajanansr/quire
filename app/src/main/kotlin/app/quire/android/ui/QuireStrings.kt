@@ -123,7 +123,18 @@ object QuireStrings {
     const val COPY = "Copy"
     const val SAVE = "Save"
     const val COPIED = "Copied"
-    const val ADD_A_CAPTION = "Add a caption\u2026"
+
+    /**
+     * The caption field's placeholder, which now says where a caption goes.
+     *
+     * It used to say only "Add a caption\u2026", and for an image share that was a
+     * promise Quire could not keep. The caption rode on the intent's `ClipData`
+     * item, which is the field that makes a receiver treat a picture as a piece of
+     * text \u2014 and which a device check found Google Messages throwing away anyway.
+     * An image share is now only a picture, so the placeholder names the two
+     * destinations that actually carry the reader's line.
+     */
+    const val ADD_A_CAPTION = "Add a caption, sent with Text or Copy"
 
     /**
      * What a shared card says at the bottom, and the last line of a shared passage.

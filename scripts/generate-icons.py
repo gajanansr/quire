@@ -35,21 +35,20 @@ ICONS = [
     "check",            # milestone achieved, import step done
     "share-2",          # share
     "list",             # table of contents
-    "type",             # typography controls
+    "type",             # typography controls, and the share sheet's "Text"
     "book",             # empty states
     "flame",            # reading streak
     "award",            # milestones and level
     "download",         # save a share card
     "more-horizontal",  # more share destinations
-    "image",            # share to stories
-    "send",             # share to a message
+    "image",            # share the card as a picture
     "copy",             # copy a passage to the clipboard
     "trash-2",          # remove a bookmark
     "highlighter",      # highlight a selected passage
 ]
 
 # Icons that point along the reading direction and must flip when the layout does.
-MIRRORED = {"chevron-right", "chevron-left", "share-2", "send", "list"}
+MIRRORED = {"chevron-right", "chevron-left", "share-2", "list"}
 
 NS = "{http://www.w3.org/2000/svg}"
 

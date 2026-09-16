@@ -118,5 +118,16 @@ class QuireIconsTest {
             QuireIcons.Bookmarks,
             QuireIcons.Bookmark,
         )
+        // The share sheet's "Text" and the reader's typography control are both a
+        // "T", which is fine — a T means letters in both places — and means neither
+        // can be read from the drawing alone. Stated here so the next person to look
+        // at the sheet knows the repetition is a decision. It replaced a paper plane,
+        // the one send-shaped mark in a row of four destinations, sitting on the
+        // destination that discards the card.
+        assertEquals(
+            "Words and Typography are expected to share a drawing",
+            QuireIcons.Words,
+            QuireIcons.Typography,
+        )
     }
 }

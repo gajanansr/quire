@@ -286,13 +286,19 @@ fun ShareSheet(
                             context,
                             ShareIntents.image(
                                 Sharing.cacheCard(context, bitmap),
-                                caption.trim(),
                                 QuireStrings.SHARE,
                             ),
                         )
                     }
                 }
-                Destination(QuireIcons.Message, QuireStrings.SHARE_TEXT, ::shareText)
+                // A "T", not the paper plane this used to wear. The plane is the
+                // universal send mark, and it was sitting on the one destination that
+                // throws the picture away — so a reader who wanted to send their card
+                // reached for it and got exactly what it does. Reported twice as "the
+                // share still sends only text", with an image intent that a device
+                // check showed to be correct in every field. The glyph now says
+                // letters, which is what this button sends.
+                Destination(QuireIcons.Words, QuireStrings.SHARE_TEXT, ::shareText)
                 Destination(QuireIcons.Copy, QuireStrings.COPY, ::copyText)
                 Destination(QuireIcons.Save, QuireStrings.SAVE) {
                     withCard { bitmap ->
@@ -306,7 +312,6 @@ fun ShareSheet(
                                 context,
                                 ShareIntents.image(
                                     Sharing.cacheCard(context, bitmap),
-                                    caption.trim(),
                                     QuireStrings.SAVE,
                                 ),
                             )
