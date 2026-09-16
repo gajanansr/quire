@@ -1,20 +1,75 @@
 package app.quire.android.ui.share
 
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import app.quire.android.ui.theme.ReaderFont
-import kotlin.math.floor
 
 /**
- * How a passage is set on a share card.
+ * The one place the passage on a share card is described.
  *
- * The card is a fixed 9:16 rectangle and a passage can be four words or four hundred,
- * so one type size cannot serve both. It used to: the quote was set at one size, cut
- * at 180 characters, and closed with a quotation mark — which made a truncated passage
- * look like a complete one. A reader who selected three paragraphs got the first
- * sentence and a closing quote, with nothing to say the rest had gone.
+ * The same shape as `readerTextStyle`, and for the same reason. Whatever decides how
+ * large the passage may be has to lay it out; whatever draws it lays it out again. If
+ * those two are separate descriptions they drift, and the way this one drifts is
+ * visible: the card is a fixed rectangle, so a renderer that takes one line more than
+ * the fitter allowed for has nowhere to put it and the line is simply gone off the
+ * bottom of a PNG nobody can re-flow.
  *
- * So the type steps down as the passage grows, and only past the point where even the
- * smallest size cannot hold it does anything get cut — visibly, with an ellipsis
- * inside the quotation marks, and never mid-word.
+ * [size] is in dp, deliberately, and is converted here rather than at any call site.
+ * A card is a picture with fixed proportions; if an accessibility font scale grew the
+ * passage but not the card, the quote would run off the edge of an export the reader
+ * cannot fix. `Dp.toSp()` divides by that scale, so what is rendered is the number of
+ * pixels the card's own proportions asked for.
+ *
+ * Colour is not here. A colour is paint and not layout — it moves no glyph — so the
+ * palette stays a parameter of the drawing and the fitter never has to know it. The
+ * reader's text makes the same claim about highlights and `MeasureMatchesRenderTest`
+ * proves it rather than trusting it.
+ */
+fun quoteTextStyle(font: ReaderFont, size: Float, density: Density): TextStyle =
+    with(density) {
+        TextStyle(
+            fontFamily = font.family(),
+            // A quote wants an italic, but only where there is a real one to use.
+            // See [QuoteFit.isItalic].
+            fontStyle = if (QuoteFit.isItalic(font)) FontStyle.Italic else FontStyle.Normal,
+            fontSize = size.dp.toSp(),
+            lineHeight = (size * QuoteFit.LINE_HEIGHT).dp.toSp(),
+            // The same two settings the reader's own text uses, for the same reasons:
+            // paragraph-wide breaking rather than greedy line filling, and hyphenation
+            // so a long word breaks instead of opening a hole in the measure.
+            hyphens = Hyphens.Auto,
+            lineBreak = LineBreak.Paragraph,
+        )
+    }
+
+/**
+ * How large a passage is set on a share card.
+ *
+ * A card is a fixed 9:16 rectangle and a passage can be four words or four hundred,
+ * so one size cannot serve both. The size is therefore computed from the passage —
+ * the largest it can be set at and still fit the field it is given — and capped at
+ * both ends, so a two-word quote is not blown up into a billboard and a long one
+ * stays legible in a feed.
+ *
+ * **This replaces a table of five tiers keyed on character count.** The tiers were an
+ * improvement on the fixed 23/19/16/13sp before them, but they shared the fault that
+ * made those wrong: they *estimated*. A tier named a number of characters it wanted on
+ * a line, and the size fell out of an average character advance — one number, 0.48 em,
+ * for four typefaces with different widths, and for a passage that might be all short
+ * words or all long ones. An estimate that is close is still a second opinion, and the
+ * card had two: the estimate that chose the size and the layout that drew it. Reported
+ * from a real phone, twice, as type that was too large; the second report came after
+ * the tiers had already shipped.
+ *
+ * Now there is one opinion. [of] is handed a way to lay text out and uses it, so the
+ * chosen size is one that was *observed* to fit, in the reader's own face, with the
+ * reader's own words. The card passes a real text measurer wired to [quoteTextStyle];
+ * a test passes whatever it needs to state an invariant. Nothing here knows about
+ * characters per line, because nothing here has to guess.
  */
 internal object QuoteFit {
 
@@ -27,83 +82,79 @@ internal object QuoteFit {
      */
     const val MAX_CHARS = 700
 
-    /**
-     * The width the sheet draws its preview at on a typical phone.
-     *
-     * A default, not an assumption: the card asks for its real width and everything
-     * below scales to it. It exists so the arithmetic can be reasoned about — and
-     * tested — at one concrete size.
-     */
-    const val REFERENCE_WIDTH_DP = 230f
-
-    /**
-     * How wide one character is, as a fraction of the type size.
-     *
-     * An average advance across the four reading faces. It only has to be close: it
-     * is used to pick a tier, not to lay out a line, and the real wrapping is done by
-     * the text layout with a generous line budget on top of this estimate.
-     */
-    const val CHAR_EM = 0.48f
-
-    /** Leading, as a multiple of the type size. Matches what the card sets. */
+    /** Leading, as a multiple of the type size. Used by [quoteTextStyle] and only there. */
     const val LINE_HEIGHT = 1.35f
 
     /**
-     * The shortest line a passage is ever set to.
+     * The largest a passage is ever set, as a fraction of the measure it is set across.
      *
-     * This is the "too much zoomed" number. Type large enough that a line holds under
-     * twenty characters stops reading as a quotation and starts reading as a
-     * screenshot that has been enlarged — and a card is looked at full-bleed, where
-     * the effect roughly doubles. The old largest tier set 23sp on a 230dp card, which
-     * is about seventeen characters to a line.
+     * This is the number the reader was complaining about. The tiers it replaces put a
+     * short quote at 7.9% of the card's width — on the 1208px export that is a 95px
+     * body, which is not a quotation, it is a headline. Editorial quote cards sit
+     * nearer 4–5% of their width; 5.2% of the card is 6.3% of the measure inside its
+     * margins, which is where this lands. A short quote is now set about a third
+     * smaller than it was.
+     *
+     * A cap rather than a fit, because a short passage has no natural size: three
+     * words would fill a 9:16 card at an absurd height if nothing stopped them. The
+     * card centres them in their field with air either side instead, which is what a
+     * quotation looks like.
      */
-    const val MIN_MEASURE = 20
+    const val MAX_SIZE = 0.063f
+
+    /**
+     * The smallest, as a fraction of the same measure.
+     *
+     * The floor that keeps a long passage readable at the size a card is actually
+     * looked at. It is normally the [MAX_CHARS] cap that binds first — 700 characters
+     * in an average face come to rest around 5.2% of the measure, above this floor —
+     * so this is here for the passages that behave worse than average: one long German
+     * compound per line, or a face with a wide advance. Those are exactly the cases an
+     * estimate used to get wrong in the direction that clips.
+     */
+    const val MIN_SIZE = 0.036f
+
+    /**
+     * How many sizes are tried between the two caps.
+     *
+     * Fine enough that the steps are invisible — about a third of a point apart on the
+     * sheet's preview — and coarse enough that fitting a passage costs a bounded
+     * number of layouts. The previous version stepped in five visible jumps on the
+     * theory that "a set of cards that are almost the same reads as sloppy". That is
+     * true of a deliberate style and false of a fit: what reads as sloppy is a
+     * passage that does not fill its card, or one that is cut because the tier above
+     * it was one step too big.
+     */
+    const val STEPS = 16
+
+    /** The space a card gives its passage, in dp: whatever the layout actually left. */
+    data class Field(val widthDp: Float, val heightDp: Float)
+
+    /** What one attempt at laying the passage out came to. */
+    data class Laid(val heightDp: Float, val lines: Int)
+
+    /**
+     * A way to lay a passage out.
+     *
+     * The seam that makes this object testable without a device and honest with one:
+     * the card hands it Compose's own measurer wired to [quoteTextStyle], which is the
+     * style it then draws with, so "will it fit" is answered by the thing that decides
+     * whether it fits.
+     */
+    fun interface Measure {
+        /** [text] set at [size] dp across the field's width. */
+        fun layout(text: String, size: Float): Laid
+    }
 
     /** A passage, sized to fit, and whether anything had to be dropped. */
     data class Fit(
+        /** Exactly the string to draw, quotation marks and all — see [of]. */
         val text: String,
-        /** The type size in sp at the default font scale — which is to say, in dp. */
-        val fontSizeSp: Float,
+        /** The size in dp, which is the size in sp at the default font scale. */
+        val size: Float,
         val maxLines: Int,
         val truncated: Boolean,
     )
-
-    /**
-     * The tiers.
-     *
-     * Each is a length ceiling and a **measure** — the number of characters that tier
-     * wants on a line. Not a type size: a size in sp is a statement about the phone,
-     * and what the card needs is a statement about itself. The size falls out of the
-     * measure and the card's own width, so the sheet's 230dp preview and the 604px
-     * export are the same design at two scales rather than two different cards.
-     *
-     * That is the fix for what a reader on a real phone called "too much zoomed and
-     * not at all responsive". The old tiers were absolute — 23/19/16/13sp — tuned by
-     * eye against the small preview, and at 23sp a line on that card holds about
-     * seventeen characters. Blown up full-bleed it reads as a magnified screenshot.
-     * Three of those four tiers could not even hold the passages they were for: 260
-     * characters at 19sp need 12.4 lines and were given 11.
-     *
-     * They step rather than scale continuously because a continuous fit makes every
-     * card a slightly different size, and a set of cards that are almost the same
-     * reads as sloppy where a set that is clearly different reads as deliberate. The
-     * measures widen as the passage grows, which is also what makes both ends look
-     * composed: a short passage gets a short, generous line and plenty of air; a long
-     * one gets a denser measure and fills the field.
-     */
-    private val tiers = listOf(
-        Tier(chars = 60, measure = 22),
-        Tier(chars = 140, measure = 26),
-        Tier(chars = 300, measure = 32),
-        Tier(chars = 500, measure = 40),
-        Tier(chars = MAX_CHARS, measure = 46),
-    )
-
-    private data class Tier(val chars: Int, val measure: Int)
-
-    /** How many characters a line holds, at this size, on a card this wide. */
-    fun charactersPerLine(fontSizeSp: Float, cardWidthDp: Float): Float =
-        CardMetrics.of(cardWidthDp).contentWidthDp / (fontSizeSp * CHAR_EM)
 
     /**
      * Whether a passage set in [font] should be italic.
@@ -120,29 +171,64 @@ internal object QuoteFit {
         ReaderFont.LORA, ReaderFont.SANS -> false
     }
 
-    fun of(passage: String, cardWidthDp: Float = REFERENCE_WIDTH_DP): Fit {
+    /**
+     * Sizes [passage] to [field].
+     *
+     * [Fit.text] comes back with its quotation marks already on it. They are part of
+     * what gets laid out — an opening curly quote and a closing one are two glyphs
+     * that can push a line over — so the fitter measures the string the card will
+     * draw, not the string it was given.
+     *
+     * Only when the floor cannot hold the passage is anything cut, and then visibly:
+     * an ellipsis inside the quotation marks, on a word boundary, never mid-word.
+     */
+    fun of(passage: String, field: Field, measure: Measure): Fit {
         val trimmed = passage.trim()
-        val truncated = trimmed.length > MAX_CHARS
-        val text = if (truncated) ellipsised(trimmed, MAX_CHARS) else trimmed
-        val tier = tiers.firstOrNull { text.length <= it.chars } ?: tiers.last()
-        val size = sizeFor(tier.measure, cardWidthDp)
-        return Fit(text, size, linesFor(size, cardWidthDp), truncated)
+        val capped = trimmed.length > MAX_CHARS
+        val body = if (capped) ellipsised(trimmed, MAX_CHARS) else trimmed
+
+        sizes(field).forEach { size ->
+            val shown = quoted(body)
+            val laid = measure.layout(shown, size)
+            if (laid.heightDp <= field.heightDp) {
+                return Fit(shown, size, laid.lines, capped)
+            }
+        }
+
+        // Even the floor cannot hold it. Cut until it does — the longest prefix that
+        // fits, found by halving rather than by stepping a character at a time, since
+        // each attempt is a full text layout.
+        val floor = field.widthDp * MIN_SIZE
+        var low = 0
+        var high = body.length
+        var best = ellipsised(body, 1)
+        var bestLaid = measure.layout(quoted(best), floor)
+        while (low <= high) {
+            val middle = (low + high) / 2
+            val candidate = ellipsised(body, middle)
+            val laid = measure.layout(quoted(candidate), floor)
+            if (laid.heightDp <= field.heightDp) {
+                best = candidate
+                bestLaid = laid
+                low = middle + 1
+            } else {
+                high = middle - 1
+            }
+        }
+        return Fit(quoted(best), floor, bestLaid.lines, true)
     }
 
-    /** The size at which a line of this card holds [measure] characters. */
-    private fun sizeFor(measure: Int, cardWidthDp: Float): Float =
-        CardMetrics.of(cardWidthDp).contentWidthDp / (measure * CHAR_EM)
+    /** The sizes tried, largest first: the first one that fits is the one used. */
+    fun sizes(field: Field): List<Float> {
+        val largest = field.widthDp * MAX_SIZE
+        val smallest = field.widthDp * MIN_SIZE
+        return (0 until STEPS).map { step ->
+            largest - (largest - smallest) * step / (STEPS - 1)
+        }
+    }
 
-    /**
-     * How many lines fit in the field the card gives the passage.
-     *
-     * Derived rather than written down beside the tier, because a hand-written line
-     * budget is the thing that drifts: three of the four original tiers were given
-     * fewer lines than their own longest passage needed, which turned the cap that
-     * exists to make truncation visible into silent truncation by another route.
-     */
-    private fun linesFor(fontSizeSp: Float, cardWidthDp: Float): Int =
-        floor(CardMetrics.of(cardWidthDp).quoteHeightDp / (fontSizeSp * LINE_HEIGHT)).toInt()
+    /** The passage as the card draws it. */
+    private fun quoted(body: String): String = "“$body”"
 
     /**
      * Cuts at the last word boundary before [limit] and marks the cut.

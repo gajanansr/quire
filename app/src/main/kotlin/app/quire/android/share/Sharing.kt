@@ -12,6 +12,7 @@ import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Who made this, and where to find them.
@@ -64,9 +65,21 @@ object ShareIntents {
      * commonly reads `EXTRA_TEXT` and never opens the stream at all. The picture is
      * in the envelope the whole time, and is silently dropped.
      *
-     * The caption travels in the [ClipData] instead — reachable by anything that can
-     * take a picture and a line of words together, and out of the one field that
-     * stops an image share being an image share.
+     * **And it carries no words in the clip either.** That was the second report, from
+     * the same phone, after `EXTRA_TEXT` had already gone: *"the share feature still
+     * after sharing sends only text not the rendered image."* The caption had been
+     * moved onto the [ClipData] item, on the reasoning that a clip reaches anything
+     * that can take a picture and a line of words together. A clip item is a union,
+     * not a pair: `getText()` and `getUri()` are two ways of asking what this *is*,
+     * and an app that finds text there has been told, in the only vocabulary the
+     * clipboard has, that it was handed words. Several then never open the stream.
+     *
+     * Checked on a device before it was taken out. The caption arrived on the clip
+     * exactly as designed — and Google Messages threw it away: the card attached, the
+     * compose field came up empty. So the field delivered nothing anyone could see
+     * and put the whole share at the mercy of the receiver's tie-break. An image
+     * share is a picture. The caption goes with the words, where the sheet now says
+     * it goes.
      *
      * The uri goes in both `EXTRA_STREAM` and the clip because receivers read one or
      * the other and the sender does not get to know which. Building the clip here
@@ -79,26 +92,24 @@ object ShareIntents {
      * to open the file at all: the image lives in Quire's own cache directory, which
      * nothing else can read without being granted it for this one uri.
      */
-    fun image(uri: Uri, caption: String, chooserTitle: String): Intent {
-        val note = caption.trim().takeIf { it.isNotBlank() }
-        return Intent.createChooser(
+    fun image(uri: Uri, chooserTitle: String): Intent =
+        Intent.createChooser(
             Intent(Intent.ACTION_SEND).apply {
                 type = MIME_PNG
                 putExtra(Intent.EXTRA_STREAM, uri)
-                // The clip's label is the chooser's own title, never the caption and
-                // never the passage: a label is read out by accessibility services and
-                // surfaced in the clipboard toast on some builds, which is not a place
-                // for the reader's chosen words to appear without them asking.
+                // The clip's label is the chooser's own title, never the passage: a
+                // label is read out by accessibility services and surfaced in the
+                // clipboard toast on some builds, which is not a place for the
+                // reader's chosen words to appear without them asking.
                 clipData = ClipData(
                     chooserTitle,
                     arrayOf(MIME_PNG),
-                    ClipData.Item(note, null, uri),
+                    ClipData.Item(uri),
                 )
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             },
             chooserTitle,
         ).apply { addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-    }
 
     /** Opens a URL in whatever browser the reader uses. */
     fun view(url: String): Intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -133,26 +144,64 @@ object Sharing {
     fun authority(context: Context): String = context.packageName + AUTHORITY_SUFFIX
 
     /**
-     * Writes a card into the share cache.
+     * How many cards the share cache keeps.
      *
-     * The cache, deliberately: a shared image is a copy made for one hand-off, not
-     * something Quire should keep. The directory is emptied on each call so only the
-     * most recent share is ever on disk, and the OS may clear the whole cache
-     * whenever it likes without breaking anything.
+     * A hand-off is not over when the chooser closes. Gmail attaches on send,
+     * Messages builds its MMS on send, an upload queue runs when the network comes
+     * back — each of them keeps the uri and opens it minutes later. The old code
+     * emptied this directory on every share, so sharing a second card pulled the
+     * first one's bytes out from under whoever was still holding it.
+     *
+     * Its instinct was right, though: these are full-size PNGs of the reader's own
+     * passages and they cannot accumulate for ever. A short tail is the narrowest
+     * rule that is both safe for a share still in flight and bounded — and the OS may
+     * still clear the whole cache whenever it likes without breaking anything.
      */
-    fun writeCard(context: Context, bitmap: Bitmap, name: String = "quire-card.png"): File {
-        val dir = File(context.cacheDir, SHARE_DIR).apply {
-            deleteRecursively()
-            mkdirs()
-        }
+    const val CARDS_KEPT = 4
+
+    /**
+     * Writes a card into the share cache, under a name no other share will use.
+     *
+     * The name matters, because the name is the uri. Every card used to be written to
+     * `quire-card.png`, so one address was handed out for every picture Quire had
+     * ever made — and anything that treats a content uri as an identity (a draft, a
+     * thumbnail cache, an upload queue) is entitled to keep serving the first thing
+     * it saw there. Both halves of the clock are used: the counter separates two
+     * shares inside the same millisecond, the millisecond separates two runs of the
+     * app, which the counter alone cannot.
+     */
+    fun writeCard(context: Context, bitmap: Bitmap, name: String = cardName()): File {
+        val dir = File(context.cacheDir, SHARE_DIR).apply { mkdirs() }
         return File(dir, name).also { file ->
             file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            prune(dir, keep = file)
         }
     }
 
     /** The card, as a uri another app can be granted access to. */
-    fun cacheCard(context: Context, bitmap: Bitmap, name: String = "quire-card.png"): Uri =
+    fun cacheCard(context: Context, bitmap: Bitmap, name: String = cardName()): Uri =
         FileProvider.getUriForFile(context, authority(context), writeCard(context, bitmap, name))
+
+    /** Distinguishes two shares from each other, and from a previous run of the app. */
+    private fun cardName(): String =
+        "quire-card-${System.currentTimeMillis()}-${shares.incrementAndGet()}.png"
+
+    private val shares = AtomicLong()
+
+    /**
+     * Drops all but the newest [CARDS_KEPT] cards.
+     *
+     * The card just written is kept whatever its timestamp says, because a file
+     * system that reports whole-second modification times would otherwise let a burst
+     * of shares delete the one being handed over right now.
+     */
+    private fun prune(dir: File, keep: File) {
+        val cards = dir.listFiles()?.filter { it.isFile } ?: return
+        cards.sortedByDescending { it.lastModified() }
+            .filter { it != keep }
+            .drop(CARDS_KEPT - 1)
+            .forEach { it.delete() }
+    }
 
     /**
      * Saves a card to the reader's pictures.

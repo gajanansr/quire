@@ -55,7 +55,7 @@ class SharingTest {
         // Without this flag the receiving app opens a file it is not allowed to read
         // and the share silently produces a blank or an error in someone else's UI.
         val uri = Uri.parse("content://app.quire.android.shares/shares/quire-card.png")
-        val chooser = ShareIntents.image(uri, "One Indian Girl", "Share card")
+        val chooser = ShareIntents.image(uri, "Share card")
         val sent = inner(chooser)
 
         assertEquals(Intent.ACTION_SEND, sent.action)
@@ -70,8 +70,8 @@ class SharingTest {
     }
 
     @Test
-    fun `an image share never carries EXTRA_TEXT, caption or not`() {
-        // The reported bug, from a real phone: "the image is not being shared, the
+    fun `an image share never carries EXTRA_TEXT`() {
+        // The first report, from a real phone: "the image is not being shared, the
         // text is being shared." An ACTION_SEND holding both EXTRA_STREAM and
         // EXTRA_TEXT is ambiguous, and the receiver breaks the tie, not Quire. The
         // system Sharesheet builds its preview from EXTRA_TEXT before it looks at
@@ -79,11 +79,9 @@ class SharingTest {
         // images commonly read EXTRA_TEXT and never open the stream — the picture is
         // in the envelope and silently dropped. So: an image intent is only ever an
         // image. This is the rule, and nothing may put the caption back.
-        val withCaption = inner(ShareIntents.image(Uri.parse("content://x/y"), "A line", "Share"))
-        val withoutCaption = inner(ShareIntents.image(Uri.parse("content://x/y"), "  ", "Share"))
+        val sent = inner(ShareIntents.image(Uri.parse("content://x/y"), "Share"))
 
-        assertTrue("a caption came back as EXTRA_TEXT", !withCaption.hasExtra(Intent.EXTRA_TEXT))
-        assertTrue("an empty caption became EXTRA_TEXT", !withoutCaption.hasExtra(Intent.EXTRA_TEXT))
+        assertTrue("a word came back as EXTRA_TEXT", !sent.hasExtra(Intent.EXTRA_TEXT))
     }
 
     @Test
@@ -94,7 +92,7 @@ class SharingTest {
         // EXTRA_STREAM *and* EXTRA_TEXT on the way out of the process, and it bails
         // the moment a clip is already there.
         val uri = Uri.parse("content://app.quire.android.shares/shares/quire-card.png")
-        val sent = inner(ShareIntents.image(uri, "", "Share card"))
+        val sent = inner(ShareIntents.image(uri, "Share card"))
         val clip = sent.clipData!!
 
         assertEquals(uri, sent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))
@@ -104,24 +102,36 @@ class SharingTest {
     }
 
     @Test
-    fun `a caption rides on the clip and nowhere else`() {
-        // The caption still travels, for the receivers that can take a picture and a
-        // line of words together — but out of the one field that makes an image share
-        // stop being an image share.
-        val sent = inner(ShareIntents.image(Uri.parse("content://x/y"), "  Worth a read  ", "Share"))
+    fun `an image share carries no words at all, in any field`() {
+        // The second report, from the same phone: "the share feature still after
+        // sharing sends only text not the rendered image." EXTRA_TEXT had already
+        // gone. The caption had been moved onto the clip item instead — which is the
+        // *other* field a receiver reads to decide what it was handed. An app that
+        // finds `clip.getItemAt(0).getText()` non-null has been told, in the only
+        // vocabulary a clip has, that there are words here; several then never open
+        // the stream at all.
+        //
+        // Checked on a device before it was taken out: the caption was delivered on
+        // the clip exactly as intended, and Google Messages dropped it on the floor
+        // — the compose field came up empty beside the attached card. The field
+        // bought nothing real and risked the whole share, so an image intent is now
+        // a uri and nothing else, and the sheet says where a caption actually goes.
+        val sent = inner(ShareIntents.image(Uri.parse("content://x/y"), "Share"))
+        val item = sent.clipData!!.getItemAt(0)
 
-        assertEquals("Worth a read", sent.clipData!!.getItemAt(0).text)
-        assertTrue(!sent.hasExtra(Intent.EXTRA_TEXT))
+        assertEquals("the caption came back as clip text", null, item.text)
+        assertEquals("the caption came back as clip html", null, item.htmlText)
+        assertEquals("the uri is the whole of the item", Uri.parse("content://x/y"), item.uri)
     }
 
     @Test
-    fun `a blank caption leaves the clip with a uri and no words`() {
-        // An empty caption must not become an empty line in somebody's post.
-        val sent = inner(ShareIntents.image(Uri.parse("content://x/y"), "  ", "Share"))
-        val item = sent.clipData!!.getItemAt(0)
+    fun `the only extra on an image share is the stream`() {
+        // A whitelist, not a list of things that must be absent: the failure mode
+        // here is something *added*. Twice now a word has reached this envelope by a
+        // route nobody was asserting about.
+        val sent = inner(ShareIntents.image(Uri.parse("content://x/y"), "Share"))
 
-        assertEquals(Uri.parse("content://x/y"), item.uri)
-        assertEquals(null, item.text)
+        assertEquals(setOf(Intent.EXTRA_STREAM), sent.extras!!.keySet())
     }
 
     @Test
@@ -201,14 +211,57 @@ class SharingTest {
     }
 
     @Test
-    fun `writing a card clears the one before it`() {
-        // A share is a copy made for one hand-off. Keeping them would accumulate
-        // full-size PNGs of the reader's passages in storage forever.
+    fun `each share is its own file, and the one before it is still readable`() {
+        // This replaces `writing a card clears the one before it`, which asserted the
+        // previous card was deleted the moment the next one was written. That was
+        // wrong, and wrong in the direction that loses a reader's share: a hand-off
+        // is not over when the chooser closes. Gmail attaches on send, Messages
+        // builds its MMS on send, an upload queue runs later — each holds the uri and
+        // opens it minutes afterwards. Sharing a second card pulled the first one's
+        // bytes out from under whoever was still holding it.
+        //
+        // Every card was also written to one name, so the uri was a constant: the
+        // same address handed out for different pictures. Anything that treats a
+        // content uri as an identity — a draft, a thumbnail cache, an upload queue —
+        // was entitled to keep showing the first card for ever.
+        val one = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888).apply { eraseColor(-1) }
+        val two = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).apply { eraseColor(-16777216) }
+
+        val first = Sharing.writeCard(context, one)
+        val second = Sharing.writeCard(context, two)
+
+        assertTrue("two shares were written to one name", first.name != second.name)
+        assertTrue("the first card went while it may still have been in flight", first.exists())
+        assertFalse(
+            "the second share overwrote the first card's bytes",
+            first.readBytes().contentEquals(second.readBytes()),
+        )
+    }
+
+    @Test
+    fun `two shares are never handed out at the same address`() {
+        // The uri is the part a receiver keeps. Two cards at one address is the bug
+        // above, stated where it is actually visible to another app.
         val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
-        Sharing.writeCard(context, bitmap, "first.png")
-        Sharing.writeCard(context, bitmap, "second.png")
+        val first = Sharing.cacheCard(context, bitmap)
+        val second = Sharing.cacheCard(context, bitmap)
+
+        assertTrue("two cards share one uri: $first", first != second)
+    }
+
+    @Test
+    fun `the share cache does not grow without bound`() {
+        // The reason the old code emptied the directory, and it is a real one: these
+        // are full-size PNGs of the reader's own passages. A short tail is the
+        // narrowest rule that is both safe for a hand-off still in flight and bounded.
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        repeat(Sharing.CARDS_KEPT + 6) { Sharing.writeCard(context, bitmap) }
 
         val dir = java.io.File(context.cacheDir, "shares")
-        assertEquals(listOf("second.png"), dir.list()!!.toList())
+        assertEquals(
+            "the share cache kept ${dir.list()!!.toList()}",
+            Sharing.CARDS_KEPT,
+            dir.list()!!.size,
+        )
     }
 }

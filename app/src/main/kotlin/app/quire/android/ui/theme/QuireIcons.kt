@@ -49,7 +49,13 @@ object QuireIcons {
     @DrawableRes val Typography = R.drawable.ic_type
     @DrawableRes val Done = R.drawable.ic_check
     @DrawableRes val Save = R.drawable.ic_download
-    @DrawableRes val Message = R.drawable.ic_send
+
+    // The share sheet's two ways of sending a passage. [Words] shares the "T" with
+    // [Typography] on purpose: a T means letters in both places. It replaces a paper
+    // plane, which was the only send-shaped mark in a row of four destinations and
+    // sat on the one that discards the card — a reader reaching for it to send their
+    // picture got text, twice, and said so.
+    @DrawableRes val Words = R.drawable.ic_type
     @DrawableRes val Story = R.drawable.ic_image
     @DrawableRes val More = R.drawable.ic_more_horizontal
     @DrawableRes val Copy = R.drawable.ic_copy

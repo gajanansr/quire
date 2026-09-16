@@ -2881,3 +2881,131 @@ Not seen, and the honest list:
 - Whether a note of several paragraphs is comfortable to write in a bottom sheet on a
   small phone, and whether six lines is the right truncation in the list.
 - Everything on a **real** phone. All of the above is an emulator.
+## 2026-09-17 — The share that was correct and still wrong, and a card sized by guesswork
+
+Reported twice from a real phone, both of them second reports: *"the share feature
+still after sharing sends only text not the rendered image"* and *"the text it to big
+for rendered image make it small"*. Branch `agent/share-image`. **1,147 JVM tests
+(420 `:core` + 727 `:app`), 0 failures**, 9 of them new. `INTERNET` still absent, no
+new dependency, no version moved.
+
+### The image share was already correct, and that is the finding
+
+The previous pass had removed `EXTRA_TEXT` and left a long comment explaining why.
+The comment is right and the rule still holds. So rather than read the code again,
+the intent was **captured on the emulator** — logged in `Sharing.start` immediately
+before `startActivity`, with the caption field both empty and filled — and the PNG
+pulled back off the device.
+
+Every field was right. `ACTION_SEND`, `image/png`, `EXTRA_STREAM` pointing at
+`content://app.quire.android.shares/...`, `FLAG_GRANT_READ_URI_PERMISSION` on the
+target *and* on the chooser, a `ClipData` declaring `image/png`, and **no
+`EXTRA_TEXT`, with or without a caption**. The cached PNG is 1208×2148 and is the
+card. The system Sharesheet titles itself *"Sharing image"* over a preview of it.
+Android Print rendered the card in its print preview; Google Messages attached it.
+
+**So there was nothing left to fix in the envelope, and three narrower things were
+wrong instead.** None of them is the dramatic single cause the report sounds like,
+which is worth saying plainly: the report is two words long and the device says the
+share works, so the honest answer is a list.
+
+**The caption rode on the clip item's text.** A `ClipData.Item` is a union, not a
+pair: `getText()` and `getUri()` are two ways of asking *what is this*, and an app
+that finds text has been told, in the only vocabulary a clip has, that it was handed
+words. Several then never open the stream. On the device the caption arrived exactly
+as the last pass intended — and **Google Messages threw it away**: the card attached,
+the compose field came up empty. A field that delivers nothing anyone can see and
+leaves the share to the receiver's tie-break is not a trade, so it is gone.
+`ShareIntents.image` no longer takes a caption at all, which is stronger than
+remembering not to pass one, and the sheet's placeholder now reads "Add a caption,
+sent with Text or Copy" rather than promising an edit the picture cannot carry.
+
+**Every card was written to `quire-card.png`, and the directory was emptied first.**
+Two bugs on one line. A hand-off is not over when the chooser closes — Gmail attaches
+on send, Messages builds its MMS on send, an upload queue runs when the network comes
+back — so sharing a second card pulled the first one's bytes out from under whoever
+was still holding it. And one name is one uri: the same address handed out for every
+picture Quire has ever made, which anything treating a content uri as an identity is
+entitled to cache for ever. Each share now has its own name (clock *and* counter: the
+counter separates two shares in a millisecond, the clock separates two runs of the
+app) and the cache keeps the last four instead of being wiped at the moment of the
+hand-off.
+
+**The paper plane sat on "Text".** It is the universal send mark and it was the only
+send-shaped glyph in a row of four destinations — on the one that discards the
+picture. A reader who wants to send their card reaches for it and gets exactly what
+it does, which is the whole report in one sentence. "Text" now wears the `ic_type`
+"T" that means letters everywhere else in the app; `ic_send` is deleted and out of
+the generator's list, because `QuireIconsTest` fails on a drawable nothing names.
+
+**What a device has not answered.** WhatsApp, Instagram and Telegram are not on this
+emulator and are the likeliest receivers on the reader's phone. The intent is now the
+narrowest well-formed image share available — a uri, twice, and nothing else — but
+what a third-party app does with it is still not something this repo can assert.
+
+### The card's type was estimated twice, and both estimates were second opinions
+
+Same fault, twice. The first version was four sizes picked by eye against a 230dp
+preview. The second — the one the reader was looking at when they said it *again* —
+was five tiers keyed on character count, where each tier named the characters it
+wanted on a line and the size fell out of an average advance of **0.48 em**: one
+number, for four typefaces that do not share one, applied to a passage that might be
+all short words or all long ones.
+
+An estimate that is close is still a second opinion, and the card had two — the one
+that chose the size and the layout that drew it. That is the shape of every failure
+this card has had, and the shape `readerTextStyle` was written to end for the
+reader's own pages.
+
+`QuoteFit` no longer counts anything. It is handed a way to lay text out and uses it:
+the card passes Compose's own `TextMeasurer` wired to `quoteTextStyle`, *which is the
+style it then draws with*, so the size it picks is one that was observed to fit — in
+the reader's face, with the reader's words, including the quotation marks the card
+puts round them. The face is now in the measurement and not only in the drawing,
+which is what "same font that is selected while reading" actually requires: measured
+on the real engine, Lora needs ten lines where Source Serif needs nine at 300
+characters, and drops a size step at 500 where Source Serif does not.
+
+The size is the largest that fits, capped at both ends as fractions of the measure.
+**The cap is the number that was wrong.** The tiers set a short quote at 7.9% of the
+card's width — a 95px body on the 1208px export, which is a headline, not a
+quotation. It is 6.3% of the measure now, about a third smaller. Measured on the real
+engine at the sheet's preview, in Source Serif: 20 characters 12.0dp, 140 characters
+12.0dp over five lines, 500 characters 11.7dp over fourteen, 700 characters 9.6dp
+over sixteen. The floor (3.6% of the measure) is normally slack, because the
+700-character cap binds first; it is there for the passages that behave worse than
+average, which are exactly the ones an estimate used to get wrong in the direction
+that clips.
+
+**`CardMetrics.QUOTE_HEIGHT` went with the rest.** It said what share of the card's
+height the passage might occupy. The passage lives in a weighted box whose height
+Compose already knows exactly — so the fraction was a second description of a
+measured height, the two could disagree by a line, and a line that does not fit a PNG
+is not scrolled off, it is *gone*. The field reports its own size now and the
+estimate has nothing left to be wrong about.
+
+**A test-infrastructure finding worth keeping.** `CardTypeMatchesDrawTest` needs
+`@GraphicsMode(GraphicsMode.Mode.NATIVE)`. Without it Robolectric's text layout is a
+stub: `measure()` returns one line of 12.7dp for *any* string, in every face. The
+first version of the test passed trivially and asserted nothing. That is worth
+knowing beyond this branch — `MeasureMatchesRenderTest` compares two paths through
+the same stub, so its agreement is real but weaker than it reads.
+
+### Verified on the emulator
+
+`folio_test`, API 36, this branch installed. Book imported from a TXT, read, shared.
+
+- A whole page (~440 characters) exports complete, closing quotation mark present,
+  nothing clipped, set in the reader's serif italic.
+- A one-word selection exports centred with air either side at the cap, not blown up.
+- Two shares in a row leave two files in `cache/shares` with different names, the
+  first still readable.
+- The sheet shows the "T" on Text and the new caption placeholder on one line.
+
+### Open question for the morning
+
+**The emulator is shared.** Mid-session a build from another checkout was installed
+over this one and left the database at schema 9 against this branch's 8, which
+crashes on launch with `A migration from 9 to 8 was required`. Nothing to do with
+this work, and `pm clear` recovers it — but it means a device check here is not
+reproducible while two branches are installing to the same AVD.
